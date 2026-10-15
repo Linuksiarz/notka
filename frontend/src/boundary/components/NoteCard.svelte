@@ -169,8 +169,18 @@
   function archive(): void {
     openPanel = null;
     void run(async () => {
-      await notesState.patch(note.id, { archived: !note.archived });
-      toast(note.archived ? t('card.noteUnarchived') : t('card.noteArchived'));
+      const archiving = !note.archived;
+      await notesState.patch(note.id, { archived: archiving });
+      toast(
+        archiving ? t('card.noteArchived') : t('card.noteUnarchived'),
+        archiving ? { action: { label: t('card.undo'), onClick: () => void undoArchive() } } : undefined
+      );
+    });
+  }
+
+  function undoArchive(): void {
+    void run(async () => {
+      await notesState.patch(note.id, { archived: false });
     });
   }
 

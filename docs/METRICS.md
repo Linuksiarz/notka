@@ -10,7 +10,7 @@ and that changing one needs a new measurement; the measurements themselves live 
 The screenshots of the original that measurements below cite by name (`keep-drag-1-resting.webp`,
 `keep-appearance-picker.png`, `keep-link-cards.webp`, …) are the owner's and are **not kept in the
 repository**: they show Google's app and its artwork. The numbers read off them are what is recorded
-here; ours, shot the same way, are in `docs/images/notka-*.png`.
+here; ours, shot the same way, are in `docs/images/notka-*.jxl`.
 
 ## Re-measured from the original's DOM (2026-10-13)
 
@@ -334,7 +334,7 @@ the indent. Pulling the nested list back by the label and the gap is what makes 
 Measured from the owner's own four screenshots of the original
 (`keep-drag-{1-resting,2-grab,3-move,4-drop}.webp`, 623–633px wide; the note's surface is
 `x=10..607`, its colour `rgb(123,74,2)`), and from ours the same way — a screenshot of the same state
-(`docs/images/notka-drag-carrying.png`) plus the drag's own geometry read out of the page while a
+(`docs/images/notka-drag-carrying.jxl`) plus the drag's own geometry read out of the page while a
 row is held:
 
 | | original | ours |
@@ -388,7 +388,7 @@ fails when any of these drift:
 | the two groups | separated by a one-pixel line | **1px `--keep-border`** (the owner's "brakuje linii dzielącej kolory tła od teł") |
 | the rows | 12px apart | **12** |
 
-Ours, with a colour and a background both chosen, is `docs/images/notka-appearance-picker.png` —
+Ours, with a colour and a background both chosen, is `docs/images/notka-appearance-picker.jxl` —
 the same two rows, the same divider, and a tick on each row.
 
 **A colour and a background are two independent choices**, as the original has them: picking one keeps

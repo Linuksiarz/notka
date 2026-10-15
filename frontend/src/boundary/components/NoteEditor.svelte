@@ -696,8 +696,14 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     draft.archived = !draft.archived;
     void guard(async () => {
       if (draft.noteId === null) return;
-      await notesState.patch(draft.noteId, { archived: draft.archived });
-      toast(draft.archived ? t('card.noteArchived') : t('card.noteUnarchived'));
+      const id = draft.noteId;
+      await notesState.patch(id, { archived: draft.archived });
+      toast(
+        draft.archived ? t('card.noteArchived') : t('card.noteUnarchived'),
+        draft.archived
+          ? { action: { label: t('card.undo'), onClick: () => void notesState.patch(id, { archived: false }) } }
+          : undefined
+      );
       if (draft.archived) closeEditor();
     });
   }

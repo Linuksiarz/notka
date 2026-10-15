@@ -1,17 +1,17 @@
 /**
- * Writes `docs/images/notka-appearance-picker.png`: our appearance picker with a colour **and** a
+ * Writes `docs/images/notka-appearance-picker.jxl`: our appearance picker with a colour **and** a
  * background chosen, to sit beside the original's own picker
- * (`keep-appearance-picker.png`) in `docs/METRICS.md`.
+ * (`keep-appearance-picker.png`) in `docs/METRICS.md`. Lossless JPEG XL, see `jxl.mjs`.
  *
  * It stubs the API, so it needs `frontend/dist` served — `pnpm run build && pnpm run preview`.
  *
- *   node e2e/appearance-capture.mjs <base-url> [output.png]
+ *   node e2e/appearance-capture.mjs <base-url> [output.jxl]
  */
 import { chromium } from 'playwright';
-import { writeFileSync } from 'node:fs';
+import { writeLosslessJxl } from './jxl.mjs';
 
 const baseUrl = process.argv[2] ?? 'http://127.0.0.1:4173';
-const out = process.argv[3] ?? '../docs/images/notka-appearance-picker.png';
+const out = process.argv[3] ?? '../docs/images/notka-appearance-picker.jxl';
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
 await context.addInitScript(() => {
@@ -62,12 +62,11 @@ await page.waitForSelector('.appearance-picker');
 await page.waitForTimeout(300);
 
 const box = await page.locator('.appearance-picker').boundingBox();
-writeFileSync(
-  out,
+writeLosslessJxl(
   await page.screenshot({
-    path: out,
     clip: { x: box.x - 12, y: box.y - 12, width: box.width + 24, height: box.height + 24 }
-  })
+  }),
+  out
 );
 console.log('wrote', out, box);
 await browser.close();

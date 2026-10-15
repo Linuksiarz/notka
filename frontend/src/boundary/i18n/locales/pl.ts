@@ -94,6 +94,7 @@ export const pl: Messages = {
   'card.showCheckboxes': 'Pokaż pola wyboru',
   'card.hideCheckboxes': 'Ukryj pola wyboru',
   'card.restore': 'Przywróć',
+  'card.undo': 'Cofnij',
   'card.restoreNote': 'Przywróć notatkę',
   'card.deleteForever': 'Usuń trwale',
   'card.deleteNoteForever': 'Usuń notatkę trwale',

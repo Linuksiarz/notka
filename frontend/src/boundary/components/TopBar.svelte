@@ -105,7 +105,12 @@
     const ids = [...ui.selectedNoteIds];
     ui.clearSelection();
     await Promise.all(ids.map((id) => notes.patch(id, { archived: true })));
-    toast(t('selection.archived', { count: ids.length }));
+    toast(t('selection.archived', { count: ids.length }), {
+      action: {
+        label: t('card.undo'),
+        onClick: () => void Promise.all(ids.map((id) => notes.patch(id, { archived: false })))
+      }
+    });
   }
 
   async function trashSelected(): Promise<void> {

@@ -103,6 +103,7 @@ export const enUS = {
   'card.showCheckboxes': 'Show checkboxes',
   'card.hideCheckboxes': 'Hide checkboxes',
   'card.restore': 'Restore',
+  'card.undo': 'Undo',
   'card.restoreNote': 'Restore note',
   'card.deleteForever': 'Delete forever',
   'card.deleteNoteForever': 'Delete note forever',

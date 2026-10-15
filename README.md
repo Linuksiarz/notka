@@ -11,7 +11,7 @@ in your own database, under your own control.
 
 </div>
 
-![Notka notes grid](docs/images/notes-light.png)
+![Notka notes grid](docs/images/notes-dark.jxl)
 
 > Notka is an independent open-source project. It is **not** affiliated with, endorsed by, or
 > connected to Google in any way. Only the look and feel are intentionally familiar.
@@ -70,17 +70,17 @@ which is what keeps the Markdown export an exact, unit-tested conversion
 
 ## Screenshots
 
-| Appearance picker | Dark theme |
+| Appearance picker | Notes grid |
 | --- | --- |
-| ![Appearance picker](docs/images/card-appearance.png) | ![Dark theme](docs/images/notes-dark.png) |
+| ![Appearance picker](docs/images/card-appearance.jxl) | ![Notes grid](docs/images/notes-dark.jxl) |
 
 | Editing an existing note | Polish interface |
 | --- | --- |
-| ![Editing an existing note](docs/images/editing.png) | ![Polish interface](docs/images/polish.png) |
+| ![Editing an existing note](docs/images/editing.jxl) | ![Polish interface](docs/images/polish.jxl) |
 
-| Notes grid | Mobile |
+| Mobile | Mobile editor |
 | --- | --- |
-| ![Notes grid](docs/images/notes-light.png) | ![Mobile](docs/images/mobile.png) |
+| ![Mobile](docs/images/mobile.jxl) | ![Mobile editor](docs/images/mobile-editor.jxl) |
 
 ---
 
@@ -361,6 +361,7 @@ Errors always use the same envelope, and carry a stable key the frontend localiz
 ## Roadmap
 
 - [ ] Drawings and voice notes (pictures are implemented)
+- [ ] JPEG XL pictures: `ImageFormats` recognises `.jxl` by its bytes next to PNG, JPEG, GIF and WebP, in note pictures and in themes
 - [ ] Markdown export endpoint (the conversion is implemented, tested, and downloadable per version)
 - [ ] Server-side search
 - [ ] Keep's own snackbar instead of svelte-sonner: one notification at a time, with its action, that
@@ -373,7 +374,7 @@ What Google Keep has and Notka does not yet, with the effort each would take (co
 | | Feature | Effort |
 | --- | --- | --- |
 | [ ] | Keyboard shortcuts: `c` new note, `l` new list, `/` search, `j`/`k` move between notes, `e` archive, `#` delete, `f` pin, `x` select, `Ctrl+G` grid or list, `?` the list of shortcuts | small |
-| [ ] | "Undo" on the snackbar after archiving a note (the trash already has "Restore") | very small |
+| [x] | "Undo" on the snackbar after archiving a note (card, editor and bulk archive; the trash has "Restore") | very small |
 | [ ] | Reminder presets: *Later today 8:00 PM*, *Tomorrow 8:00 AM*, *Next week Mon 8:00 AM* | small |
 | [ ] | *Send* — share a note to another app (Web Share API on a phone) | very small |
 | [ ] | *Uncheck all* / *Delete checked items* in the ⋮ menu on a wide screen (a phone has them) | very small |

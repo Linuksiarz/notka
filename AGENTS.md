@@ -63,7 +63,7 @@ pnpm run build     # production bundle -> frontend/dist
 pnpm run dev       # dev server on :5173, proxies /api to :8080
 
 # Browser suites (need a running server; see frontend/e2e/README.md)
-pnpm run e2e              # full application regression, 148 checks
+pnpm run e2e              # full application regression, 149 checks
 pnpm run e2e:live         # live collaboration between two accounts
 pnpm run e2e:concurrency  # two people typing into one note at once
 pnpm run e2e:editor       # editor interactions, stubbed API + pnpm preview
@@ -139,6 +139,10 @@ The app ships in **three locales**: `en-US` (American English), `en-GB` (British
 - Favor **self-documenting code** (clear names, small functions) over comments.
   Add comments only when intent cannot be expressed by the code itself
   (e.g., non-obvious business rules, workarounds).
+- **JPEG XL is the preferred image format.** Wherever a PNG would be used — screenshots and the
+  images in `docs/` — store the image as **lossless** JPEG XL (`.jxl`, `cjxl -d 0`). The screenshot
+  scripts already do this (`frontend/e2e/jxl.mjs`). Other formats are for what the outside world
+  requires, such as the pictures a user uploads, which the server accepts by their bytes.
 
 ## Before Implementing
 

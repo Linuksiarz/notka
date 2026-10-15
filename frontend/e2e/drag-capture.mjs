@@ -1,15 +1,15 @@
 /**
- * Writes `docs/images/notka-drag-carrying.png`: our own editor carrying a checklist row, staged to
+ * Writes `docs/images/notka-drag-carrying.jxl`: our own editor carrying a checklist row, staged to
  * match the original's `keep-drag-3-move.webp` — the same kind of note, the same row (a nested one of
  * three lines) carried up above the first row — so the two can be put side by side.
  *
- *   node e2e/_shot.mjs <base-url> <output.png>
+ *   node e2e/drag-capture.mjs <base-url> <output.jxl>
  */
 import { chromium } from 'playwright';
-import { writeFileSync } from 'node:fs';
+import { writeLosslessJxl } from './jxl.mjs';
 
 const baseUrl = process.argv[2] ?? 'http://127.0.0.1:4173';
-const out = process.argv[3] ?? '../docs/images/notka-drag-carrying.png';
+const out = process.argv[3] ?? '../docs/images/notka-drag-carrying.jxl';
 const OWNER = { id: 1, email: 'ada@example.com', displayName: 'Ada Lovelace' };
 const now = Date.now();
 const NOTE = {
@@ -137,7 +137,7 @@ await page.mouse.move(handle.x, firstTop - 40, { steps: 12 });
 await page.waitForTimeout(400);
 
 const card = await page.locator('.editor').boundingBox();
-writeFileSync(out, await page.screenshot({ clip: card }));
+writeLosslessJxl(await page.screenshot({ clip: card }), out);
 console.log('wrote', out, card);
 
 await page.mouse.up();

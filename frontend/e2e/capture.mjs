@@ -2,7 +2,8 @@
  * Development-only screenshot harness.
  *
  * Renders the built SPA against a stubbed API so the visual design can be reviewed without a
- * running backend. Not part of the shipped application.
+ * running backend. Not part of the shipped application. The examples are shown in the dark theme,
+ * and each image is stored as lossless JPEG XL (`jxl.mjs`).
  *
  *   node capture.mjs <base-url> <output-dir>
  */
@@ -10,6 +11,7 @@ import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeLosslessJxl } from './jxl.mjs';
 
 const baseUrl = process.argv[2] ?? 'http://localhost:4173';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -245,22 +247,23 @@ async function newPage(browser, { locale, viewport, theme }) {
 }
 
 async function shot(page, name) {
-  await page.screenshot({ path: `${outDir}/${name}.png`, fullPage: false });
+  writeLosslessJxl(await page.screenshot({ fullPage: false }), `${outDir}/${name}.jxl`);
   console.log(`captured ${name}`);
 }
 
 const browser = await chromium.launch();
 await mkdir(outDir, { recursive: true });
 
-/* ---------------------------------------------------------------- desktop, light, English */
+/* ---------------------------------------------------------------- desktop, dark, English */
 {
   const { context, page } = await newPage(browser, {
     locale: 'en-US',
-    viewport: { width: 1440, height: 900 }
+    viewport: { width: 1440, height: 900 },
+    theme: 'dark'
   });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.waitForSelector('.card');
-  await shot(page, 'notes-light');
+  await shot(page, 'notes-dark');
 
   await page.locator('.card').first().click();
   await page.waitForSelector('.editor');
@@ -296,24 +299,12 @@ await mkdir(outDir, { recursive: true });
   await context.close();
 }
 
-/* ------------------------------------------------------------------------- desktop, dark */
-{
-  const { context, page } = await newPage(browser, {
-    locale: 'en-US',
-    viewport: { width: 1440, height: 900 },
-    theme: 'dark'
-  });
-  await page.goto(baseUrl, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.card');
-  await shot(page, 'notes-dark');
-  await context.close();
-}
-
 /* ------------------------------------------------------------------------- desktop, Polish */
 {
   const { context, page } = await newPage(browser, {
     locale: 'pl',
-    viewport: { width: 1440, height: 900 }
+    viewport: { width: 1440, height: 900 },
+    theme: 'dark'
   });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.waitForSelector('.card');
@@ -329,7 +320,7 @@ await mkdir(outDir, { recursive: true });
   const { context, page } = await newPage(browser, {
     locale: 'en-US',
     viewport: { width: 1440, height: 900 },
-    theme: 'light'
+    theme: 'dark'
   });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.waitForSelector('.card');
@@ -345,7 +336,7 @@ await mkdir(outDir, { recursive: true });
   const { context, page } = await newPage(browser, {
     locale: 'en-US',
     viewport: { width: 390, height: 844 },
-    theme: 'light'
+    theme: 'dark'
   });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.waitForSelector('.card');
@@ -353,6 +344,8 @@ await mkdir(outDir, { recursive: true });
 
   await page.locator('.card').first().click();
   await page.waitForSelector('.editor');
+  await page.waitForTimeout(700);
+  await shot(page, 'mobile-editor');
   await context.close();
 }
 

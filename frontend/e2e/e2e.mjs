@@ -108,6 +108,16 @@ await alice.page.waitForTimeout(600);
 
 // then: it leaves the notes view and appears in the archive
 check('archiving removes the note from the notes view', (await alice.page.locator('.card').count()) === 0);
+
+// when: the snackbar's Undo is pressed
+await alice.page.getByRole('button', { name: 'Undo', exact: true }).click();
+await alice.page.waitForTimeout(600);
+
+// then: the note is back in the notes view, and archiving it again leaves it archived
+check('Undo on the archive snackbar brings the note back', (await alice.page.locator('.card').count()) === 1);
+await alice.page.locator('.card').first().hover();
+await alice.page.locator('.card').first().getByRole('button', { name: 'Archive note' }).click();
+await alice.page.waitForTimeout(600);
 await alice.page.goto(`${baseUrl}/archive`, { waitUntil: 'networkidle' });
 await alice.page.waitForTimeout(400);
 check('the archived note is in the archive', (await alice.page.locator('.card').count()) === 1);
