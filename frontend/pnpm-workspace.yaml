@@ -1,0 +1,5 @@
+# pnpm 11 reads project settings from this file rather than .npmrc.
+# In the development sandbox $HOME is read-only, so the content-addressable store and the
+# metadata cache must live inside the repository. Both directories are gitignored.
+storeDir: .pnpm-store
+cacheDir: .pnpm-cache

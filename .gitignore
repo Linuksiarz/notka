@@ -1,0 +1,75 @@
+# Build output
+build/
+**/build/
+.gradle/
+.gradle-home/
+**/.gradle-home/
+.kotlin/
+
+# The Gradle wrapper is part of the build, not output — `gradle/wrapper/gradle-wrapper.jar` is tracked
+# on purpose — so nothing here ignores `*.jar`.
+
+# Node / frontend
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/dev-dist/
+.pnpm-store/
+.pnpm-cache/
+**/.pnpm-store/
+**/.pnpm-cache/
+*.tsbuildinfo
+coverage/
+
+# Browser suites (Playwright): the browsers themselves and their reports
+.playwright/
+.firefox-profile/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Runtime data. An instance keeps its SQLite files in its own directory, and a directory a local run
+# made (`.lan-data`, `.e2e-live`, …) is never part of the source.
+data/
+*.db
+*.db-shm
+*.db-wal
+.lan-data/
+.*-data/
+.*-run/
+.e2e*/
+.preview.log
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# One-off probes: a file under the browser suites whose name begins with an underscore is something
+# written to look at one thing and print it, not a suite — the suites are `frontend/e2e/*.mjs`.
+frontend/e2e/_*.mjs
+
+# Google Keep's own artwork (`themes/google-keep/README.md`): © Google LLC and not openly licensed, so
+# it is never part of this repository — the folder ships only its manifest and the instructions —
+# and the zip packed from it is a local build of the theme.
+themes/google-keep/*.svg
+themes/*.zip
+
+# Local agent tooling (a preview server's launch configuration with this machine's paths)
+.claude/launch.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / local overrides
+.env
+.env.local
+docker-compose.override.yml

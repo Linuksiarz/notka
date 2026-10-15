@@ -1,0 +1,25 @@
+# Example Caddy configuration for putting Notka behind HTTPS.
+#
+# Caddy handles certificates automatically, which is the reason it is the recommended option when
+# Notka is exposed to the internet. docker-compose.yml already matches this file: the container
+# listens on 127.0.0.1:8080, the session cookie is Secure, and X-Forwarded-For is trusted because
+# only this proxy can reach the app. The app sets its own Content-Security-Policy and friends.
+#
+# Usage:
+#   1. Replace keep.example.com with your domain.
+#   2. `caddy run --config deploy/Caddyfile.example`
+
+keep.example.com {
+	encode zstd gzip
+
+	# Live updates are a Server-Sent Events stream (/api/events); Caddy flushes those as they come.
+	reverse_proxy 127.0.0.1:8080 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

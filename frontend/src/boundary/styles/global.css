@@ -1,0 +1,160 @@
+@import './tokens.css';
+@import './palette.css';
+
+/*
+ * The app's own chrome is not a document. Without this, a stray drag — or a double click on a card —
+ * paints the screen with a selection, and with the editor open that highlight lands across the notes
+ * beside it. Anything holding text worth copying opts back in below.
+ */
+body {
+  user-select: none;
+}
+
+input,
+textarea,
+.editor,
+.note-body,
+[data-overlay] {
+  user-select: text;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--keep-bg);
+  color: var(--keep-text);
+  font-family: var(--keep-font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+#app {
+  min-height: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--keep-accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--keep-focus-ring);
+  outline-offset: 2px;
+}
+
+/*
+ * Writing in a note is the one place where the caret already says where you are. A focus ring there
+ * draws a blue box around the line being typed, which reads as a stray selection.
+ */
+.editor:focus,
+.editor:focus-visible,
+.editor textarea:focus,
+.editor textarea:focus-visible,
+.note-body:focus,
+.note-body:focus-visible {
+  outline: none;
+}
+
+/* A modal dialog disables pointer events on everything outside itself (bits-ui sets
+   `pointer-events: none` on the body). The toaster lives outside the dialog, so without this its
+   action buttons are dead: clicks fall through to the dialog backdrop. Re-enabling the property on
+   the toaster is enough — a descendant may opt back in — and the explicit z-index keeps it above
+   the dialog (60/61) rather than relying on the library default. */
+[data-sonner-toaster] {
+  z-index: 100;
+  pointer-events: auto;
+}
+
+/* Keep's icon-button: 48px circular hit area, 40px visual, 24px glyph. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--keep-text-secondary);
+  transition: background-color var(--keep-duration) var(--keep-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--keep-hover);
+}
+
+.icon-button:disabled {
+  color: var(--keep-text-disabled);
+  cursor: not-allowed;
+}
+
+.icon-button--on-surface {
+  color: var(--note-fg-secondary, var(--keep-text-secondary));
+}
+
+.icon-button--on-surface:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.09);
+}
+
+:root[data-theme='dark'] .icon-button--on-surface:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * `overflow-y: scroll` on the root is the one thing we do to the scrollbar: the original's is there
+ * from the first frame, not only once the notes have been scrolled, and reserving it keeps the
+ * centred notes from shifting sideways when they grow past the window. Its *size and colour* are the
+ * browser's own — we styled a slimmer one and the owner saw it as "much smaller than Google Keep's".
+ */
+html {
+  overflow-y: scroll;
+}
+
+/*
+ * The app decides, not the stylesheet: `ui.applyMotion()` writes `data-motion` from the system
+ * setting or from the choice made in Settings. This is what Google Keep does not do at all, and
+ * what a clone should do visibly rather than silently.
+ */
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}

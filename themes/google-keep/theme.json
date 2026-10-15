@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "id": "google-keep",
+  "name": "Google Keep",
+  "author": "Google LLC",
+  "license": "The artwork of Google Keep, © Google LLC. Not openly licensed and not part of Notka's AGPL-3.0 code: import it for your own use only.",
+  "backgrounds": {
+    "groceries": {
+      "light": "groceries-light.svg",
+      "dark": "groceries-dark.svg",
+      "tint": "#eee7d6",
+      "tintDark": "#284d87"
+    },
+    "food": {
+      "light": "food-light.svg",
+      "dark": "food-dark.svg",
+      "tint": "#f7d4c7",
+      "tintDark": "#2e454a"
+    },
+    "music": {
+      "light": "music-light.svg",
+      "dark": "music-dark.svg",
+      "tint": "#bdcfd6",
+      "tintDark": "#445051"
+    },
+    "recipes": {
+      "light": "recipes-light.svg",
+      "dark": "recipes-dark.svg",
+      "tint": "#feb28a",
+      "tintDark": "#6c2c2a"
+    },
+    "notes": {
+      "light": "notes-light.svg",
+      "dark": "notes-dark.svg",
+      "tint": "#bdbfce",
+      "tintDark": "#585faa"
+    },
+    "places": {
+      "light": "places-light.svg",
+      "dark": "places-dark.svg",
+      "tint": "#f1e4de",
+      "tintDark": "#834d5a"
+    },
+    "travel": {
+      "light": "travel-light.svg",
+      "dark": "travel-dark.svg",
+      "tint": "#96d0ef",
+      "tintDark": "#0b4575"
+    },
+    "video": {
+      "light": "video-light.svg",
+      "dark": "video-dark.svg",
+      "tint": "#ffce96",
+      "tintDark": "#50536c"
+    },
+    "celebration": {
+      "light": "celebration-light.svg",
+      "dark": "celebration-dark.svg",
+      "tint": "#fa6e64",
+      "tintDark": "#292445"
+    }
+  }
+}

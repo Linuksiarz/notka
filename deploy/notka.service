@@ -1,0 +1,59 @@
+# Example systemd unit for running Notka without Docker.
+#
+# 1. Build the artifacts:
+#      ./gradlew :backend:shadowJar
+#      cd frontend && pnpm install && pnpm run build
+# 2. Install them:
+#      install -d /opt/notka/static /var/lib/notka
+#      install -m 644 backend/build/libs/notka-backend-all.jar /opt/notka/notka.jar
+#      cp -r frontend/dist/. /opt/notka/static/
+#      useradd --system --home /opt/notka --shell /usr/sbin/nologin notka
+#      chown -R notka:notka /opt/notka /var/lib/notka
+# 3. Install this unit as /etc/systemd/system/notka.service and run:
+#      systemctl daemon-reload && systemctl enable --now notka
+
+[Unit]
+Description=Notka notes server
+Documentation=https://github.com/Linuksiarz/OpenKeep
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=notka
+Group=notka
+WorkingDirectory=/opt/notka
+ExecStart=/usr/bin/java -XX:MaxRAMPercentage=75 -jar /opt/notka/notka.jar
+Restart=on-failure
+RestartSec=5
+
+Environment=NOTKA_PORT=8080
+Environment=NOTKA_HOST=127.0.0.1
+Environment=NOTKA_DB_PATH=/var/lib/notka/notka.db
+Environment=NOTKA_STATIC_DIR=/opt/notka/static
+Environment=NOTKA_COOKIE_SECURE=true
+# Only valid because NOTKA_HOST is 127.0.0.1: nothing but the local reverse proxy reaches the app.
+Environment=NOTKA_TRUST_PROXY_HEADERS=true
+Environment=NOTKA_LOG_LEVEL=INFO
+Environment=NOTKA_PUBLIC_URL=https://notes.example.com
+# The administrator and the mail server's password belong in a file only root can read:
+#   /etc/notka/notka.env with NOTKA_ADMIN_USERNAME=…, NOTKA_ADMIN_PASSWORD=… (first start only) and
+#   NOTKA_SMTP_HOST, NOTKA_SMTP_FROM, NOTKA_SMTP_USERNAME, NOTKA_SMTP_PASSWORD.
+EnvironmentFile=-/etc/notka/notka.env
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/notka
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

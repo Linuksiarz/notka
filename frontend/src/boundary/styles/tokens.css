@@ -1,0 +1,284 @@
+/* Design tokens. Values track Google Keep's Material 2 chrome closely enough to feel
+   identical at a glance, while staying a self-contained palette (see palette.css for
+   the note colors). Light is the default; `data-theme="dark"` on <html> flips the set. */
+
+/* The grid's own metrics are read by script (`NoteGrid` lays the notes out itself), and on a phone the
+   card width is a `min()`/`calc()` of the viewport. Registered as lengths, they compute to pixels a
+   script can read, instead of the unresolved expression an ordinary custom property returns. */
+@property --keep-card-min-width {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 240px;
+}
+
+@property --keep-grid-gap {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 16px;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Chrome */
+  --keep-bg: #ffffff;
+  /* The stack Google Keep sets. Both faces ship with the app — see `main.ts` for why they are
+     bundled instead of linked, and note that Google Sans comes from Google Fonts under the OFL. */
+  --keep-font: 'Google Sans', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', system-ui, sans-serif;
+  --keep-surface: #ffffff;
+  --keep-search-bg: #f1f3f4;
+  /* The search page's filter panels, measured off the original (light theme): a flat white card with
+     Material's elevation-1, blue "type" tiles and grey label tiles. */
+  --keep-shadow-panel: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  --keep-search-type-tile: #1a73e8;
+  --keep-search-tile: #f5f5f5;
+  --keep-search-swatch-border: rgba(0, 0, 0, 0.42);
+  --keep-border: #e0e0e0;
+  --keep-divider: #dadce0;
+  --keep-hover: rgba(60, 64, 67, 0.08);
+  --keep-active: #feefc3;
+  --keep-active-fg: #202124;
+
+  /* Text */
+  --keep-text: #202124;
+  --keep-text-secondary: #5f6368;
+  --keep-text-disabled: rgba(60, 64, 67, 0.38);
+
+  /* Accent + feedback */
+  --keep-accent: #1a73e8;
+  --keep-danger: #d93025;
+  --keep-focus-ring: rgba(26, 115, 232, 0.55);
+
+  /* Note text on a colored card */
+  --keep-note-text: #202124;
+  --keep-note-text-secondary: rgba(32, 33, 36, 0.72);
+
+  /* Elevation (Keep uses very flat cards; dialogs get the only real shadow) */
+  /* Keep's cards are flat in both themes: a plain note is outlined, a coloured one carries its own
+     surface. Only the hover state lifts, as an affordance. */
+  --keep-shadow-card: none;
+  /* Measured: hovering a card in the original darkens the page just outside its border by a couple
+     of units, not by tens. The hover is a hint, not a lift. */
+  --keep-shadow-card-hover: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  /* Measured off the original: the "Take a note…" box darkens the page just outside its border by a
+     few units, so it carries a faint shadow even though the cards stay flat. */
+  /* Measured off the original: just below the box the page is 14 units darker than its own
+     background and the shadow is gone within 8px — a tighter, darker line than the two-layer shadow
+     we had. Material's elevation-1 for a dark surface is exactly that. */
+  /* Material's raised app bar, for the header once the notes are scrolled. */
+  --keep-shadow-topbar: 0 2px 4px -1px rgba(0, 0, 0, 0.2), 0 4px 5px 0 rgba(0, 0, 0, 0.14),
+    0 1px 10px 0 rgba(0, 0, 0, 0.12);
+  /* Measured from the original's DOM (2026-10-13), both themes: a 1px border inside, and Material's
+     elevation-2 outside — in its grey here, in black in the dark theme. */
+  --keep-shadow-composer: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
+  --keep-composer-border: #e0e0e0;
+  --keep-shadow-dialog: 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0 9px 46px 8px rgba(0, 0, 0, 0.12);
+  --keep-shadow-popover: 0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.3);
+  /* The inline editing card is a lifted card, not a floating dialog. Google Keep is deliberately
+     flat here; a dialog-sized shadow makes editing look like a modal, which it is not. */
+  /* Measured from the original's DOM (2026-10-13): the open note's own elevation. */
+  --keep-shadow-editor: 0 1px 3px 0 rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+
+  /* Layout */
+  /* The layout numbers below were re-measured from the original's DOM on 2026-10-13 (1400px window,
+     light theme): bar 64, drawer 280, search at 250, composer 32 under the bar, icon column 36, nav
+     text at 81. They replace the screenshot readings (67/283/253/33/39/85); see docs/METRICS.md. */
+  /* Measured off the original: its nav pill's right edge, which is where the drawer ends. */
+  --keep-sidebar-width: 280px;
+  --keep-sidebar-collapsed-width: 72px;
+  /* The round hit area Keep gives an icon in the folded rail. */
+  --keep-rail-item-size: 48px;
+  /* The logo bulb is Keep's yellow in both themes. */
+  /* Notka's own colour, for its mark only (`BrandMark.svelte`); not Keep's yellow. */
+  --keep-brand: #12a594;
+  --keep-brand-fold: #0b6e63;
+  /* Measured off the original: the bar's bottom edge, where its divider sits. */
+  --keep-topbar-height: 64px;
+  /* The notes' column, described once: where it starts under the bar and the frame of the composer
+     inside it. The editor reads these too (it hangs from the composer's own box), so a change here
+     moves everything that depends on them. */
+  --keep-topbar-padding: 8px;
+  /* Measured off the original: the search field begins 253px from the window's left, wherever the
+     wordmark beside it happens to end. */
+  --keep-search-left: 250px;
+  --keep-notes-top: 32px;
+  /* Measured: from the last card of one section to the first card of the next. The heading's own
+     height and its gap are subtracted from it where the rule is written, so neither can rot silently. */
+  --keep-section-gap: 97px;
+  --keep-heading-height: 17px;
+  --keep-heading-gap: 8px;
+  /* The navigation's icon column, in one place: the open rows, the folded rail's circles and the
+     header's menu button all line up on it. */
+  --keep-icon-column: 36px;
+  --keep-nav-label-left: 81px;
+  --keep-icon-button-size: 40px;
+  --keep-nav-icon-size: 24px;
+  --keep-composer-height: 46px;
+  --keep-composer-margin: 20px;
+  /* The tick box, centred on the card's corner. It **inverts with the theme**, as the original's does:
+     the light theme gets the dark disc with a white tick, the dark theme the white disc with a dark
+     tick. Ours used the dark theme's white disc in both — the pair below it was measured from the
+     original's dark theme, and then never inverted — which the owner read off the original's light
+     theme as wrong ("it should be black, not white"). It is the **same** disc before and after the
+     note is picked, and the picked card carries a second line outside its own border. */
+  --keep-select-fill: #202124;
+  --keep-select-tick: #ffffff;
+  --keep-select-border: #202124;
+
+  /* The veil under an edited note. Measured off the original: the page background keeps its own
+     colour while everything drawn on it fades — text, cards, the rail — which means the scrim is not
+     black but the theme's **surface**, at 73%. Black at any opacity would have darkened the
+     background too, and the original's background is untouched. That reading is the dark theme's
+     (below). The light theme's was measured from the original's DOM on 2026-10-13: its veil is
+     rgb(32, 33, 36) at 60% — a dark one, so the light page greys out under an open note. */
+  --keep-scrim: rgba(32, 33, 36, 0.6);
+
+  /* The top bar's icons are lighter than the rest of the chrome — measured at ~80% of the text
+     colour in the original's dark theme (188-196 on a 33 background), where ours used the secondary
+     grey (154). */
+  --keep-icon: #5f6368;
+
+  --keep-card-min-width: 240px;
+  /* The list layout's column: one column, this wide, centred. */
+  --keep-list-max-width: 720px;
+  --keep-grid-gap: 16px;
+  /* The least room the original leaves beside the outermost cards: a column fits only when 16px are
+     left on both sides of it (measured: 528px of room holds two 240px columns, 527px holds one). */
+  --keep-grid-margin: 16px;
+
+  /*
+   * On a phone the cards are smaller and the gutters tighter, measured from the owner's own
+   * screenshots of the original at 412 CSS px wide (1391 device px at 3.375x): two cards of **192px**
+   * with a **10px** gutter and ~8px at the sides — 2 x 192 + 10 = 394, which is the 396px of room
+   * 412 minus the two 8px margins leaves. Our own 240 + 16 gave one column of 240 and left the other
+   * half of the screen empty, which is what "Google Keep ma widok dwukolumnowy" was about.
+   */
+  @media (max-width: 600px) {
+    /* 192px where the screen has room for two of them (412px and up), and on a narrower phone two
+       narrower columns rather than one: 8px at each side and the 10px gutter between. */
+    --keep-card-min-width: min(192px, calc((100vw - 26px) / 2));
+    --keep-grid-gap: 10px;
+    /* The phone's ~8px sides are `.content`'s own padding. */
+    --keep-grid-margin: 0px;
+  }
+  --keep-radius: 8px;
+  --keep-radius-pill: 999px;
+
+  /* The fill of a link preview row's text — not of its thumbnail's cell, which keeps the note's own
+     surface — measured off the owner's screenshots of the original (2026-10-14, both themes, card
+     and editor): `rgb(251,251,251)` on a white note, `rgb(49,50,53)` on `rgb(32,33,36)` in the dark.
+     An overlay rather than a panel colour, so the row is right on a coloured note too: 1.6% black
+     here, 7.5% white in the dark theme. */
+  --keep-link-row: rgba(0, 0, 0, 0.016);
+  /* The hairlines between a card's link rows, measured the same way: `rgb(220,220,220)` here and
+     `rgb(140,142,145)` in the dark — not the card's own border colour. */
+  --keep-link-divider: #dcdcdc;
+  /* An address in a note's text, measured on the same screenshots: `rgb(40,84,197)` in the light
+     theme; in the dark one it is the note's own ink, underlined (unset there, so the note's colour
+     applies — a custom property cannot name the note's colour from the root). */
+  --keep-note-link: #2854c5;
+  /* A phone editor's round and square buttons: the note's own colour, toned (measured off the
+     original's Android app: 15% white over a dark note). */
+  --keep-tonal-button: rgba(0, 0, 0, 0.08);
+
+  /* The phone's bottom sheets and its new-note menu, measured off the owner's screenshots of the
+     original's Android app (dark theme, 2026-10-15; the light theme's were not shown, so these are
+     Material's light counterparts): a sheet is rgb(37,37,39) with a 1px rgb(69,69,71) rule under its
+     heading and the picked row on a rgb(63,70,89) pill, and what is under it dims by a third. The
+     new-note menu dims the page to 40% of itself, its pills are the FAB's own primary container,
+     and the button that closes it is rgb(55,122,255) with a white cross. */
+  --keep-sheet: #ffffff;
+  --keep-sheet-divider: #dadce0;
+  --keep-sheet-selected: #dce2f9;
+  --keep-sheet-scrim: rgba(0, 0, 0, 0.34);
+  --keep-fab-container: #d9e2ff;
+  --keep-fab-on-container: #304678;
+  --keep-fab-close: rgb(55, 122, 255);
+  --keep-fab-scrim: rgba(0, 0, 0, 0.6);
+  /* The formatting bar's picked kind or mark: a neutral square, not the note's own tone (read off the
+     owner's screenshot on an orange note in the dark theme, rgb(61,61,61); the light one is assumed). */
+  --keep-format-active: rgb(218, 220, 224);
+
+  /* The band the original paints around a checklist row being carried, and the ink it writes on it.
+     Measured off the owner's own screenshot of it (`keep-drag-3-move.webp`): an opaque
+     neutral dark that does not take the note's colour, with light ink on top — never the note's own
+     foreground, which would be dark ink on a dark band. */
+  --keep-drag-band: rgb(31, 33, 37);
+  --keep-drag-ink: rgb(239, 241, 245);
+  --keep-drag-ink-secondary: rgb(200, 203, 208);
+
+  /* Motion */
+  /* Motion. Google Keep is built on Material, and Material publishes these curves and durations —
+     `mdc-animation/_animation.scss` (MIT) and `material-web`'s motion tokens (Apache-2.0) — so this
+     is the original's motion language rather than an approximation of its numbers. Entering
+     decelerates, leaving accelerates, and a container that changes size moves on the standard
+     curve. Durations are Material's own: short3, short4 and medium1. */
+  --keep-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --keep-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --keep-duration-short: 150ms;
+  --keep-duration-long: 250ms;
+
+  /* The defaults every component reaches for. */
+  --keep-ease: var(--keep-ease-standard);
+  --keep-duration: var(--keep-duration-short);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --keep-bg: #202124;
+  --keep-scrim: rgba(32, 33, 36, 0.75);
+  --keep-icon: rgba(232, 234, 237, 0.8);
+  --keep-select-fill: #ffffff;
+  --keep-select-tick: #202124;
+  --keep-select-border: #e8eaed;
+
+  --keep-surface: #202124;
+  /* Measured off the original, where the search field is *darker* than the surface variant. */
+  --keep-search-bg: #282a2c;
+  /* The search page's dark theme is not measured: Keep's own did not open there in the session that
+     measured the rest of the dark theme. */
+  --keep-shadow-panel: 0 1px 2px 0 rgba(0, 0, 0, 0.6), 0 1px 3px 1px rgba(0, 0, 0, 0.3);
+  --keep-search-tile: rgba(255, 255, 255, 0.08);
+  --keep-search-swatch-border: rgba(255, 255, 255, 0.42);
+  --keep-shadow-topbar: 0 2px 4px -1px rgba(0, 0, 0, 0.6), 0 4px 6px 0 rgba(0, 0, 0, 0.4);
+  --keep-shadow-composer: 0 1px 2px 0 rgba(0, 0, 0, 0.6), 0 2px 6px 2px rgba(0, 0, 0, 0.3);
+  --keep-composer-border: #5f6368;
+  --keep-border: #5f6368;
+  --keep-link-row: rgba(255, 255, 255, 0.075);
+  --keep-link-divider: #8c8e91;
+  --keep-note-link: initial;
+  --keep-tonal-button: rgba(255, 255, 255, 0.15);
+  --keep-sheet: rgb(37, 37, 39);
+  --keep-sheet-divider: rgb(69, 69, 71);
+  --keep-sheet-selected: rgb(63, 70, 89);
+  --keep-fab-container: #304678;
+  --keep-fab-on-container: #d9e2ff;
+  --keep-format-active: rgb(61, 61, 61);
+  --keep-divider: #5f6368;
+  --keep-hover: rgba(232, 234, 237, 0.08);
+  --keep-active: #41331c;
+  --keep-active-fg: #e8eaed;
+
+  --keep-text: #e8eaed;
+  --keep-text-secondary: #9aa0a6;
+  --keep-text-disabled: rgba(232, 234, 237, 0.38);
+
+  --keep-accent: #8ab4f8;
+  --keep-danger: #f28b82;
+  --keep-focus-ring: rgba(138, 180, 248, 0.55);
+
+  --keep-note-text: #e8eaed;
+  --keep-note-text-secondary: rgba(232, 234, 237, 0.72);
+
+  /* Measured off Google Keep in its dark theme: the card carries a 1px light border and no shadow
+     at all. Keeping the surface colour equal to the page is what makes that border do the work. */
+  --keep-shadow-card: none;
+  --keep-shadow-card-hover: 0 1px 2px rgba(0, 0, 0, 0.24), 0 2px 6px 1px rgba(0, 0, 0, 0.16);
+  --keep-shadow-dialog: 0 11px 15px -7px rgba(0, 0, 0, 0.5), 0 24px 38px 3px rgba(0, 0, 0, 0.35),
+    0 9px 46px 8px rgba(0, 0, 0, 0.3);
+  --keep-shadow-popover: 0 2px 6px 2px rgba(0, 0, 0, 0.35), 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --keep-shadow-editor: 0 1px 3px 0 rgba(0, 0, 0, 0.6), 0 4px 8px 3px rgba(0, 0, 0, 0.3);
+}

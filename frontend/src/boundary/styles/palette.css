@@ -1,0 +1,319 @@
+/* The note palette. These ids are part of the HTTP API contract (see docs/API.md) —
+   `data-color` and `data-background` attributes on a note surface carry them.
+   Nothing outside this file may hard-code a note color. */
+
+/* ---------------------------------------------------------------- colors (11 + default) */
+
+/*
+ * The values are the original's current palette, read from its colour picker's DOM on 2026-10-13 in
+ * both themes (Coral, Peach, Sand, Mint, Sage, Fog, Storm, Dusk, Blossom, Clay, Chalk — the ids stay
+ * the API's). The palette this file carried before was the original's older, more saturated one.
+ * A coloured note in the dark theme carries no visible outline: its 1px border is its own colour.
+ */
+
+/*
+ * Google Keep outlines a plain note and a note with background artwork in its dark theme — measured
+ * off a screenshot, where a note with a background still carries a 1px line of rgb(98,100,103). A
+ * coloured note is not outlined (its border is its own colour, read from the DOM). The per-colour
+ * rules below set the border to `transparent`, so dark puts it back for those two.
+ */
+:root[data-theme='dark'] .card[data-color='default'],
+:root[data-theme='dark'] .card[data-background] {
+  --note-border: var(--keep-border);
+}
+
+[data-color='default'] {
+  --note-bg: var(--keep-surface);
+  --note-fg: var(--keep-note-text);
+  --note-fg-secondary: var(--keep-note-text-secondary);
+  --note-border: var(--keep-border);
+  --note-swatch: #ffffff;
+  --note-swatch-border: var(--keep-divider);
+}
+
+[data-color='red'] {
+  --note-bg: #faafa8;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #faafa8;
+}
+[data-color='orange'] {
+  --note-bg: #f39f76;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #f39f76;
+}
+[data-color='yellow'] {
+  --note-bg: #fff8b8;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #fff8b8;
+}
+[data-color='green'] {
+  --note-bg: #e2f6d3;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #e2f6d3;
+}
+[data-color='teal'] {
+  --note-bg: #b4ddd3;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #b4ddd3;
+}
+[data-color='blue'] {
+  --note-bg: #d4e4ed;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #d4e4ed;
+}
+[data-color='darkblue'] {
+  --note-bg: #aeccdc;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #aeccdc;
+}
+[data-color='purple'] {
+  --note-bg: #d3bfdb;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #d3bfdb;
+}
+[data-color='pink'] {
+  --note-bg: #f6e2dd;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #f6e2dd;
+}
+[data-color='brown'] {
+  --note-bg: #e9e3d4;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #e9e3d4;
+}
+[data-color='gray'] {
+  --note-bg: #efeff1;
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  --note-swatch: #efeff1;
+}
+
+:root[data-theme='dark'] [data-color='default'] {
+  --note-bg: #202124;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #202124;
+}
+:root[data-theme='dark'] [data-color='red'] {
+  --note-bg: #77172e;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #77172e;
+}
+:root[data-theme='dark'] [data-color='orange'] {
+  --note-bg: #692b17;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #692b17;
+}
+:root[data-theme='dark'] [data-color='yellow'] {
+  --note-bg: #7c4a03;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #7c4a03;
+}
+:root[data-theme='dark'] [data-color='green'] {
+  --note-bg: #264d3b;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #264d3b;
+}
+:root[data-theme='dark'] [data-color='teal'] {
+  --note-bg: #0c625d;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #0c625d;
+}
+:root[data-theme='dark'] [data-color='blue'] {
+  --note-bg: #256377;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #256377;
+}
+:root[data-theme='dark'] [data-color='darkblue'] {
+  --note-bg: #284255;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #284255;
+}
+:root[data-theme='dark'] [data-color='purple'] {
+  --note-bg: #472e5b;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #472e5b;
+}
+:root[data-theme='dark'] [data-color='pink'] {
+  --note-bg: #6c394f;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #6c394f;
+}
+:root[data-theme='dark'] [data-color='brown'] {
+  --note-bg: #4b443a;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #4b443a;
+}
+:root[data-theme='dark'] [data-color='gray'] {
+  --note-bg: #232427;
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+  --note-swatch: #232427;
+}
+
+/* ------------------------------------------------------------- backgrounds (9) */
+
+/* A background id is the note's; what it looks like is the reader's **background theme**
+   (`docs/THEMES.md`). The built-in theme is Notka's own CC0 artwork in `public/backgrounds`; an
+   imported theme replaces it through `--theme-art-<id>-<light|dark>`, `--theme-tint-<id>` and
+   `--theme-tint-dark-<id>`, which
+   `control/state/backgroundThemes.svelte.ts` sets on the root. A background covers the whole surface
+   and crops to whatever shape the card has, which is why these are `cover`. */
+[data-background] {
+  --note-fg: #202124;
+  --note-fg-secondary: rgba(32, 33, 36, 0.72);
+  --note-border: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+:root[data-theme='dark'] [data-background] {
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+}
+
+[data-background='groceries'] {
+  --note-bg: var(--theme-tint-groceries, #ebf0dc);
+  --note-swatch: var(--theme-tint-groceries, #ebf0dc);
+  background-image: var(--theme-art-groceries-light, url('/backgrounds/groceries-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='groceries'] {
+  --note-bg: var(--theme-tint-dark-groceries, #2a3123);
+  --note-swatch: var(--theme-tint-dark-groceries, #2a3123);
+  background-image: var(--theme-art-groceries-dark, url('/backgrounds/groceries-dark.svg'));
+}
+
+[data-background='food'] {
+  --note-bg: var(--theme-tint-food, #fbe4d8);
+  --note-swatch: var(--theme-tint-food, #fbe4d8);
+  background-image: var(--theme-art-food-light, url('/backgrounds/food-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='food'] {
+  --note-bg: var(--theme-tint-dark-food, #352621);
+  --note-swatch: var(--theme-tint-dark-food, #352621);
+  background-image: var(--theme-art-food-dark, url('/backgrounds/food-dark.svg'));
+}
+
+[data-background='music'] {
+  --note-bg: var(--theme-tint-music, #e2e5f5);
+  --note-swatch: var(--theme-tint-music, #e2e5f5);
+  background-image: var(--theme-art-music-light, url('/backgrounds/music-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='music'] {
+  --note-bg: var(--theme-tint-dark-music, #25263a);
+  --note-swatch: var(--theme-tint-dark-music, #25263a);
+  background-image: var(--theme-art-music-dark, url('/backgrounds/music-dark.svg'));
+}
+
+[data-background='recipes'] {
+  --note-bg: var(--theme-tint-recipes, #fdf0d6);
+  --note-swatch: var(--theme-tint-recipes, #fdf0d6);
+  background-image: var(--theme-art-recipes-light, url('/backgrounds/recipes-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='recipes'] {
+  --note-bg: var(--theme-tint-dark-recipes, #33291c);
+  --note-swatch: var(--theme-tint-dark-recipes, #33291c);
+  background-image: var(--theme-art-recipes-dark, url('/backgrounds/recipes-dark.svg'));
+}
+
+[data-background='notes'] {
+  --note-bg: var(--theme-tint-notes, #e9ecf5);
+  --note-swatch: var(--theme-tint-notes, #e9ecf5);
+  background-image: var(--theme-art-notes-light, url('/backgrounds/notes-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='notes'] {
+  --note-bg: var(--theme-tint-dark-notes, #25272f);
+  --note-swatch: var(--theme-tint-dark-notes, #25272f);
+  background-image: var(--theme-art-notes-dark, url('/backgrounds/notes-dark.svg'));
+}
+
+[data-background='places'] {
+  --note-bg: var(--theme-tint-places, #dcefeb);
+  --note-swatch: var(--theme-tint-places, #dcefeb);
+  background-image: var(--theme-art-places-light, url('/backgrounds/places-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='places'] {
+  --note-bg: var(--theme-tint-dark-places, #1f2e2c);
+  --note-swatch: var(--theme-tint-dark-places, #1f2e2c);
+  background-image: var(--theme-art-places-dark, url('/backgrounds/places-dark.svg'));
+}
+
+[data-background='travel'] {
+  --note-bg: var(--theme-tint-travel, #dbeaf7);
+  --note-swatch: var(--theme-tint-travel, #dbeaf7);
+  background-image: var(--theme-art-travel-light, url('/backgrounds/travel-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='travel'] {
+  --note-bg: var(--theme-tint-dark-travel, #1f2836);
+  --note-swatch: var(--theme-tint-dark-travel, #1f2836);
+  background-image: var(--theme-art-travel-dark, url('/backgrounds/travel-dark.svg'));
+}
+
+[data-background='video'] {
+  --note-bg: var(--theme-tint-video, #f5e2ef);
+  --note-swatch: var(--theme-tint-video, #f5e2ef);
+  background-image: var(--theme-art-video-light, url('/backgrounds/video-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='video'] {
+  --note-bg: var(--theme-tint-dark-video, #2f2330);
+  --note-swatch: var(--theme-tint-dark-video, #2f2330);
+  background-image: var(--theme-art-video-dark, url('/backgrounds/video-dark.svg'));
+}
+
+[data-background='celebration'] {
+  --note-bg: var(--theme-tint-celebration, #fde3e1);
+  --note-swatch: var(--theme-tint-celebration, #fde3e1);
+  background-image: var(--theme-art-celebration-light, url('/backgrounds/celebration-light.svg'));
+}
+
+:root[data-theme='dark'] [data-background='celebration'] {
+  --note-bg: var(--theme-tint-dark-celebration, #352223);
+  --note-swatch: var(--theme-tint-dark-celebration, #352223);
+  background-image: var(--theme-art-celebration-dark, url('/backgrounds/celebration-dark.svg'));
+}
+
+/* A note surface opts into the palette by setting data-color / data-background. */
+.note-surface {
+  background-color: var(--note-bg, var(--keep-surface));
+  color: var(--note-fg, var(--keep-text));
+}

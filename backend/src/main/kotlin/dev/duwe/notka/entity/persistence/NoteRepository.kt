@@ -1,0 +1,288 @@
+package dev.duwe.notka.entity.persistence
+
+import dev.duwe.notka.entity.model.BackgroundChange
+import dev.duwe.notka.entity.model.Note
+import dev.duwe.notka.entity.model.NoteDocument
+import dev.duwe.notka.entity.model.NoteFields
+import dev.duwe.notka.entity.model.NoteKind
+import dev.duwe.notka.entity.model.NoteStep
+import dev.duwe.notka.entity.model.NoteStepLog
+import dev.duwe.notka.entity.model.NoteView
+import dev.duwe.notka.entity.model.ReminderChange
+import dev.duwe.notka.entity.model.ReminderRepeat
+import dev.duwe.notka.entity.model.TrashAction
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.Op
+import org.jetbrains.exposed.sql.SqlExpressionBuilder
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.or
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.max
+import org.jetbrains.exposed.sql.replace
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
+
+/** How many steps of one note's body the log keeps; an editor further behind reads the note instead. */
+private const val MAX_LOGGED_STEPS = 1000
+
+/** Dumb queries over `notes`; access control lives in the control layer. */
+class NoteRepository(private val database: Database) {
+    fun insert(
+        ownerId: Int,
+        kind: NoteKind,
+        title: String,
+        document: NoteDocument,
+        createdAt: Long,
+        color: String = Note.DEFAULT_COLOR,
+        background: String? = null,
+    ): Note {
+        val id = transaction(database) {
+            val top = topPosition()
+            Notes.insert {
+                it[Notes.ownerId] = ownerId
+                it[Notes.kind] = kind.name
+                it[Notes.title] = title
+                it[Notes.content] = NoteDocument.write(document)
+                it[Notes.archived] = false
+                it[Notes.pinned] = false
+                it[Notes.position] = top
+                it[Notes.trashedAt] = null
+                it[Notes.createdAt] = createdAt
+                it[Notes.updatedAt] = createdAt
+                it[Notes.version] = 1
+                it[Notes.color] = color
+                it[Notes.background] = background
+            } get Notes.id
+        }
+        return checkNotNull(find(id)) { "Inserted note $id disappeared" }
+    }
+
+    fun idsOwnedBy(ownerId: Int): List<Int> = transaction(database) {
+        Notes.select(Notes.id).where { Notes.ownerId eq ownerId }.map { it[Notes.id] }
+    }
+
+    /** Every note the account owns, archived and trashed ones included. */
+    fun countOwned(ownerId: Int): Long = transaction(database) {
+        Notes.selectAll().where { Notes.ownerId eq ownerId }.count()
+    }
+
+    fun find(id: Int): Note? = transaction(database) {
+        Notes.selectAll().where { Notes.id eq id }.singleOrNull()?.toNote()
+    }
+
+    /** Notes owned by [userId] plus the ones shared with them, filtered by the requested view. */
+    /**
+     * The notes [userId] may see in [view], optionally only those carrying [labelId].
+     *
+     * A label belongs to one user, so this can only ever narrow the list: a note is visible because of
+     * its owner or a share, and the label it carries is the one its owner put on it.
+     */
+    fun listVisible(userId: Int, view: NoteView, labelId: Int? = null): List<Note> = transaction(database) {
+        val sharedWithUser = NoteShares.select(NoteShares.noteId).where { NoteShares.userId eq userId }
+        val viewFilter = when (view) {
+            NoteView.ACTIVE -> Op.build { Notes.trashedAt.isNull() and (Notes.archived eq false) }
+            NoteView.ARCHIVED -> Op.build { Notes.trashedAt.isNull() and (Notes.archived eq true) }
+            NoteView.TRASH -> Op.build { Notes.trashedAt.isNotNull() }
+        }
+        val visible = Op.build { (Notes.ownerId eq userId) or (Notes.id inSubQuery sharedWithUser) }
+        val labeled = labelId?.let { wanted ->
+            Op.build {
+                Notes.id inSubQuery NoteLabels.select(NoteLabels.noteId).where { NoteLabels.labelId eq wanted }
+            }
+        }
+        val filter = listOfNotNull(viewFilter, visible, labeled).reduce { all, next -> all and next }
+        Notes.selectAll().where { filter }
+            .orderBy(Notes.pinned to SortOrder.DESC, Notes.position to SortOrder.DESC)
+            .map { it.toNote() }
+    }
+
+    /**
+     * Applies [fields]. When [NoteFields.expectedVersion] is set the row is only written if it still
+     * carries that version, and the version is incremented, so a concurrent edit is detected rather
+     * than silently overwritten.
+     *
+     * @return the number of rows changed; `0` means the version guard did not match.
+     */
+    fun update(id: Int, fields: NoteFields): Int = transaction(database) {
+        val changed = write(id, fields)
+        // A body written as a whole is not a step: the log cannot bring an editor across it, so it
+        // starts again after it.
+        if (changed > 0 && fields.document != null) {
+            val (version, _) = stepHead(id)
+            NoteSteps.deleteWhere { Op.build { NoteSteps.noteId eq id } }
+            writeStepHead(id, version + 1, version + 1)
+        }
+        changed
+    }
+
+    /**
+     * Puts the note at [position] in the order every view shows, and makes room for it: every other
+     * note at that place or above moves up by one, which keeps their order among themselves — and
+     * everyone else's notes, which share the numbering — exactly as it was. The note's version moves on
+     * (its collaborators are told); its `updated_at` does not, because being moved is not being edited.
+     */
+    fun place(id: Int, position: Long): Int = transaction(database) {
+        Notes.update({ Op.build { (Notes.position greaterEq position) and (Notes.id neq id) } }) { row ->
+            row[Notes.position] = with(SqlExpressionBuilder) { Notes.position + 1 }
+        }
+        Notes.update({ Op.build { Notes.id eq id } }) { row ->
+            row[Notes.position] = position
+            row[Notes.version] = with(SqlExpressionBuilder) { Notes.version + 1 }
+        }
+    }
+
+    /** The version a note's body is at, and the oldest version its step log can bring an editor up from. */
+    fun stepHead(noteId: Int): Pair<Int, Int> = transaction(database) {
+        NoteStepHeads.selectAll().where { NoteStepHeads.noteId eq noteId }.singleOrNull()
+            ?.let { it[NoteStepHeads.docVersion] to it[NoteStepHeads.logStart] }
+            ?: (0 to 0)
+    }
+
+    fun stepsSince(noteId: Int, since: Int): NoteStepLog = transaction(database) {
+        val (version, logStart) = stepHead(noteId)
+        if (since < logStart || since > version) return@transaction NoteStepLog(version, null)
+        val steps = NoteSteps.selectAll()
+            .where { Op.build { (NoteSteps.noteId eq noteId) and (NoteSteps.docVersion greater since) } }
+            .orderBy(NoteSteps.docVersion to SortOrder.ASC)
+            .map { NoteStep(it[NoteSteps.step], it[NoteSteps.clientId]) }
+        NoteStepLog(version, steps)
+    }
+
+    /**
+     * Appends an editor's steps to the body it saw at [expected], and writes [fields] — the body those
+     * steps produce — in the same transaction, so the log and the stored body never disagree.
+     *
+     * @return the body's new version, or `null` when it is no longer at [expected]: somebody else's
+     *   steps came first, and the editor has to take them in before its own can follow.
+     */
+    fun appendSteps(noteId: Int, expected: Int, clientId: String, steps: List<String>, fields: NoteFields): Int? =
+        transaction(database) {
+            val (version, logStart) = stepHead(noteId)
+            if (version != expected) return@transaction null
+            steps.forEachIndexed { index, step ->
+                NoteSteps.insert {
+                    it[NoteSteps.noteId] = noteId
+                    it[NoteSteps.docVersion] = expected + index + 1
+                    it[NoteSteps.clientId] = clientId
+                    it[NoteSteps.step] = step
+                }
+            }
+            val next = expected + steps.size
+            val keptFrom = maxOf(logStart, next - MAX_LOGGED_STEPS)
+            NoteSteps.deleteWhere {
+                Op.build { (NoteSteps.noteId eq noteId) and (NoteSteps.docVersion lessEq keptFrom) }
+            }
+            writeStepHead(noteId, next, keptFrom)
+            write(noteId, fields)
+            next
+        }
+
+    private fun writeStepHead(noteId: Int, docVersion: Int, logStart: Int) {
+        NoteStepHeads.replace {
+            it[NoteStepHeads.noteId] = noteId
+            it[NoteStepHeads.docVersion] = docVersion
+            it[NoteStepHeads.logStart] = logStart
+        }
+    }
+
+    private fun write(id: Int, fields: NoteFields): Int {
+        val guard = fields.expectedVersion?.let { version ->
+            Op.build { (Notes.id eq id) and (Notes.version eq version) }
+        } ?: Op.build { Notes.id eq id }
+        val top = if (fields.toTop) topPosition() else null
+
+        return Notes.update({ guard }) { row ->
+                top?.let { row[Notes.position] = it }
+                fields.kind?.let { row[Notes.kind] = it.name }
+                fields.title?.let { row[Notes.title] = it }
+                fields.document?.let { row[Notes.content] = NoteDocument.write(it) }
+                fields.archived?.let { row[Notes.archived] = it }
+                fields.pinned?.let { row[Notes.pinned] = it }
+                fields.color?.let { row[Notes.color] = it }
+                when (fields.background) {
+                    BackgroundChange.Unchanged -> Unit
+                    BackgroundChange.Cleared -> row[Notes.background] = null
+                    is BackgroundChange.Set -> row[Notes.background] = fields.background.value
+                }
+                when (fields.reminder) {
+                    ReminderChange.Unchanged -> Unit
+                    ReminderChange.Cleared -> {
+                        row[Notes.reminderAt] = null
+                        row[Notes.reminderRepeat] = null
+                    }
+                    is ReminderChange.Set -> {
+                        row[Notes.reminderAt] = fields.reminder.at
+                        row[Notes.reminderRepeat] = fields.reminder.repeat?.wire
+                    }
+                }
+                when (fields.trash) {
+                    TrashAction.KEEP -> Unit
+                    TrashAction.TRASH -> row[Notes.trashedAt] = fields.updatedAt
+                    TrashAction.RESTORE -> row[Notes.trashedAt] = null
+                }
+                row[Notes.updatedAt] = fields.updatedAt
+                row[Notes.version] = with(SqlExpressionBuilder) { Notes.version + 1 }
+            }
+    }
+
+    fun delete(id: Int) {
+        transaction(database) {
+            Notes.deleteWhere { Op.build { Notes.id eq id } }
+        }
+    }
+
+    /** Hard-deletes every trashed note whose `trashed_at` is older than [cutoff]; returns the count. */
+    fun purgeTrashedBefore(cutoff: Long): Int = transaction(database) {
+        Notes.deleteWhere {
+            Op.build { Notes.trashedAt.isNotNull() and (Notes.trashedAt less cutoff) }
+        }
+    }
+
+    /** One above every note there is; called inside the transaction that uses it. */
+    private fun topPosition(): Long =
+        (Notes.select(Notes.position.max()).single()[Notes.position.max()] ?: 0L) + 1
+
+    private fun ResultRow.toNote() = Note(
+        id = this[Notes.id],
+        ownerId = this[Notes.ownerId],
+        kind = NoteKind.valueOf(this[Notes.kind]),
+        title = this[Notes.title],
+        document = NoteDocument.parse(this[Notes.content]),
+        archived = this[Notes.archived],
+        pinned = this[Notes.pinned],
+        position = this[Notes.position],
+        trashedAt = this[Notes.trashedAt],
+        createdAt = this[Notes.createdAt],
+        updatedAt = this[Notes.updatedAt],
+        version = this[Notes.version],
+        color = this[Notes.color],
+        background = this[Notes.background],
+        reminderAt = this[Notes.reminderAt],
+        reminderRepeat = ReminderRepeat.fromWire(this[Notes.reminderRepeat]),
+    )
+
+    /**
+     * The notes [userId] may see that carry a reminder, soonest first.
+     *
+     * The reminders view is a **time** view, not an "edited" one: its own order is the whole point of
+     * it, which is why it does not share `listVisible`'s `pinned, position` ordering. Trashed notes
+     * are left out — a note in the trash has no reminder — and archived ones with it.
+     */
+    fun listWithReminders(userId: Int): List<Note> = transaction(database) {
+        val sharedWithUser = NoteShares.select(NoteShares.noteId).where { NoteShares.userId eq userId }
+        Notes.selectAll()
+            .where {
+                Op.build {
+                    Notes.trashedAt.isNull() and
+                        Notes.reminderAt.isNotNull() and
+                        ((Notes.ownerId eq userId) or (Notes.id inSubQuery sharedWithUser))
+                }
+            }
+            .orderBy(Notes.reminderAt to SortOrder.ASC)
+            .map { it.toNote() }
+    }
+}

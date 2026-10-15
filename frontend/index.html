@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <title>Notka</title>
+    <meta name="description" content="Notka — a free, open-source, self-hosted notes app in the spirit of Google Keep." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- One value, and the app keeps it to the colour at the top of the screen (`systemBar.ts`):
+         two by colour scheme followed the system's theme rather than the one picked in Settings. -->
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Notka" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- A classic, blocking script on purpose: it has to run before first paint, and it is a file
+         rather than inline so the Content-Security-Policy can forbid inline scripts. -->
+    <script src="/theme.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
