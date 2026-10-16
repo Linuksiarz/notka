@@ -20,7 +20,12 @@ export function noteBodyExtensions(): AnyExtension[] {
       // navigate away from the note being written — the card beside it is what opens the page.
       link: { openOnClick: false, autolink: true },
       // Bullet and numbered rows are flat too, so the schema refuses a list inside an item.
-      listItem: false
+      listItem: false,
+      // Tiptap adds an empty paragraph after the last block so the caret can get below it. After a
+      // checklist that paragraph was stored with every list note and drawn as an empty line on its card;
+      // the original's list has nothing after it, and Enter on an empty row already leaves the list.
+      // Part of the schema extensions, so every editor of a note — and its step log — agrees on it.
+      trailingNode: { notAfter: ['paragraph', 'taskList'] }
     }),
     TaskList,
     // One row is one line: a second nesting level cannot be expressed, let alone stored.

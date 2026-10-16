@@ -278,13 +278,13 @@
 
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 500;
   }
 
   h3 {
     margin: 0 0 8px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -299,7 +299,7 @@
 
   .hint {
     margin: 0;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -307,7 +307,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .toggle input {
@@ -354,11 +354,11 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .row-meta {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -381,7 +381,7 @@
     padding: 2px 8px;
     border-radius: 12px;
     background: var(--keep-chip-background, var(--keep-hover));
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 500;
     color: var(--keep-text);
   }
@@ -390,7 +390,7 @@
     padding: 4px 8px;
     border-radius: 4px;
     color: var(--keep-accent);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
   }
 
@@ -425,12 +425,12 @@
   .ok {
     margin: 0;
     color: #188038;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .error {
     margin: 0;
     color: var(--keep-danger);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 </style>

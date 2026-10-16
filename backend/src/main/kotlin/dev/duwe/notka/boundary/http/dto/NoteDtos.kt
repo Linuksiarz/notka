@@ -92,7 +92,7 @@ data class UpdateShareRequest(val permission: String)
 
 /**
  * `background` has no default so that it is always serialized, `null` included.
- * `shares` is only meaningful for the owner, so it is dropped while empty.
+ * `shares` is dropped while empty: a note shared with nobody says nothing about it.
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable

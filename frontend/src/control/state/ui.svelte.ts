@@ -154,6 +154,7 @@ class UiState {
     // On a wide screen the rail starts open and the header's menu button folds it away.
     this.sidebarOpen = window.innerWidth > NARROW_LAYOUT_MAX_WIDTH;
     this.watchLayout();
+    this.watchBack();
     this.locale = readStoredLocale() ?? matchLocale(navigator.language) ?? DEFAULT_LOCALE;
     this.applyTheme();
     this.applyLocale();
@@ -217,6 +218,38 @@ class UiState {
    */
   editorHoldsUnsaved = $state(false);
 
+  /**
+   * The editor owns one entry of the browser's history while it is open, so the system's Back — a phone's
+   * gesture or button — leaves the *note*, as it does in the original, rather than the whole app. The
+   * entry is the same address: it exists only to be popped.
+   *
+   * Back is a request to finish the note (`backRequest` counts them; the editor answers it the way it
+   * answers Escape, saving first), never a close of its own. Closing the editor by any other way pops
+   * the entry itself, and `ignoredPops` tells that pop from a Back.
+   */
+  backRequest = $state(0);
+  private editorEntry = false;
+  private ignoredPops = 0;
+
+  private watchBack(): void {
+    window.addEventListener('popstate', () => {
+      if (this.ignoredPops > 0) {
+        this.ignoredPops -= 1;
+        return;
+      }
+      if (!this.editorEntry || this.editorOrigin === null) return;
+      this.editorEntry = false;
+      this.backRequest += 1;
+    });
+  }
+
+  /** Puts the entry back when a Back was answered by keeping the editor open (a sheet, an unsaved draft). */
+  reinstateBackEntry(): void {
+    if (this.editorOrigin === null || this.editorEntry) return;
+    window.history.pushState({ notkaEditor: true }, '');
+    this.editorEntry = true;
+  }
+
   openEditor(noteId: number | null, kind: NoteKind = 'TEXT'): void {
     if (this.editorHoldsUnsaved) return;
     // Opening a note is not a bulk action; the bar would sit over the editor.
@@ -224,12 +257,18 @@ class UiState {
     this.editorNoteId = noteId;
     this.editorKind = kind;
     this.editorOrigin = noteId === null ? 'composer' : 'note';
+    this.reinstateBackEntry();
   }
 
   closeEditor(): void {
     this.editorNoteId = null;
     this.editorOrigin = null;
     this.editorHoldsUnsaved = false;
+    if (this.editorEntry) {
+      this.editorEntry = false;
+      this.ignoredPops += 1;
+      window.history.back();
+    }
   }
 
   openShare(noteId: number): void {

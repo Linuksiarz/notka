@@ -24,7 +24,9 @@ export const COMPLETED_SECTION = {
   /** The "N completed items" text. Styled by the button, so it needs no rule of its own. */
   label: 'completed-label',
   /** Put on every ticked row while the section is folded, so `display: none` can take them away. */
-  hidden: 'completed-hidden'
+  hidden: 'completed-hidden',
+  /** The greyed copy of an unticked parent, drawn above its ticked rows in the section. */
+  ghost: 'completed-ghost'
 } as const;
 
 /**
@@ -35,7 +37,8 @@ export const COMPLETED_SECTION_STYLED = [
   COMPLETED_SECTION.row,
   COMPLETED_SECTION.toggle,
   COMPLETED_SECTION.chevron,
-  COMPLETED_SECTION.hidden
+  COMPLETED_SECTION.hidden,
+  COMPLETED_SECTION.ghost
 ] as const;
 
 /** The box the chevron is drawn in, in the editor. A card's heading uses the same glyph at 18px. */

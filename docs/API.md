@@ -133,7 +133,7 @@ one. `admin` is `true` for the instance's administrator alone.
 | `canEdit` | `true` for `OWNER` and `EDIT` |
 | `canChangeAppearance` | `true` for `OWNER` and `EDIT`, `false` for `VIEW`. A change applies to everyone |
 | `labels` | only the requesting user's own labels |
-| `shares` | **only present for the owner**; omitted for collaborators |
+| `shares` | everyone the note is shared with (the owner is `owner`, never a share); omitted while there is nobody |
 
 ---
 
@@ -404,9 +404,13 @@ Removes one label from the note for the calling user. Response `200`: the update
 
 ## Sharing
 
+The original's rule: everyone with access sees the collaborators, and everyone who can edit
+(`OWNER`, `EDIT`) adds, changes and removes them — a `VIEW` collaborator gets `403 note.forbidden`.
+The owner is not a share, so nobody can remove the owner.
+
 ### `GET /api/notes/{id}/shares`
 
-Owner only. Response `200`:
+Anyone with access. Response `200`:
 
 ```json
 { "shares": [ { "user": { "id": 2, "email": "bob@example.com", "displayName": "Bob" }, "permission": "EDIT" } ] }
@@ -414,7 +418,7 @@ Owner only. Response `200`:
 
 ### `POST /api/notes/{id}/shares`
 
-Owner only.
+Anyone who can edit.
 
 ```json
 { "email": "bob@example.com", "permission": "EDIT" }
@@ -422,16 +426,16 @@ Owner only.
 
 `permission` is `VIEW` or `EDIT`. Response `201`: the created share.
 Errors: `404 NOT_FOUND` when no account has that email (the API deliberately does not enumerate
-users), `400 VALIDATION_ERROR` when sharing with yourself, `409 CONFLICT` when already shared
-(use `PATCH` to change the permission).
+users), `400 VALIDATION_ERROR` when sharing with yourself, `409 CONFLICT` when that account
+already has the note — its owner included (use `PATCH` to change the permission).
 
 ### `PATCH /api/notes/{id}/shares/{userId}`
 
-Owner only. `{ "permission": "VIEW" }` → `200` with the updated share.
+Anyone who can edit. `{ "permission": "VIEW" }` → `200` with the updated share.
 
 ### `DELETE /api/notes/{id}/shares/{userId}`
 
-Owner only. Response `204`. The note's appearance is untouched: it belongs to the note, not to the
+Anyone who can edit. Response `204`. The note's appearance is untouched: it belongs to the note, not to the
 collaborator being removed.
 
 ---

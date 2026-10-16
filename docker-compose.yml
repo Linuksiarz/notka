@@ -12,6 +12,8 @@ services:
       dockerfile: Dockerfile
     image: notka:latest
     container_name: notka
+    env_file:
+      - .env
     restart: unless-stopped
     ports:
       # Loopback only: nothing but the reverse proxy on this host can reach the app directly, which

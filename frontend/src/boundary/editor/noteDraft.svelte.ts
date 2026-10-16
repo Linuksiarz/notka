@@ -28,7 +28,6 @@ export class NoteDraft {
   docVersion = $state(0);
   saving = $state(false);
   canEdit = $state(true);
-  isOwner = $state(true);
   ownerName = $state('');
   labelIds = $state<number[]>([]);
 
@@ -100,7 +99,6 @@ export class NoteDraft {
     this.docVersion = 0;
     this.saving = false;
     this.canEdit = true;
-    this.isOwner = true;
     this.ownerName = '';
     this.labelIds = [];
     this.markStored();
@@ -119,7 +117,6 @@ export class NoteDraft {
     this.updatedAt = note.updatedAt;
     this.docVersion = note.docVersion;
     this.canEdit = note.canEdit;
-    this.isOwner = note.access === 'OWNER';
     this.ownerName = note.owner.displayName;
     this.labelIds = note.labels.map((label) => label.id);
     this.markStored();

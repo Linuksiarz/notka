@@ -10,7 +10,7 @@
  * rather than a list of states that has to be kept in step with the components.
  */
 export function followSystemBar(): () => void {
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
   if (!meta) return () => undefined;
 
   let frame = 0;
@@ -20,7 +20,7 @@ export function followSystemBar(): () => void {
   const sync = () => {
     frame = 0;
     const color = colorAtTopEdge();
-    if (meta.content !== color) meta.content = color;
+    if (meta && meta.content !== color) meta = recolor(meta, color);
     // Something is still on its way — a note growing out of its card, a veil fading in. Those run
     // on the Web Animations API, which reports no end event, so the bar follows them frame by frame
     // until the screen has settled.
@@ -45,6 +45,19 @@ export function followSystemBar(): () => void {
     events.forEach((name) => window.removeEventListener(name, schedule, true));
     cancelAnimationFrame(frame);
   };
+}
+
+/**
+ * The browsers that paint the bar of an installed app (Samsung Internet's among them) notice a
+ * `theme-color` that is *added*, but not always one whose `content` changed, and stay on the colour
+ * the page was first loaded with. A fresh element each time is read by all of them.
+ */
+function recolor(old: HTMLMetaElement, color: string): HTMLMetaElement {
+  const fresh = document.createElement('meta');
+  fresh.name = 'theme-color';
+  fresh.content = color;
+  old.replaceWith(fresh);
+  return fresh;
 }
 
 /** Whether an animation that will end is running; one that never ends (a spinner) is not settling. */

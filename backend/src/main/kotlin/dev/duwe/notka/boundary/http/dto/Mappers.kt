@@ -50,7 +50,7 @@ fun ResolvedNote.toDto(): NoteDto = NoteDto(
     canEdit = access.canEdit,
     canChangeAppearance = access.canChangeAppearance,
     labels = labels.map { it.toDto() },
-    shares = shares?.map { it.toDto() } ?: emptyList(),
+    shares = shares.map { it.toDto() },
     linkPreviews = linkPreviews.map { it.toDto() },
     images = images.map { NoteImageDto(it.id, it.width, it.height, it.contentType) },
 )

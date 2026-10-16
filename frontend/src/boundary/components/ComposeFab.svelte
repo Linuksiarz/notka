@@ -225,7 +225,7 @@
       border-radius: 30px;
       background: var(--keep-fab-container);
       color: var(--keep-fab-on-container);
-      font-size: 18px;
+      font-size: 1.125rem;
       white-space: nowrap;
       box-shadow: var(--keep-shadow-card-hover);
     }

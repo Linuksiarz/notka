@@ -98,7 +98,7 @@
     margin: 0;
     padding: 14px 20px 12px;
     border-bottom: 1px solid var(--keep-border);
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 400;
   }
 
@@ -110,7 +110,7 @@
     height: 56px;
     padding: 0 20px;
     border-bottom: 1px solid var(--keep-border);
-    font-size: 14px;
+    font-size: 0.875rem;
     color: var(--keep-text);
     cursor: pointer;
   }
@@ -124,7 +124,7 @@
     background: var(--keep-surface);
     color: var(--keep-text);
     font: inherit;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   :global(.reminder-actions) {
@@ -140,7 +140,7 @@
     border-radius: 4px;
     color: var(--keep-accent);
     font-weight: 500;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   :global(.reminder-save:hover) {
@@ -152,7 +152,7 @@
     padding: 8px 12px;
     border-radius: 4px;
     color: var(--keep-text-secondary);
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   :global(.reminder-delete:hover) {

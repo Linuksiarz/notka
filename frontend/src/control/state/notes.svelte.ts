@@ -592,7 +592,7 @@ class NotesState {
     return Math.max(0, ...this.notes.map((note) => note.position), ...this.archivedNotes.map((note) => note.position)) + 1;
   }
 
-  private byIdAnywhere(id: number): Note | undefined {
+  byIdAnywhere(id: number): Note | undefined {
     return this.byId(id) ?? this.archivedNotes.find((note) => note.id === id);
   }
 

@@ -205,6 +205,7 @@ export const enUS = {
     'Nobody else can see this note yet. Everyone you share with sees the same colour and background, and anyone with can edit access can change them for everyone.',
   'share.permissionFor': 'Permission for {name}',
   'share.remove': 'Remove {name}',
+  'share.owner': 'Owner',
 
   /* --- notes list ------------------------------------------------------------------ */
   'notes.headingArchive': 'Archive',
@@ -339,9 +340,9 @@ export const enUS = {
   'errors.note.version_conflict':
     'Someone else changed this note while you were editing. Your text was not saved.',
   'errors.share.recipient_not_found': 'No Notka account uses {email}.',
-  'errors.share.cannot_share_with_self': 'You already own this note.',
+  'errors.share.cannot_share_with_self': 'You already have this note.',
   'errors.share.already_shared': 'This note is already shared with {email}.',
-  'errors.share.not_owner': 'Only the owner can manage collaborators.',
+  'errors.share.not_owner': 'Only the note’s owner can do this.',
   'errors.share.not_found': 'That collaborator is not on this note.',
   'errors.label.not_found': 'That label does not exist.',
   'errors.label.name_taken': 'You already have a label named {label}.',

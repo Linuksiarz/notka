@@ -198,9 +198,9 @@
 
   /* One line on both surfaces: the editor's 56px row has room for the title and the site, no more. */
   .title {
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
-    line-height: 18px;
+    line-height: 1.125rem;
     color: var(--keep-note-text, var(--keep-text));
     overflow: hidden;
     text-overflow: ellipsis;
@@ -208,8 +208,8 @@
   }
 
   .site {
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 0.75rem;
+    line-height: 1rem;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
     overflow: hidden;
     text-overflow: ellipsis;

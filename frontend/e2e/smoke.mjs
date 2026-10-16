@@ -344,12 +344,21 @@ const rows = () => page.$$eval('.editor .note-body li p', (list) => list.map((p)
 await page.locator('.editor .note-body li:has(p:text-is("beta")) input').click();
 await page.waitForTimeout(200);
 
-// then: it travels to the end of the list, under a heading that names it
+// then: it is drawn at the end of the list, under a heading that names it — and stays where it was in
+// the note, which is the Android app's own model: the section is a drawing, the order is the note's
+const drawnRows = () =>
+  page.$$eval('.editor .note-body li[data-checked]', (list) =>
+    list
+      .filter((li) => getComputedStyle(li).display !== 'none')
+      .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+      .map((li) => li.querySelector('p')?.innerText ?? '')
+  );
 check(
-  'ticking a row moves it to the end of the list',
-  (await rows()).join(',') === 'alpha,gamma,beta',
-  (await rows()).join(',')
+  'ticking a row draws it at the end of the list',
+  (await drawnRows()).join(',') === 'alpha,gamma,beta',
+  (await drawnRows()).join(',')
 );
+check('and leaves it where it was in the note', (await rows()).join(',') === 'alpha,beta,gamma', (await rows()).join(','));
 const heading = page.locator('.editor .completed-toggle');
 check('the completed rows get a heading', (await heading.count()) === 1);
 check(
@@ -360,10 +369,12 @@ check(
 check(
   'the heading sits above the completed row',
   await page.evaluate(() => {
-    const rowsInDom = [...document.querySelectorAll('.editor .note-body li')];
-    const offset = rowsInDom.findIndex((row) => row.innerText.includes('beta'));
+    const beta = [...document.querySelectorAll('.editor .note-body li')].find((row) => row.innerText.includes('beta'));
+    const gamma = [...document.querySelectorAll('.editor .note-body li')].find((row) => row.innerText.includes('gamma'));
     const toggle = document.querySelector('.editor .completed-toggle');
-    return Boolean(toggle) && rowsInDom.indexOf(toggle.closest('.completed-row')?.nextElementSibling) === offset;
+    if (!beta || !gamma || !toggle) return false;
+    const at = (element) => element.getBoundingClientRect().top;
+    return at(gamma) < at(toggle) && at(toggle) < at(beta);
   })
 );
 

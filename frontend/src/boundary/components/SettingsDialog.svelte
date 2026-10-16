@@ -333,13 +333,13 @@
 
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 500;
   }
 
   h3 {
     margin: 0 0 8px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -377,7 +377,7 @@
   }
 
   .choice .code {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
     min-width: 48px;
   }
@@ -402,7 +402,7 @@
     border-radius: var(--keep-radius-pill);
     background: var(--keep-hover);
     color: var(--keep-text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 500;
   }
 
@@ -420,7 +420,7 @@
   }
 
   .theme-meta {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -441,7 +441,7 @@
 
   .hint {
     margin: 0;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -456,7 +456,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -475,7 +475,7 @@
     flex-direction: row;
     align-items: center;
     gap: 10px;
-    font-size: 14px;
+    font-size: 0.875rem;
     color: var(--keep-text);
   }
 
@@ -503,18 +503,18 @@
   .ok {
     margin: 0;
     color: #188038;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .error {
     margin: 0;
     color: var(--keep-danger);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .about p {
     margin: 0;
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.6;
     color: var(--keep-text-secondary);
   }

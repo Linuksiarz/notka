@@ -5,6 +5,7 @@ build/
 .gradle-home/
 **/.gradle-home/
 .kotlin/
+notka-latest.tar.gz
 
 # The Gradle wrapper is part of the build, not output — `gradle/wrapper/gradle-wrapper.jar` is tracked
 # on purpose — so nothing here ignores `*.jar`.

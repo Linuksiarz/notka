@@ -317,7 +317,7 @@
 
   .item .text {
     flex: 1 1 auto;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -343,7 +343,7 @@
 
   .legal {
     margin: 4px 0 0 24px;
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--keep-text-secondary);
   }
 
@@ -370,7 +370,7 @@
       height: var(--keep-topbar-height);
       margin: 0;
       padding-left: 21px;
-      font-size: 28px;
+      font-size: 1.75rem;
       color: var(--keep-text);
     }
 
@@ -395,7 +395,7 @@
       height: 34px;
       margin-bottom: 4px;
       padding: 0 43px 0 30px;
-      font-size: 14px;
+      font-size: 0.875rem;
       font-weight: 500;
       color: var(--keep-text);
     }

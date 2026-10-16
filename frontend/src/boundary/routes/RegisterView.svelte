@@ -1,6 +1,7 @@
 <script lang="ts">
   import { session } from '../../control/state/session.svelte';
   import { t, tError } from '../i18n';
+  import { submitInPage } from '../submitInPage';
   import AuthLayout from '../components/AuthLayout.svelte';
 
   interface Props {
@@ -42,6 +43,8 @@
 
 <AuthLayout title={t('auth.createAccountTitle')}>
   <form
+    method="post"
+    {@attach submitInPage}
     onsubmit={(event) => {
       event.preventDefault();
       submit();
@@ -92,7 +95,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -102,7 +105,7 @@
     border-radius: 4px;
     background: transparent;
     color: var(--keep-text);
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   input:focus {
@@ -117,7 +120,7 @@
     background: var(--keep-accent);
     color: #fff;
     font-weight: 500;
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   .primary:disabled {
@@ -135,6 +138,6 @@
   .error {
     margin: 0;
     color: var(--keep-danger);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 </style>

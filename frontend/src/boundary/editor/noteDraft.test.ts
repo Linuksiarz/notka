@@ -64,7 +64,6 @@ describe('NoteDraft', () => {
     expect(draft.noteId).toBe(7);
     expect(draft.title).toBe('Shopping');
     expect(draft.pinned).toBe(true);
-    expect(draft.isOwner).toBe(true);
     expect(draft.isDirty()).toBe(false);
   });
 

@@ -80,7 +80,7 @@
     /* Measured off the original: the box is 46px tall and its text is 16px. */
     padding: 10px 0;
     color: var(--keep-text-secondary);
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 500;
   }
 

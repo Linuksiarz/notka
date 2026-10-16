@@ -99,9 +99,9 @@
     height: 40px;
     padding: 10px;
     font-family: 'Roboto', var(--keep-font);
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 500;
-    line-height: 20px;
+    line-height: 1.25rem;
     color: var(--keep-text);
   }
 
@@ -151,7 +151,7 @@
     top: 80%;
     padding: 0 5px;
     overflow: hidden;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--keep-text);

@@ -28,6 +28,13 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
  */
 export const DRAGGING_ROW = 'draggingRow';
 
+/**
+ * Where the carried row is drawn under the hand, in px below its place: a custom property the
+ * component writes on the editor's wrapper every frame. The decoration only names it, so following the
+ * finger needs no transaction (`RichText.svelte`).
+ */
+export const CARRIED_Y = '--drag-carried-y';
+
 export interface DragGeometry {
   /** Document position of the carried row. */
   row: number;
@@ -79,7 +86,7 @@ export const DraggingRow = Extension.create({
                   // The left reach is written **negative**: a box-shadow's first length is an offset,
                   // and a positive one would paint the band to the right of the row instead of
                   // carrying it out to the note's left edge.
-                  style: `${shift(geometry.carriedIndent, geometry.carriedShift)}`
+                  style: `transform: translate(${Math.round(geometry.carriedIndent)}px, var(${CARRIED_Y}, ${Math.round(geometry.carriedShift)}px))`
                 })
               );
             }

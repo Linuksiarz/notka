@@ -547,11 +547,18 @@
     margin: 0;
     padding-left: 16px;
     color: var(--keep-text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: var(--keep-heading-height);
     font-weight: 500;
     letter-spacing: 0.8px;
     text-transform: uppercase;
   }
 
+
+  /* The Android app's held card has no tick: its ring says it (NoteCard). */
+  @media (max-width: 600px) {
+    .card-tick {
+      display: none;
+    }
+  }
 </style>

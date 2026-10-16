@@ -54,13 +54,13 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    font-size: 28px;
+    font-size: 1.75rem;
     color: var(--keep-text);
   }
 
   h1 {
     margin: 16px 0 0;
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 500;
     text-align: center;
   }
@@ -68,14 +68,14 @@
   .subtitle {
     margin: 0 0 20px;
     text-align: center;
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--keep-text-secondary);
   }
 
   .license {
     margin: 24px 0 0;
     text-align: center;
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--keep-text-secondary);
   }
 </style>

@@ -276,7 +276,7 @@ class HttpNotesTest {
         assertEquals(HttpStatusCode.OK, viewerRead.status)
         assertEquals("VIEW", viewerRead.asJson().stringField("access"))
         assertFalse(viewerRead.asJson().stringField("canEdit").toBoolean())
-        assertFalse(viewerRead.asJson().hasField("shares"))
+        assertTrue(viewerRead.asJson().hasField("shares"))
         assertEquals(HttpStatusCode.Forbidden, viewerPatch.status)
         assertEquals("note.forbidden", viewerPatch.errorField("key"))
     }

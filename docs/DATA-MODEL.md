@@ -233,7 +233,7 @@ future "export to Markdown" feature a pure function.
     {
       "id": "b1",                       // stable, client generated, unique within the note
       "type": "paragraph",              // see block types below
-      "checked": false,                 // only meaningful for type == "checklist"
+      "checked": false,                 // only meaningful for type == "checklist"; a ticked row keeps its place
       "depth": 0,                       // only meaningful for list types; 0 is the top level
       "spans": [
         { "text": "Groceries " },

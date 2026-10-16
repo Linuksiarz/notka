@@ -243,6 +243,8 @@ thrown away.
   `src/control/state/`.
 - No user-visible string literals in components — every one comes from `t('…')`
   (see **Internationalization** above).
+- Type sizes are `rem` (`font-size` and `line-height`, measured px ÷ 16), so text follows the reader's own
+  font size the way Android's `sp` does; boxes, icons and spacing stay px (Android's `dp`).
 - CSS: scoped component styles plus design tokens from `src/boundary/styles/tokens.css`.
   Never hard-code a note palette color outside `src/boundary/styles/palette.css`.
 
@@ -413,6 +415,19 @@ thrown away.
    created offline — which also starts the note's step log again; the editor itself writes the body
    as steps (rule 10). Never send it for appearance, label, archive or pin changes, which cannot lose
    anyone's text and must not be blocked by someone else's typing.
+12b. **On a phone the selection is the Android app's** (`PhoneSelectionBar.svelte`, measured on an
+    emulator): a held card wears a 3dp ring and no tick, and the header becomes a 72dp bar with ✕, the
+    bare count, pin, reminder, colour, labels and a ⋮ sheet (archive, delete, copy, select all,
+    download). Every action is the single note's own REST call, once per picked note (rule 20).
+    **Ticking a row animates the reorder** (`checklistCompletion.ts`): the rows and the heading slide
+    into the room it leaves and the ticked row fades in under the heading, as the app's does.
+    **An existing note opens on a phone without the caret** — it is opened to be read, the keyboard
+    stays down — and a new note opens with it (rule 16 is the desktop's).
+12a. **A card's "N completed items" heading is a label, not a control**: on a card a click anywhere opens
+    the note, the heading and the line above it included (`NoteContent.svelte`). Folding the section is
+    the editor's own (`completedSection.ts`). **The editor shows who a note is shared with** — the
+    other people's avatars above its bottom bar (the owner's, for a collaborator) — and the owner's
+    avatars open the collaborators.
 12. Pinning is metadata, like the archive flag: it is a property of the note (everyone with access
    sees the same pin), it is never version-guarded and it never creates a history entry. Pinned notes
    lead every view, and the grid shows the **Pinned** and **Others** headings — which appear only
@@ -604,13 +619,21 @@ thrown away.
     looked wrong next to the original.
     The editor's checklist is Keep's in two more ways, and both live in
     `boundary/editor/checklistCompletion.ts`:
-    - **Completed rows sit at the bottom of their list**, under a foldable "N completed items" heading.
-      The move is a real document change applied from `appendTransaction`, so a tick and its move are
-      one change and the stored order is the order on screen. Reordering replaces the whole list, so
-      the caret has to be put back by hand — ProseMirror's own mapping drops a caret that was inside
-      the list onto the line *after* it, which is how a keystroke after a tick landed outside the
-      checklist. Tiptap's own DragHandle extension was considered and rejected: it drags any block with
-      its own floating handle and drop indicator, and would add `@floating-ui/dom` for the privilege.
+    - **Completed rows are drawn at the bottom of their list, and stay where they are in the note**,
+      under a foldable "N completed items" heading — the Android app's own model (recorded on an
+      emulator): its items carry a parent and a checked flag, and "Checked items" is a way of showing
+      them. A ticked nested row keeps its parent, which stays in the active rows and is drawn again,
+      **greyed and uncounted, above it in the completed section**; unticking a row puts it back where it
+      always was; ticking (or unticking) a top-level row does the same to the rows under it. One pure
+      rule decides the two sections, for the editor and the card alike
+      (`entity/checklistSections.ts`), and the editor draws them with CSS — the list is a flex column
+      and every row, the "+ List item" row, the heading and the greyed parents carry an `order` — so
+      the document, the caret and the history never see a row move. **This replaced moving a ticked
+      row to the end of the document**, which lost a nested row's parent: the only link a flat row has
+      to its parent is the row above it. A drag works on the active rows only; a row dropped after a
+      parent goes after the parent's ticked rows, and a parent carried elsewhere takes them along.
+      Tiptap's own DragHandle extension was considered and rejected: it drags any block with its own
+      floating handle and drop indicator, and would add `@floating-ui/dom` for the privilege.
     - **A six-dot handle in the row's left margin** carries a row — that row alone, because a list
       line is one flat item (rule 4) — to another place in its list. Measured from the owner's
       screenshot of the original: it is **always there** on an active row while the note is edited —

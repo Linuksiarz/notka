@@ -35,7 +35,7 @@
 
   h2 {
     margin: 8px 0 0;
-    font-size: 22px;
+    font-size: 1.375rem;
     font-weight: 400;
     color: var(--keep-text-secondary);
   }
@@ -43,6 +43,6 @@
   p {
     margin: 0;
     max-width: 420px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 </style>

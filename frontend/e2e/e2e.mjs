@@ -344,10 +344,39 @@ await bob.page.waitForSelector('.editor');
 
 // then: the editor is read only
 check('a VIEW collaborator gets a read-only editor', (await bob.page.locator('.editor .readonly-note').count()) === 1);
+// then: the editor shows who else the note is shared with — for Bob, its owner
+check(
+  'a collaborator sees the owner among the people the note is shared with',
+  (await bob.page.locator('.editor .shared-with .avatar').count()) === 1
+);
 check(
   'the read-only editor has no editing toolbar',
   (await bob.page.locator('.editor').getByRole('button', { name: 'Add label' }).count()) === 0
 );
+check(
+  'the avatars share their line with "Edited", as the original\'s do',
+  (await bob.page.locator('.editor .edited-row .shared-with').count()) === 1 &&
+    (await bob.page.locator('.editor .edited-row .status').count()) === 1
+);
+
+// when: the collaborator opens the collaborators from the avatars
+await bob.page.locator('.editor .shared-with').click();
+await bob.page.locator('.share .list li').nth(1).waitFor();
+
+// then: everyone with access sees who has it, the owner first, and only an editor may change it
+check(
+  'a collaborator sees the collaborators, the owner among them',
+  (await bob.page.locator('.share .list li').count()) === 2 &&
+    (await bob.page.locator('.share .list li').first().innerText()).includes('(Owner)'),
+  await bob.page.locator('.share .list').innerText()
+);
+check(
+  'a VIEW collaborator cannot change the collaborators',
+  (await bob.page.locator('.share').getByLabel('Collaborator email').count()) === 0 &&
+    (await bob.page.locator('.share select').count()) === 0
+);
+await bob.page.locator('.share').getByRole('button', { name: 'Close', exact: true }).click();
+await bob.page.waitForTimeout(300);
 await bob.page.keyboard.press('Escape');
 await bob.page.waitForTimeout(300);
 
@@ -400,6 +429,22 @@ check('a list note is created with both items', (await listCard.locator('.line.c
 check(
   'the checked item survives the round trip',
   (await listCard.locator('.line.checklist.checked').count()) === 1
+);
+
+// when: the card's "completed items" heading is clicked
+await listCard.locator('.completed-toggle').click();
+await alice.page.waitForSelector('.editor', { timeout: 5000 });
+
+// then: it opens the note, as a click anywhere on the card does, rather than folding the section
+check(
+  "a click on a card's completed heading opens the note",
+  (await alice.page.locator('.editor textarea.title').inputValue()) === 'Shopping'
+);
+await alice.page.keyboard.press('Escape');
+await alice.page.waitForTimeout(700);
+check(
+  'and the card still lists its completed item',
+  (await alice.page.locator('.card').filter({ hasText: 'Shopping' }).first().locator('.line.checklist.checked').count()) === 1
 );
 
 // when: a new list note is given an indented line with Tab

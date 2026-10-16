@@ -1,31 +1,31 @@
 import { Extension } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
-import type { EditorState, Selection, Transaction } from '@tiptap/pm/state';
+import type { EditorState, Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { EditorView } from '@tiptap/pm/view';
 import add from '@iconify-icons/material-symbols/add';
 import { buildIcon } from '@iconify/svelte';
+import { checklistSections } from '../../entity/checklistSections';
 import { COMPLETED_SECTION, completedChevron } from './completedSection';
+import { MOTION } from './motion';
 
 /**
  * Google Keep's completed items, inside the editor.
  *
- * Ticking a checklist row does two things in the original: the row travels to the bottom of its list,
- * and it collects under a "N completed items" heading that folds away. Both live here.
+ * The note keeps its rows in their logical order — a ticked row stays where it is, under its parent
+ * when it has one — and the two sections are a way of **drawing** that order (`entity/checklistSections.ts`,
+ * the one rule the editor and the card share). That is the original's own model: its items carry a
+ * parent and a checked flag, and "Checked items" is how the app shows them. It is what lets a ticked
+ * nested row stay its parent's, drawn under a greyed copy of the parent in the completed section, and
+ * what puts an unticked row back exactly where it was.
  *
- * The move is a real document change, not a rendering trick — that is what makes the stored order
- * and the order on screen the same thing, and what lets a folded section be one `display: none`.
- * It is applied from `appendTransaction`, so a tick *and* its move are one change from the user's
- * point of view, and every path that changes the document (typing, Tab, paste, undo) is covered by
- * one rule: unticked rows first, then ticked ones, each keeping its own order.
+ * The drawing is CSS: the list is a flex column and every row, the "+ List item" row, the heading and
+ * the greyed parents carry an `order` — so the rows themselves are never moved, the caret and the
+ * history see the document as it is, and a folded section is one `display: none`.
  *
- * A ticked row no longer carries anything with it: a list line is a flat row (`listRows.ts`), so
- * moving it moves exactly one row. Tiptap does ship a DragHandle extension, and it was considered: it
- * drags *any* block with its own floating handle and its own drop indicator, while this one has to
- * sit in the checklist row's own gutter and move list items into a list. Styling and restricting the
- * library's version into that shape is more code than the transaction below, and it would add
- * `@floating-ui/dom` and the node-range extension to the bundle.
+ * Ticking a top-level row ticks the rows under it, and unticking it unticks them, as the original does:
+ * a group is done when its top row is.
  */
 export interface ChecklistCompletionOptions {
   /** The heading's text, read from the i18n catalogue by the component that owns the editor. */
@@ -50,108 +50,73 @@ function checkedOf(node: ProseMirrorNode): boolean {
   return node.attrs.checked === true;
 }
 
-/** Unticked rows first, ticked ones after them, each group in the order it already had. */
-function partition(items: readonly ProseMirrorNode[]): readonly ProseMirrorNode[] {
-  return [
-    ...items.filter((item) => !checkedOf(item)),
-    ...items.filter((item) => checkedOf(item))
-  ];
+function depthOf(node: ProseMirrorNode): number {
+  return Number(node.attrs.depth ?? 0) || 0;
 }
 
-function sameOrder(a: readonly ProseMirrorNode[], b: readonly ProseMirrorNode[]): boolean {
-  return a.length === b.length && a.every((node, index) => node === b[index]);
-}
-
-interface OrderedList {
-  node: ProseMirrorNode;
-  /** `order[newIndex]` is the index the row had before. Empty when nothing moved. */
-  order: number[];
-}
-
-/** Returns the same node when nothing moved, so a caller can tell "already in order" by identity. */
-function orderList(list: ProseMirrorNode): OrderedList {
-  const items: ProseMirrorNode[] = [];
-  list.content.forEach((item) => items.push(item));
-  const sorted = partition(items);
-  if (sameOrder(sorted, items)) return { node: list, order: [] };
-  const order = sorted.map((item) => items.indexOf(item));
-  return { node: list.type.create(list.attrs, sorted, list.marks), order };
-}
-
-/** Where the caret sits inside a list: the row it is in, and how far into that row. */
-function caretIn(listPos: number, list: ProseMirrorNode, selection: Selection): CaretSpot | null {
-  if (selection.from <= listPos || selection.to >= listPos + list.nodeSize) return null;
-  let pos = listPos + 1;
-  for (let index = 0; index < list.childCount; index += 1) {
-    const child = list.child(index);
-    if (selection.from >= pos && selection.to <= pos + child.nodeSize) {
-      const limit = child.nodeSize - 2;
-      const clamp = (value: number) => Math.min(Math.max(value, 0), limit);
-      return {
-        index,
-        from: clamp(selection.from - (pos + 1)),
-        to: clamp(selection.to - (pos + 1))
-      };
-    }
-    pos += child.nodeSize;
-  }
-  return null;
-}
-
-interface CaretSpot {
-  index: number;
-  from: number;
-  to: number;
-}
-
-interface Replacement {
-  pos: number;
-  ordered: OrderedList;
-  caret: CaretSpot | null;
+/** A list's rows with their document positions. */
+function rowsOf(list: ProseMirrorNode, listPos: number): Array<{ node: ProseMirrorNode; pos: number }> {
+  const rows: Array<{ node: ProseMirrorNode; pos: number }> = [];
+  list.forEach((node, offset) => rows.push({ node, pos: listPos + 1 + offset }));
+  return rows;
 }
 
 /**
- * A list's own size never changes when its rows are reordered, so the positions of its siblings stay
- * valid and every top-level list can be replaced in a single transaction.
- *
- * The caret is put back by hand. Replacing a node maps everything inside it to the end of what
- * replaced it, so ProseMirror's own mapping would drop a caret that was in the list onto the line
- * *after* the list — which is where the next keystroke then landed, outside the checklist. Knowing
- * which row the caret was in, and where that row ended up, costs a few lines and keeps the caret
- * where the typist left it.
+ * Ticking a top-level row ticks the rows under it, and unticking it unticks them: the group is done
+ * when its top row is. Read off the change itself — a top row whose flag differs from the same row
+ * before — so typing, pasting and undo are left alone.
  */
-function reorder(state: EditorState): Transaction | null {
-  const replacements: Replacement[] = [];
-  state.doc.forEach((node, offset) => {
-    if (node.type.name !== 'taskList') return;
-    const ordered = orderList(node);
-    if (ordered.node === node) return;
-    replacements.push({ pos: offset, ordered, caret: caretIn(offset, node, state.selection) });
+function cascade(before: EditorState, after: EditorState): Transaction | null {
+  const tr = after.tr;
+  const lists: Array<[ProseMirrorNode, number]> = [];
+  after.doc.forEach((node, offset) => {
+    if (node.type.name === 'taskList') lists.push([node, offset]);
   });
-  if (replacements.length === 0) return null;
+  const previous: ProseMirrorNode[] = [];
+  before.doc.forEach((node) => {
+    if (node.type.name === 'taskList') previous.push(node);
+  });
+  lists.forEach(([list, listPos], index) => {
+    const old = previous[index];
+    if (!old || old.childCount !== list.childCount) return;
+    const rows = rowsOf(list, listPos);
+    rows.forEach((row, at) => {
+      if (depthOf(row.node) !== 0) return;
+      const was = old.child(at);
+      if (checkedOf(was) === checkedOf(row.node)) return;
+      for (let child = at + 1; child < rows.length; child += 1) {
+        const nested = rows[child];
+        if (!nested || depthOf(nested.node) === 0) break;
+        if (checkedOf(nested.node) !== checkedOf(row.node)) {
+          tr.setNodeMarkup(nested.pos, undefined, { ...nested.node.attrs, checked: checkedOf(row.node) });
+        }
+      }
+    });
+  });
+  return tr.docChanged ? tr : null;
+}
 
-  const tr = state.tr;
-  for (const replacement of replacements) {
-    tr.replaceWith(
-      replacement.pos,
-      replacement.pos + replacement.ordered.node.nodeSize,
-      replacement.ordered.node
-    );
-  }
-
-  const moved = replacements.find((replacement) => replacement.caret !== null);
-  if (moved?.caret) {
-    const list = tr.doc.nodeAt(moved.pos);
-    const index = moved.ordered.order.indexOf(moved.caret.index);
-    if (list && index !== -1) {
-      let itemPos = moved.pos + 1;
-      for (let child = 0; child < index; child += 1) itemPos += list.child(child).nodeSize;
-      tr.setSelection(
-        TextSelection.create(tr.doc, itemPos + 1 + moved.caret.from, itemPos + 1 + moved.caret.to)
-      );
-    }
-  }
-  return tr;
+/** The greyed copy of an unticked parent above its ticked rows: the row as the list draws it, inert. */
+function ghostRow(text: string, depth: number, order: number, hidden: boolean): HTMLElement {
+  const row = document.createElement('li');
+  row.className = COMPLETED_SECTION.ghost;
+  row.contentEditable = 'false';
+  row.dataset.depth = String(depth);
+  row.setAttribute('aria-hidden', 'true');
+  row.style.order = String(order);
+  if (hidden) row.classList.add(COMPLETED_SECTION.hidden);
+  const label = document.createElement('label');
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.disabled = true;
+  box.tabIndex = -1;
+  label.append(box, document.createElement('span'));
+  const content = document.createElement('div');
+  const paragraph = document.createElement('p');
+  paragraph.textContent = text;
+  content.append(paragraph);
+  row.append(label, content);
+  return row;
 }
 
 /** The heading, built by hand: a widget decoration is a DOM node, not a Svelte component. */
@@ -182,9 +147,21 @@ function heading(view: EditorView, open: boolean, label: string): HTMLElement {
   return row;
 }
 
+/** Puts an empty row at [insertAt] — the end of the active rows — with the caret in it. */
+function insertItem(view: EditorView, insertAt: number): void {
+  const { schema } = view.state;
+  const item = schema.nodes.taskItem?.create({ checked: false }, schema.nodes.paragraph?.create());
+  if (!item) return;
+  const tr = view.state.tr.insert(insertAt, item);
+  tr.setSelection(TextSelection.create(tr.doc, insertAt + 2));
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+}
+
 /**
  * The original's "+ List item": a row under the active rows that starts a new one. A click puts an
  * empty row at [insertAt] — the end of the active rows, so before any ticked ones — and the caret in it.
+ * The place travels on the button (`data-insert-at`) for the touch path below.
  */
 function addItemRow(view: EditorView, insertAt: number, label: string): HTMLElement {
   const row = document.createElement('div');
@@ -197,21 +174,73 @@ function addItemRow(view: EditorView, insertAt: number, label: string): HTMLElem
   const button = document.createElement('button');
   button.type = 'button';
   button.contentEditable = 'false';
+  button.dataset.insertAt = String(insertAt);
   button.innerHTML = `<svg ${icon}>${body}</svg>`;
   const text = document.createElement('span');
   text.textContent = label;
   button.append(text);
-  button.addEventListener('click', () => {
-    const { schema } = view.state;
-    const item = schema.nodes.taskItem?.create({ checked: false }, schema.nodes.paragraph?.create());
-    if (!item) return;
-    const tr = view.state.tr.insert(insertAt, item);
-    tr.setSelection(TextSelection.create(tr.doc, insertAt + 2));
-    view.dispatch(tr.scrollIntoView());
-    view.focus();
-  });
+  button.addEventListener('click', () => insertItem(view, insertAt));
   row.append(button);
   return row;
+}
+
+/**
+ * The movement past which a touch is a scroll rather than a tap — the platform's own slop, the number
+ * the row's drag uses too.
+ */
+const TAP_SLOP = 8;
+
+/**
+ * The original's own motion when a row is ticked or unticked (recorded on the Android app): the rows
+ * slide into the room it leaves, the heading with them, and the row itself fades in at its new place
+ * instead of travelling across the others. Rows are never moved in the document now, so every element
+ * keeps its identity and the motion is the difference between two drawings of the same elements.
+ */
+function animateMoves(list: HTMLElement, before: WeakMap<Element, number>, changed: Set<Element>): void {
+  for (const child of Array.from(list.children)) {
+    if (!(child instanceof HTMLElement)) continue;
+    const was = before.get(child);
+    if (changed.has(child) || was === undefined) {
+      if (changed.has(child) || child.classList.contains(COMPLETED_SECTION.ghost)) {
+        child.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration: MOTION.medium,
+          delay: MOTION.short,
+          easing: MOTION.standard,
+          fill: 'backwards'
+        });
+      }
+      continue;
+    }
+    const by = was - child.offsetTop;
+    if (Math.abs(by) < 1) continue;
+    child.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
+      duration: MOTION.long,
+      easing: MOTION.standard
+    });
+  }
+}
+
+function measure(view: EditorView, into: WeakMap<Element, number>): void {
+  for (const list of Array.from(view.dom.querySelectorAll('ul[data-type="taskList"]'))) {
+    for (const child of Array.from(list.children)) into.set(child, (child as HTMLElement).offsetTop);
+  }
+}
+
+/** The rows whose tick changed between two states, as the editor draws them. */
+function changedRows(view: EditorView, before: EditorState): Set<Element> {
+  const changed = new Set<Element>();
+  if (before.doc.eq(view.state.doc)) return changed;
+  view.state.doc.forEach((list, listPos) => {
+    if (list.type.name !== 'taskList') return;
+    const old = before.doc.nodeAt(listPos);
+    if (!old || old.type.name !== 'taskList' || old.childCount !== list.childCount) return;
+    rowsOf(list, listPos).forEach((row, index) => {
+      if (checkedOf(old.child(index)) === checkedOf(row.node)) return;
+      const element = view.nodeDOM(row.pos);
+      if (element instanceof Element) changed.add(element);
+    });
+  });
+  return changed;
 }
 
 export const ChecklistCompletion = Extension.create<ChecklistCompletionOptions>({
@@ -233,6 +262,7 @@ export const ChecklistCompletion = Extension.create<ChecklistCompletionOptions>(
 
   addProseMirrorPlugins() {
     const { labelFor, addItemLabel } = this.options;
+    let tapStart: { x: number; y: number } | null = null;
 
     return [
       new Plugin<ChecklistCompletionState>({
@@ -246,15 +276,56 @@ export const ChecklistCompletion = Extension.create<ChecklistCompletionOptions>(
           }
         },
 
-        appendTransaction: (transactions, _oldState, newState) => {
+        appendTransaction: (transactions, oldState, newState) => {
           if (!transactions.some((transaction) => transaction.docChanged)) return null;
-          return reorder(newState);
+          return cascade(oldState, newState);
+        },
+
+        view: (editorView) => {
+          let drawn = new WeakMap<Element, number>();
+          measure(editorView, drawn);
+          return {
+            update: (view, before) => {
+              const changed = changedRows(view, before);
+              if (changed.size > 0 && document.documentElement.dataset.motion !== 'reduced') {
+                for (const list of Array.from(view.dom.querySelectorAll('ul[data-type="taskList"]'))) {
+                  if (list instanceof HTMLElement) animateMoves(list, drawn, changed);
+                }
+              }
+              drawn = new WeakMap();
+              measure(view, drawn);
+            }
+          };
         },
 
         props: {
           // The heading is a control inside the editable: without this the click would place the
           // caret and ProseMirror would treat the button as part of the text.
           handleDOMEvents: {
+            // A finger lifted over a control inside the editable makes the browser put the caret where
+            // the finger was — after the click — which for "+ List item" is the start of the first
+            // ticked row: the new row was made, and the next Backspace went to the completed section.
+            // So a tap on the row is answered on `touchend`, with the browser's own handling (the caret,
+            // the emulated mouse events and the click) cancelled.
+            touchstart: (_view, event) => {
+              const touch = event.touches[0];
+              tapStart = touch ? { x: touch.clientX, y: touch.clientY } : null;
+              return false;
+            },
+            touchend: (view, event) => {
+              const target = event.target;
+              const touch = event.changedTouches[0];
+              const start = tapStart;
+              tapStart = null;
+              if (!(target instanceof Element) || !touch || !start) return false;
+              const control = target.closest(`.${ADD_ITEM_ROW} button, .${COMPLETED_SECTION.toggle}`);
+              if (!(control instanceof HTMLElement)) return false;
+              if (Math.hypot(touch.clientX - start.x, touch.clientY - start.y) > TAP_SLOP) return false;
+              event.preventDefault();
+              if (control.dataset.insertAt !== undefined) insertItem(view, Number(control.dataset.insertAt));
+              else control.click();
+              return true;
+            },
             mousedown: (_view, event) => {
               const target = event.target;
               if (
@@ -275,42 +346,71 @@ export const ChecklistCompletion = Extension.create<ChecklistCompletionOptions>(
             state.doc.descendants((node, pos) => {
               if (node.type.name !== 'taskList') return true;
 
-              const completed: Array<{ pos: number; node: ProseMirrorNode }> = [];
-              node.forEach((item, offset) => {
-                if (checkedOf(item)) completed.push({ pos: pos + 1 + offset, node: item });
-              });
-
-              if (addItemLabel) {
-                // Where the active rows end: before the first ticked row, or at the end of the list.
-                const insertAt = completed[0]?.pos ?? pos + node.nodeSize - 1;
+              const rows = rowsOf(node, pos);
+              const sections = checklistSections(
+                rows.map((row) => ({ checked: checkedOf(row.node), depth: depthOf(row.node) }))
+              );
+              const end = pos + node.nodeSize - 1;
+              let order = 0;
+              const place = (index: number, extra?: string) => {
+                const row = rows[index];
+                if (!row) return;
                 decorations.push(
-                  Decoration.widget(insertAt, (view) => addItemRow(view, insertAt, addItemLabel), {
-                    side: -2,
-                    key: `add-item-${insertAt}`,
-                    ignoreSelection: true
+                  Decoration.node(row.pos, row.pos + row.node.nodeSize, {
+                    style: `order: ${order}`,
+                    ...(extra ? { class: extra } : {})
                   })
                 );
-              }
-              if (completed.length === 0) return true;
+                order += 1;
+              };
 
-              const first = completed[0];
-              if (!first) return true;
+              for (const index of sections.active) place(index);
+
+              if (addItemLabel) {
+                // A new row goes at the end of the list: unticked and at the top level, it is drawn as
+                // the last of the active rows wherever the ticked ones stand in the document.
+                const at = order;
+                decorations.push(
+                  Decoration.widget(end, (view) => {
+                    const row = addItemRow(view, end, addItemLabel);
+                    row.style.order = String(at);
+                    return row;
+                  }, { side: 2, key: `add-item-${end}-${at}`, ignoreSelection: true })
+                );
+                order += 1;
+              }
+              if (sections.completedCount === 0) return false;
+
+              const headingOrder = order;
               decorations.push(
-                Decoration.widget(first.pos, (view) => heading(view, open, labelFor(completed.length)), {
-                  side: -1
-                })
+                Decoration.widget(end, (view) => {
+                  const row = heading(view, open, labelFor(sections.completedCount));
+                  row.style.order = String(headingOrder);
+                  return row;
+                }, { side: 3, key: `completed-${end}-${headingOrder}-${open}-${sections.completedCount}` })
               );
+              order += 1;
 
-              if (!open) {
-                for (const item of completed) {
-                  decorations.push(
-                    Decoration.node(item.pos, item.pos + item.node.nodeSize, {
-                      class: COMPLETED_SECTION.hidden
-                    })
-                  );
+              const hidden = open ? undefined : COMPLETED_SECTION.hidden;
+              for (const group of sections.completed) {
+                if (group.ghost !== null) {
+                  const parent = rows[group.ghost];
+                  if (parent) {
+                    const ghostOrder = order;
+                    const text = parent.node.textContent;
+                    const depth = depthOf(parent.node);
+                    decorations.push(
+                      Decoration.widget(end, () => ghostRow(text, depth, ghostOrder, !open), {
+                        side: 4 + ghostOrder,
+                        key: `ghost-${parent.pos}-${ghostOrder}-${open}-${text}`
+                      })
+                    );
+                    order += 1;
+                  }
                 }
+                for (const index of group.rows) place(index, hidden);
               }
-              return true;
+              return false;
             });
 
             return DecorationSet.create(state.doc, decorations);

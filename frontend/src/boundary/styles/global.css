@@ -34,7 +34,7 @@ body {
   background: var(--keep-bg);
   color: var(--keep-text);
   font-family: var(--keep-font);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;

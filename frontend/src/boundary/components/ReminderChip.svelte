@@ -41,8 +41,8 @@
     border-radius: 999px;
     background: color-mix(in srgb, var(--note-fg, var(--keep-text)) 9%, transparent);
     color: var(--note-fg, var(--keep-text));
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 0.75rem;
+    line-height: 1rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

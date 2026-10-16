@@ -215,11 +215,11 @@ owner's own 412×893 screenshots of both apps.
 - **The header lifts when the page scrolls**: its 1px line becomes transparent and a shadow takes
   its place (Material's raised app bar), and it goes flat again at the top. Ours kept the line
   for ever, which the owner spotted before any tooling did.
-- **The editor's bottom bar is the note's colour**, not the page's surface: over a background
-  artwork the icons and the "Edited …" line were sitting on the picture and were hard to read. A
-  note carries both a colour and an artwork (rule 5), and the bar shows the colour — measured on
-  a note wearing one, its bar is the note's `--note-bg` (`rgb(241,228,222)` for `#f1e4de`),
-  opaque, so it reads whatever the note is wearing.
+- **The editor's bottom bar wears the note's background**, picture included: the bar, the
+  "Edited …" line and the link previews are transparent, so a note's artwork runs under them to the
+  note's bottom edge. An earlier reading made them opaque in the note's `--note-bg`
+  (`rgb(241,228,222)` for `#f1e4de`); the owner, looking at it, overruled that (2026-10-16: "ten
+  pasek powinien mieć tło notatki a nie jednolite tło koloru notatki").
 - **The scrollbar is the browser's own, and it is there from the start**: the root reserves it
   (`overflow-y: scroll`), which also keeps the centring from shifting sideways when the notes grow
   past the window. Do **not** restyle it — we once shipped a slimmer one and the owner saw it as
@@ -248,7 +248,7 @@ owner's own 412×893 screenshots of both apps.
     **21px** under it, the drawer is **326px** wide with **59px** rows (the active one a full pill from
     13 to 313px, the icon centred 43px in, the label at 73px), and the "+" is one **86px** button with a
     20px radius, a 36px glyph and Material's primary container (`#304678` / `#d9e2ff` in the dark).
-    In the editor every action sits on a **43px tonal button** — rounded squares (12px radius) for the
+    In the editor every action sat on a **43px tonal button** (superseded below by the emulator's 40px) — rounded squares (12px radius) for the
     pin, the bell and the archive in the top bar, circles in the bottom one (colour, picture, undo,
     redo, ⋮) — 9px apart; the checklist's box is **19px**, its text **16px**, its rows **52px**
     apart, and the title 22px.
@@ -283,7 +283,7 @@ owner's own 412×893 screenshots of both apps.
       the ⋮ stood — the same 43px places, bare, with the kind or mark in force on a neutral rounded
       square (`rgb(61,61,61)` on an orange note in the dark theme). A list row has no heading kinds.
       The page asks the browser to shrink the layout for the on-screen keyboard
-      (`interactive-widget=resizes-content`), so the bar stands on the keyboard as the app's does.
+      (`interactive-widget=resizes-content`), so the bar stands on the keyboard as the app's does. A browser that ignores that hint (the layout stays as tall as the screen) would leave the bar under the keyboard, so the phone's editor also stands in the *visual* viewport (`--vv-top`/`--vv-height`, `boundary/visualViewport.ts`); checked on an Android emulator in Chrome, with and without the hint. **A note's background picture is sized by the tallest the visible part has been** (`--vv-tallest`), not by the box the keyboard leaves, and anchored at the top: the picture keeps its scale and place while the keyboard comes and goes, and while a list grows past the screen (checked on the emulator for a text note and a checklist). The bottom bar's buttons lie straight on the picture, as in the original's.
     - **A list note's title carries a ⋮** (centred 33px from the right edge, a 24px secondary glyph)
       whose sheet holds the list's own actions — uncheck all, delete checked, hide checkboxes — which
       therefore leave the main ⋮ sheet of a list note.
@@ -291,6 +291,31 @@ owner's own 412×893 screenshots of both apps.
       checkbox **66px**, its handle centred at **32px** with a 24px glyph, the text at **101px**, and
       one level is **40px**. `RichText`'s `PHONE_LIST` holds those numbers and gives the stylesheet its
       inset and indent, so the drag reads the same level the rows are drawn at.
+  - **Opening and closing a note on a phone** is the original's container transform, recorded on the
+    emulator in both apps: the editor's box grows out of the card (clipped to it, never scaled) in about
+    a quarter of a second while what is written fades in, and shrinks back into it in 200ms, over a list
+    that is already showing. The system's Back leaves the note, not the app: the open editor owns one
+    history entry (`ui.openEditor`), and Back finishes the note as Escape does.
+  - **A card's checkbox on a phone** is 0.78 of the text (11dp beside 14sp in the app) and centred on
+    the capitals of its first line, to 0.4dp; ours centres a 0.78em box on the first line (`1lh`).
+  - **Dragging a list row** follows the finger through one custom property (`--drag-carried-y`); the
+    editor hears about the drag only when the landing place changes, never per frame.
+  - **The editor's glyphs and tonal buttons, measured 2026-10-15** on the Android app in an emulator
+    (1391×3014 at 540dpi = 412dp; every colour, both themes) and on the owner's screenshot of a dark
+    yellow note:
+    - the glyphs are **24dp** (ink 16.0px back arrow, 18.1px add, 13.9×19.8 pin — the same on both);
+    - the buttons' fill is **a colour of its own per note colour and theme**, not an overlay, and
+      the emulator's yellow (`#683d00`) is the owner's phone's (`rgb(103,61,0)`): the table is
+      `--note-tonal` in `palette.css`. A plain note's is drawn from the device's own colour scheme
+      (`#eeedf4` on `#faf8ff` in the light theme, `#292a2f` on `#121318` in the dark), so it stays
+      `--keep-tonal-button`;
+    - the buttons are **40dp** (40.3 measured), 8dp apart, the top bar's last one 24dp from the edge
+      and the bottom bar's first 20dp from it; the ⋮ is a **32dp-wide pill**. The owner's phone
+      showed 42.5dp with the same glyphs; the owner chose the emulator's numbers;
+    - **the ink is the app's own pair on every note colour**: `#1a1b21` (text) and `#45464f`
+      (glyphs) in the light theme, `#e3e2e9` and `#c5c6d0` in the dark — `--keep-phone-ink` and
+      `--keep-phone-glyph`, applied to the phone's editor in `palette.css`. The owner's phone drew
+      pure white on a dark note; the owner chose the emulator's values.
   - **The editor carries a bar of its own** (59px since the re-measurement above; it was 48):
     a back arrow at the left and the note's own actions — the reminder bell and the archive — at
     the right, wearing the note's colour the way the bottom bar does. Ours had no bar at all, so a

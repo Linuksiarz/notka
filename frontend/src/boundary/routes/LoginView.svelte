@@ -2,6 +2,7 @@
   import { instance } from '../../control/state/instance.svelte';
   import { session } from '../../control/state/session.svelte';
   import { t, tError } from '../i18n';
+  import { submitInPage } from '../submitInPage';
   import AuthLayout from '../components/AuthLayout.svelte';
 
   interface Props {
@@ -37,6 +38,8 @@
 
 <AuthLayout title={t('auth.signInTitle')}>
   <form
+    method="post"
+    {@attach submitInPage}
     onsubmit={(event) => {
       event.preventDefault();
       submit();
@@ -44,12 +47,12 @@
   >
     <label>
       <span>{t('auth.login')}</span>
-      <input type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required bind:value={login} />
+      <input type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required bind:value={login} />
     </label>
 
     <label>
       <span>{t('auth.password')}</span>
-      <input type="password" autocomplete="current-password" required bind:value={password} />
+      <input type="password" name="password" autocomplete="current-password" required bind:value={password} />
     </label>
 
     {#if error}
@@ -103,13 +106,13 @@
 
   .demo h2 {
     margin: 0 0 4px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
   }
 
   .demo p {
     margin: 0 0 8px;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -125,7 +128,7 @@
   .demo button {
     padding: 4px 0;
     font: inherit;
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: inherit;
     text-align: left;
     text-decoration: underline;
@@ -141,7 +144,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--keep-text-secondary);
   }
 
@@ -151,7 +154,7 @@
     border-radius: 4px;
     background: transparent;
     color: var(--keep-text);
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   input:focus {
@@ -166,7 +169,7 @@
     background: var(--keep-accent);
     color: #fff;
     font-weight: 500;
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   .primary:disabled {
@@ -184,6 +187,6 @@
   .error {
     margin: 0;
     color: var(--keep-danger);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 </style>

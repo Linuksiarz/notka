@@ -11,6 +11,10 @@
     <!-- One value, and the app keeps it to the colour at the top of the screen (`systemBar.ts`):
          two by colour scheme followed the system's theme rather than the one picked in Settings. -->
     <meta name="theme-color" content="#ffffff" />
+    <!-- Both themes are the app's own (`tokens.css`): saying so keeps Samsung Internet's "Dark mode"
+         from running its colour inversion over a theme that is already dark, which is also what turns
+         the bar of an installed app black. -->
+    <meta name="color-scheme" content="light dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Notka" />
     <meta name="mobile-web-app-capable" content="yes" />

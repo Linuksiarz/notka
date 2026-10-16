@@ -167,7 +167,7 @@
 
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 500;
   }
 
@@ -206,7 +206,7 @@
   .error {
     margin: 0;
     color: var(--keep-danger);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .muted,

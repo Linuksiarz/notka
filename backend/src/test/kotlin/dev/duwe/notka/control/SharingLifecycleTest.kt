@@ -11,7 +11,6 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SharingLifecycleTest {
@@ -46,7 +45,7 @@ class SharingLifecycleTest {
         assertEquals(Access.EDIT, shared.access)
         assertEquals("green", shared.color)
         assertEquals("food", shared.background)
-        assertNull(shared.shares)
+        assertEquals(listOf("bob@example.com"), shared.shares.map { it.user.email })
 
         // when: the owner downgrades the permission to VIEW
         fixture.services.sharing.update(owner.id, note.note.id, collaborator.id, "VIEW")
@@ -80,10 +79,9 @@ class SharingLifecycleTest {
         val read = fixture.services.notes.get(owner.id, note.note.id)
 
         // then
-        val shares = read.shares
-        assertEquals(1, shares?.size)
-        assertEquals("bob@example.com", shares?.single()?.user?.email)
-        assertEquals("EDIT", shares?.single()?.permission)
+        val share = read.shares.single()
+        assertEquals("bob@example.com", share.user.email)
+        assertEquals("EDIT", share.permission)
     }
 
     @Test
@@ -140,7 +138,48 @@ class SharingLifecycleTest {
     }
 
     @Test
-    fun collaboratorCannotManageShares() {
+    fun anEditingCollaboratorManagesTheCollaborators() {
+        // given
+        val owner = fixture.registerUser(email = "ada@example.com")
+        val editor = fixture.registerUser(email = "bob@example.com")
+        val newcomer = fixture.registerUser(email = "cyd@example.com")
+        val note = fixture.createNote(owner.id)
+        fixture.share(note.note.id, owner.id, "bob@example.com", "EDIT")
+
+        // when
+        fixture.services.sharing.add(editor.id, note.note.id, "cyd@example.com", "VIEW")
+        fixture.services.sharing.update(editor.id, note.note.id, newcomer.id, "EDIT")
+        val listed = fixture.services.sharing.list(editor.id, note.note.id)
+        fixture.services.sharing.remove(editor.id, note.note.id, newcomer.id)
+
+        // then
+        assertEquals(listOf("bob@example.com" to "EDIT", "cyd@example.com" to "EDIT"), listed.map { it.user.email to it.permission })
+        assertEquals(listOf("bob@example.com"), fixture.services.sharing.list(owner.id, note.note.id).map { it.user.email })
+    }
+
+    @Test
+    fun aViewingCollaboratorSeesTheCollaboratorsButCannotChangeThem() {
+        // given
+        val owner = fixture.registerUser(email = "ada@example.com")
+        val viewer = fixture.registerUser(email = "bob@example.com")
+        fixture.registerUser(email = "cyd@example.com")
+        val note = fixture.createNote(owner.id)
+        fixture.share(note.note.id, owner.id, "bob@example.com", "VIEW")
+
+        // when
+        val listed = fixture.services.sharing.list(viewer.id, note.note.id)
+        val failure = assertFailsWith<DomainException> {
+            fixture.services.sharing.add(viewer.id, note.note.id, "cyd@example.com", "EDIT")
+        }
+
+        // then
+        assertEquals(listOf("bob@example.com"), listed.map { it.user.email })
+        assertEquals(ErrorKind.FORBIDDEN, failure.kind)
+        assertEquals(ErrorKeys.NOTE_FORBIDDEN, failure.key)
+    }
+
+    @Test
+    fun nobodyCanShareTheNoteWithItsOwner() {
         // given
         val owner = fixture.registerUser(email = "ada@example.com")
         val editor = fixture.registerUser(email = "bob@example.com")
@@ -149,12 +188,12 @@ class SharingLifecycleTest {
 
         // when
         val failure = assertFailsWith<DomainException> {
-            fixture.services.sharing.list(editor.id, note.note.id)
+            fixture.services.sharing.add(editor.id, note.note.id, "ada@example.com", "VIEW")
         }
 
-        // then
-        assertEquals(ErrorKind.FORBIDDEN, failure.kind)
-        assertEquals(ErrorKeys.SHARE_NOT_OWNER, failure.key)
+        // then: the owner already has the note
+        assertEquals(ErrorKind.CONFLICT, failure.kind)
+        assertEquals(ErrorKeys.SHARE_ALREADY_SHARED, failure.key)
     }
 
     @Test
@@ -190,7 +229,7 @@ class SharingLifecycleTest {
         // then
         assertEquals("Groceries", copy.note.title)
         assertTrue(copy.note.id != note.note.id)
-        assertEquals(0, copy.shares?.size)
+        assertEquals(0, copy.shares.size)
         assertEquals(listOf("work"), copy.labels.map { it.name })
     }
 }

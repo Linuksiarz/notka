@@ -6,11 +6,13 @@
   import { notesApi } from '../../control/api/notes';
   import { notes as notesState } from '../../control/state/notes.svelte';
   import { labels as labelsState } from '../../control/state/labels.svelte';
+  import { session as account } from '../../control/state/session.svelte';
   import { ui } from '../../control/state/ui.svelte';
   import { toast } from 'svelte-sonner';
   import RichText from './RichText.svelte';
   import LinkCards from './LinkCards.svelte';
   import type { ReminderRepeat } from '../../entity/api/types';
+  import Avatar from './Avatar.svelte';
   import ReminderChip from './ReminderChip.svelte';
   import ReminderPicker from './ReminderPicker.svelte';
   import NoteImages from './NoteImages.svelte';
@@ -23,7 +25,7 @@
   import { createEmptyDocument, createEmptyListDocument, documentsEqual, newBlockId, withKind, uncheckAll, withoutChecked } from '../../entity/noteDocument';
   import { DropdownMenu, Popover } from 'bits-ui';
   import { ENTER_EASING, EXIT_EASING, MOTION } from '../editor/motion';
-import { flyToCard } from '../editor/editorFlight';
+import { flyToCard, growFromCard, shrinkIntoCard } from '../editor/editorFlight';
 import { NoteDraft } from '../editor/noteDraft.svelte';
   import AppearancePicker from './AppearancePicker.svelte';
   import Sheet from './Sheet.svelte';
@@ -94,10 +96,10 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     };
   }
   /**
-   * The bottom bar's glyphs: 18px as the desktop's are, and on a phone the 26px the original's
+   * The bottom bar's glyphs: 18px as the desktop's are, and on a phone the 24px the original's
    * Android app draws in its round buttons (measured off the owner's screenshots at 412px).
    */
-  const barIcon = $derived(ui.phone ? 26 : 18);
+  const barIcon = $derived(ui.phone ? 24 : 18);
 
   function openCollaborators(): void {
     void save().then(() => {
@@ -172,8 +174,14 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         if (!editorCard) return;
         const to = editorCard.getBoundingClientRect();
         if (to.width === 0 || to.height === 0) return;
-        const from = document.querySelector(`.card[data-note-id="${opened}"]`)?.getBoundingClientRect();
-        if (!from || from.width === 0 || from.height === 0) return;
+        const card = document.querySelector<HTMLElement>(`.card[data-note-id="${opened}"]`);
+        const from = card?.getBoundingClientRect();
+        if (!card || !from || from.width === 0 || from.height === 0) return;
+        // A phone's editor is the whole screen: its container grows out of the card, nothing is scaled.
+        if (ui.phone) {
+          growFromCard(editorCard, card);
+          return;
+        }
 
         editorCard.animate(
           [
@@ -224,6 +232,9 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     const block = (event: Event): void => {
       const target = event.target;
       if (target instanceof Element) {
+        // A sheet, menu or picker over the note scrolls itself (the phone's colour rows slide
+        // sideways), and cancelling a touch move also cancels the tap a finger's wobble turns into.
+        if (target.closest('[data-overlay]')) return;
         const body = target.closest('.editor .body');
         if (body instanceof HTMLElement && body.scrollHeight > body.clientHeight + 1) return;
       }
@@ -496,6 +507,25 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     notesState.editing = ui.editorOpen && noteId !== null && clientId ? { noteId, clientId } : null;
   });
 
+  // The system's Back (a phone's gesture or button) finishes the note the way Escape does — and first
+  // closes whatever is open over it. `ui` keeps one history entry for the open editor; when the Back was
+  // answered without closing the editor, the entry has to be put back.
+  let answeredBack = ui.backRequest;
+  $effect(() => {
+    const requested = ui.backRequest;
+    if (requested === answeredBack) return;
+    answeredBack = requested;
+    untrack(() => {
+      if (sheet !== null || openPanel !== null) {
+        sheet = null;
+        openPanel = null;
+        ui.reinstateBackEntry();
+        return;
+      }
+      void close().then(() => ui.reinstateBackEntry());
+    });
+  });
+
   async function close(): Promise<void> {
     if (closing) return;
     const opening = session;
@@ -520,6 +550,15 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         // Nothing was stored, so there is no card to land on. The original's empty composer turns
         // back into the "Take a note…" box in a single frame, as it opened.
         closeEditor();
+        return;
+      }
+
+      // A phone's editor shrinks into its card; the card itself is already in the list, so there is no
+      // room to make first (the composer's box is not on a phone's screen).
+      if (ui.phone && editorCard && ui.animationsAllowed) {
+        const card = document.querySelector<HTMLElement>(`.card[data-note-id="${draft.noteId}"]`);
+        await shrinkIntoCard(editorCard, card);
+        if (session === opening) closeEditor();
         return;
       }
 
@@ -593,9 +632,15 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
    * original's "Take a note…" *is* its body's placeholder, so clicking it leaves the caret there
    * (measured on keep.google.com, 2026-10-14). Without
    * this the editor opens with nothing focused and the first keystrokes are simply lost.
+   *
+   * A phone opens an existing note to be *read*: the original's Android app leaves the caret out of
+   * it (measured on the emulator, a text note and a list alike), so the keyboard does not cover half
+   * of the note and a list can be looked through without editing it. A tap where the writing should go
+   * puts the caret there. A new note is written straight away, on a phone as anywhere.
    */
   function focusOnOpen(): void {
     if (!ui.editorOpen) return;
+    if (ui.phone && ui.editorNoteId !== null) return;
     richText?.focusStart();
   }
 
@@ -780,11 +825,19 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     });
   }
 
+  /** The other people this note is shared with — or, for a collaborator, the owner and the rest of them. */
+  const sharedWith = $derived.by(() => {
+    if (!currentNote) return [];
+    const people = [currentNote.owner, ...(currentNote.shares ?? []).map((share) => share.user)];
+    return people.filter((person) => person.id !== account.user?.id);
+  });
+
   const selectedLabels = $derived(labelsState.labels.filter((label) => draft.labelIds.includes(label.id)));
   const dialogTitle = $derived(isNew ? t('editor.newNoteTitle') : draft.title || t('card.note'));
   const editedLabel = $derived(
     draft.updatedAt !== null && !isNew ? formatEditedAt(draft.updatedAt, ui.locale) : null
   );
+  const showStatus = $derived(!ui.phone && (draft.saving || editedLabel !== null || !draft.canEdit));
 </script>
 
 <!-- Capture phase on purpose: bits-ui listens on `document` for Escape, so by the time a listener
@@ -793,7 +846,9 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 <svelte:window onkeydowncapture={onWindowKeyDown} />
 
 {#if ui.editorOpen}
-  {#if ui.floatingEditor}
+  <!-- A phone's editor is the whole screen: there is nothing to veil, and a veil fading in and out
+       dimmed the list the note grows out of and shrinks back into, which the original's never is. -->
+  {#if ui.floatingEditor && !ui.phone}
     <div
       class="editor-scrim"
       aria-hidden="true"
@@ -915,7 +970,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           aria-label={t('editor.back')}
           onclick={close}
         >
-          <Icon name="arrow-back" size={26} />
+          <Icon name="arrow-back" size={barIcon} />
         </button>
         <div class="editor-bar-actions">
           {#if draft.canEdit}
@@ -928,7 +983,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
               aria-pressed={draft.pinned}
               onclick={togglePin}
             >
-              <Icon name={draft.pinned ? 'pin-filled' : 'pin'} size={26} />
+              <Icon name={draft.pinned ? 'pin-filled' : 'pin'} size={barIcon} />
             </button>
             {@render reminderBell()}
             <button
@@ -938,7 +993,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
               aria-label={draft.archived ? t('card.unarchiveNote') : t('card.archiveNote')}
               onclick={toggleArchive}
             >
-              <Icon name={draft.archived ? 'unarchive' : 'archive'} size={26} />
+              <Icon name={draft.archived ? 'unarchive' : 'archive'} size={barIcon} />
             </button>
           {/if}
         </div>
@@ -1036,17 +1091,33 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       </ul>
     {/if}
 
-    <!-- The original writes "Edited …" on a line of its own, right-aligned, and the note's link
-         previews come under it — then the bar's icons (measured off the owner's screenshots). -->
-    <!-- A phone shows it as the heading of the ⋮ sheet instead, where the original's app has it. -->
-    {#if !ui.phone && (draft.saving || editedLabel || !draft.canEdit)}
+    <!-- Who the note is shared with: the avatars open the collaborators, as the original's do. -->
+    {#snippet people()}
+      {#each sharedWith.slice(0, 5) as person (person.id)}
+        <Avatar user={person} size={24} />
+      {/each}
+      {#if sharedWith.length > 5}<span class="more-people">+{sharedWith.length - 5}</span>{/if}
+    {/snippet}
+
+    <!-- The original writes "Edited …" right-aligned on the line the collaborators' avatars start, and
+         the note's link previews come under it — then the bar's icons (measured off the owner's
+         screenshots). A phone shows it as the heading of the ⋮ sheet instead, where the original's app
+         has it. -->
+    {#if sharedWith.length > 0 || showStatus}
       <div class="edited-row">
-        {#if draft.saving}
-          <span class="status">{t('editor.saving')}</span>
-        {:else if editedLabel}
-          <span class="status">{editedLabel}</span>
-        {:else}
-          <span class="status">{t('editor.readOnly')}</span>
+        {#if sharedWith.length > 0}
+          <button type="button" class="people shared-with" aria-label={t('card.collaborator')} title={t('card.collaborator')} onclick={openCollaborators}>
+            {@render people()}
+          </button>
+        {/if}
+        {#if showStatus}
+          {#if draft.saving}
+            <span class="status">{t('editor.saving')}</span>
+          {:else if editedLabel}
+            <span class="status">{editedLabel}</span>
+          {:else}
+            <span class="status">{t('editor.readOnly')}</span>
+          {/if}
         {/if}
       </div>
     {/if}
@@ -1141,7 +1212,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           {@render undoRedo()}
           <button
             type="button"
-            class="icon-button on-surface"
+            class="icon-button on-surface more-options"
             title={t('card.more')}
             aria-label={t('card.moreOptions')}
             onclick={() => (sheet = 'menu')}
@@ -1200,17 +1271,15 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
             </Popover.Root>
           </div>
           {@render reminderBell()}
-          {#if draft.isOwner}
-            <button
-              type="button"
-              class="icon-button on-surface"
-              title={t('card.addCollaborator')}
-              aria-label={t('card.addCollaborator')}
-              onclick={openCollaborators}
-            >
-              <Icon name="person-add" size={18} />
-            </button>
-          {/if}
+          <button
+            type="button"
+            class="icon-button on-surface"
+            title={t('card.addCollaborator')}
+            aria-label={t('card.addCollaborator')}
+            onclick={openCollaborators}
+          >
+            <Icon name="person-add" size={18} />
+          </button>
           <button
             type="button"
             class="icon-button on-surface"
@@ -1315,12 +1384,12 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     }}
   />
 
-  <Sheet open={sheet === 'add'} onClose={() => (sheet = null)} title={t('editor.add')} color={draft.color}>
+  <Sheet open={sheet === 'add'} onClose={() => (sheet = null)} title={t('editor.add')} color={draft.color} background={draft.background}>
     {@render sheetItem('camera', t('images.takePhoto'), () => cameraInput?.click())}
     {@render sheetItem('image', t('images.add'), () => imageInput?.click())}
   </Sheet>
 
-  <Sheet open={sheet === 'appearance'} onClose={() => (sheet = null)} title={t('card.changeColor')} color={draft.color}>
+  <Sheet open={sheet === 'appearance'} onClose={() => (sheet = null)} title={t('card.changeColor')} color={draft.color} background={draft.background}>
     <AppearancePicker
       layout="sheet"
       color={draft.color}
@@ -1337,12 +1406,11 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     title={editedLabel ?? t('card.moreOptions')}
     heading={editedLabel !== null}
     color={draft.color}
+    background={draft.background}
   >
     {@render sheetItem('trash', t('card.deleteNote'), deleteNote)}
     {@render sheetItem('content-copy', t('card.makeCopy'), copyNote)}
-    {#if draft.isOwner}
-      {@render sheetItem('person-add', t('card.collaborator'), openCollaborators)}
-    {/if}
+    {@render sheetItem('person-add', t('card.collaborator'), openCollaborators)}
     {@render sheetItem('label', t('card.labels'), () => (sheet = 'label'))}
     {#if draft.kind === 'TEXT'}
       {@render sheetItem('checklist', t('card.showCheckboxes'), toggleCheckboxes)}
@@ -1353,13 +1421,13 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     {/if}
   </Sheet>
 
-  <Sheet open={sheet === 'list'} onClose={() => (sheet = null)} title={t('list.options')} color={draft.color}>
+  <Sheet open={sheet === 'list'} onClose={() => (sheet = null)} title={t('list.options')} color={draft.color} background={draft.background}>
     {@render sheetItem('checklist', t('list.uncheckAll'), uncheckAllItems)}
     {@render sheetItem('trash', t('list.deleteChecked'), deleteCheckedItems)}
     {@render sheetItem('list', t('card.hideCheckboxes'), toggleCheckboxes)}
   </Sheet>
 
-  <Sheet open={sheet === 'label'} onClose={() => (sheet = null)} title={t('card.labels')} color={draft.color}>
+  <Sheet open={sheet === 'label'} onClose={() => (sheet = null)} title={t('card.labels')} color={draft.color} background={draft.background}>
     <LabelPicker
       labels={labelsState.labels}
       selectedIds={draft.labelIds}
@@ -1475,12 +1543,24 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     .editor-host,
     .editor-host.floating {
       position: fixed;
-      inset: 0;
+      /* The visible part of the screen (`visualViewport.ts`): above the keyboard in every browser. */
+      inset: auto 0 auto 0;
+      top: var(--vv-top, 0px);
+      height: var(--vv-height, 100%);
       z-index: 50;
       display: block;
       padding: 0;
-      background: var(--keep-bg);
       overflow-y: auto;
+    }
+
+    /* The picture is sized by the screen without the keyboard (`visualViewport.ts`), not by the box the
+       keyboard leaves: `cover` would rescale it every time the box changes height. It stays where it is
+       and the keyboard covers its lower part. The pictures are square (`docs/THEMES.md`), so one side
+       sizes them; a landscape screen falls back to covering the width. Cropped sideways, it keeps its
+       right part, as every background does (`palette.css`). */
+    .editor[data-background] {
+      background-size: max(100%, var(--vv-tallest, 100%)) auto;
+      background-position: right top;
     }
 
     /* A phone's editor is the whole screen, so the composer's frame has nothing to frame. */
@@ -1545,9 +1625,9 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     color: inherit;
     /* Measured off the original's editor: its title is a good deal larger than the one on a card. */
     /* Measured from the original's DOM: 20px Google Sans on a 24px line, regular weight. */
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 400;
-    line-height: 24px;
+    line-height: 1.5rem;
     padding: 8px 0;
   }
 
@@ -1557,7 +1637,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     gap: 6px;
     margin: 0;
     padding: 0 16px 4px;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
   }
 
@@ -1579,6 +1659,23 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     list-style: none;
   }
 
+  .shared-with {
+    margin-right: auto;
+  }
+
+  .people {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    color: var(--note-fg-secondary, var(--keep-text-secondary));
+    font-size: 0.75rem;
+  }
+
+  button.people {
+    cursor: pointer;
+  }
+
   .chip {
     display: inline-flex;
     align-items: center;
@@ -1586,7 +1683,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     padding: 3px 6px 3px 10px;
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.08);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   :root[data-theme='dark'] .chip {
@@ -1603,10 +1700,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     justify-content: space-between;
     gap: 0 8px;
     padding: 4px 8px 4px 9px;
-    /* Over a background artwork the icons and the "Edited …" line were sitting on the picture. A note
-       can carry both an artwork and a colour (rule 5), and the original's bar shows the colour: the
-       bar is opaque in the note's own colour, so it reads whatever the note is wearing. */
-    background: var(--note-bg);
+    /* Transparent, like the lines above it: the note's picture runs under the bar to the note's edge
+       (`docs/METRICS.md`). */
     border-bottom-left-radius: inherit;
     border-bottom-right-radius: inherit;
   }
@@ -1625,16 +1720,16 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
   .edited-row {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
-    padding: 0 17px 8px 0;
-    background: var(--note-bg);
+    gap: 8px;
+    padding: 0 17px 8px 16px;
   }
 
   /* Inset like the note's text. Measured: the first row's top is 35px under the middle of the
      "Edited" line, and the bar's icons are centred 36px under the last row. */
   .link-previews {
     padding: 11px 16px 14px;
-    background: var(--note-bg);
   }
 
   .toolbar-meta {
@@ -1645,8 +1740,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
   .status {
     font-family: 'Roboto', var(--keep-font);
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 0.75rem;
+    line-height: 1rem;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
   }
 
@@ -1657,7 +1752,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     padding: 0 24px;
     border-radius: 4px;
     font-weight: 500;
-    font-size: 14px;
+    font-size: 0.875rem;
     color: var(--note-fg, var(--keep-text));
   }
 
@@ -1709,25 +1804,39 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     }
 
     /*
-     * The phone's bars, measured off the original's Android app at 412px (2026-10-14): every action
-     * sits on a 43px tonal button — rounded squares (12px radius) in the top bar, circles in the
-     * bottom one — 9px apart, its glyph 26px, the top bar's last button 26px from the edge and the
-     * bottom bar's first 21px from it. The tone is the note's own colour lifted by 15% white in the
-     * dark theme (measured 23→58, 46→78), and darkened in the light one.
+     * The phone's bars, measured off the original's Android app in an emulator at 412dp (2026-10-15,
+     * `docs/METRICS.md`): every action sits on a 40px tonal button — rounded squares (12px radius) in
+     * the top bar, circles in the bottom one — 8px apart, its glyph 24px, the top bar's last button
+     * 24px from the edge and the bottom bar's first 20px from it, the ⋮ a 32px-wide pill. The tone is
+     * the note's own `--note-tonal` (`palette.css`); the ink is the app's (`--keep-phone-ink`).
      */
     .editor-bar {
-      padding: 8px 26px 8px 8px;
+      padding: 8px 24px 8px 8px;
     }
 
     .editor-bar-actions {
-      gap: 9px;
+      gap: 8px;
     }
 
     .editor-bar-actions :global(.icon-button),
     .toolbar-actions :global(.icon-button) {
-      width: 43px;
-      height: 43px;
-      background: var(--keep-tonal-button);
+      width: 40px;
+      height: 40px;
+      background: var(--note-tonal, var(--keep-tonal-button));
+    }
+
+    /* The note's own ink, as the original's glyphs wear it (measured: on-surface-variant, 0.8 of the
+       text's own). The shared `on-surface` class names a rule that was never written, which left
+       these glyphs in the page's grey. */
+    .editor-bar-actions :global(.icon-button):not(:disabled),
+    .toolbar-actions :global(.icon-button):not(:disabled),
+    .editor-bar :global(.icon-button):not(:disabled) {
+      color: var(--note-fg-secondary);
+    }
+
+    .toolbar-actions :global(.more-options) {
+      width: 32px;
+      border-radius: 16px;
     }
 
     .editor-bar-actions :global(.icon-button) {
@@ -1735,7 +1844,10 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     }
 
     .toolbar {
-      padding: 8px 16px 16px 21px;
+      padding: 8px 24px 16px 20px;
+      /* The buttons lie straight on the note, picture and all, as the original's do: the opaque strip
+         that keeps the desktop's icons off the picture cut the artwork in two here. */
+      background: transparent;
     }
 
     .toolbar-actions {
@@ -1818,8 +1930,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
     /* The phone's title is larger: its capitals measure 15.6px, a 22px face. */
     .title {
-      font-size: 22px;
-      line-height: 28px;
+      font-size: 1.375rem;
+      line-height: 1.75rem;
     }
   }
 </style>

@@ -21,6 +21,12 @@
   }
 
   let shares = $state<ShareRow[]>([]);
+  /**
+   * The original's collaborators are everyone's to see and every editor's to change; the owner heads
+   * the list and is nobody's to remove.
+   */
+  const note = $derived(noteId === null ? undefined : notesState.byIdAnywhere(noteId));
+  const canManage = $derived(note?.canEdit ?? false);
   let email = $state('');
   let permission = $state<SharePermission>('EDIT');
   let loading = $state(false);
@@ -105,27 +111,29 @@
       </button>
     </header>
 
-    <form
-      class="invite"
-      onsubmit={(event) => {
-        event.preventDefault();
-        void invite();
-      }}
-    >
-      <input
-        type="email"
-        placeholder={t('share.emailPlaceholder')}
-        aria-label={t('share.emailLabel')}
-        bind:value={email}
-      />
-      <select bind:value={permission} aria-label={t('share.permissionLabel')}>
-        <option value="EDIT">{t('share.canEdit')}</option>
-        <option value="VIEW">{t('share.viewOnly')}</option>
-      </select>
-      <button type="submit" class="submit" disabled={email.trim().length === 0}>
-        {t('share.invite')}
-      </button>
-    </form>
+    {#if canManage}
+      <form
+        class="invite"
+        onsubmit={(event) => {
+          event.preventDefault();
+          void invite();
+        }}
+      >
+        <input
+          type="email"
+          placeholder={t('share.emailPlaceholder')}
+          aria-label={t('share.emailLabel')}
+          bind:value={email}
+        />
+        <select bind:value={permission} aria-label={t('share.permissionLabel')}>
+          <option value="EDIT">{t('share.canEdit')}</option>
+          <option value="VIEW">{t('share.viewOnly')}</option>
+        </select>
+        <button type="submit" class="submit" disabled={email.trim().length === 0}>
+          {t('share.invite')}
+        </button>
+      </form>
+    {/if}
 
     {#if error}
       <p class="error" role="alert">{error}</p>
@@ -137,6 +145,15 @@
       <p class="muted">{t('share.empty')}</p>
     {:else}
       <ul class="list">
+        {#if note}
+          <li>
+            <Avatar user={note.owner} size={32} />
+            <span class="who">
+              <strong>{note.owner.displayName} <em>({t('share.owner')})</em></strong>
+              <span>{accountName(note.owner)}</span>
+            </span>
+          </li>
+        {/if}
         {#each shares as share (share.user.id)}
           <li>
             <Avatar user={share.user} size={32} />
@@ -144,26 +161,28 @@
               <strong>{share.user.displayName}</strong>
               <span>{accountName(share.user)}</span>
             </span>
-            <select
-              value={share.permission}
-              aria-label={t('share.permissionFor', { name: share.user.displayName })}
-              onchange={(event) =>
-                void changePermission(
-                  share.user.id,
-                  (event.currentTarget as HTMLSelectElement).value as SharePermission
-                )}
-            >
-              <option value="EDIT">{t('share.canEdit')}</option>
-              <option value="VIEW">{t('share.viewOnly')}</option>
-            </select>
-            <button
-              type="button"
-              class="icon-button"
-              aria-label={t('share.remove', { name: share.user.displayName })}
-              onclick={() => void remove(share.user.id)}
-            >
-              <Icon name="close" size={18} />
-            </button>
+            {#if canManage}
+              <select
+                value={share.permission}
+                aria-label={t('share.permissionFor', { name: share.user.displayName })}
+                onchange={(event) =>
+                  void changePermission(
+                    share.user.id,
+                    (event.currentTarget as HTMLSelectElement).value as SharePermission
+                  )}
+              >
+                <option value="EDIT">{t('share.canEdit')}</option>
+                <option value="VIEW">{t('share.viewOnly')}</option>
+              </select>
+              <button
+                type="button"
+                class="icon-button"
+                aria-label={t('share.remove', { name: share.user.displayName })}
+                onclick={() => void remove(share.user.id)}
+              >
+                <Icon name="close" size={18} />
+              </button>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -172,6 +191,11 @@
 </Dialog>
 
 <style>
+  .who em {
+    font-style: normal;
+    font-weight: 400;
+  }
+
   .share {
     display: flex;
     flex-direction: column;
@@ -187,7 +211,7 @@
 
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 500;
   }
 
@@ -232,13 +256,13 @@
   .error {
     margin: 0;
     color: var(--keep-danger);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .muted {
     margin: 0;
     color: var(--keep-text-secondary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.5;
   }
 
@@ -267,7 +291,7 @@
 
   .who span {
     color: var(--keep-text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

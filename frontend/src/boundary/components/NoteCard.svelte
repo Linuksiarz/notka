@@ -438,17 +438,15 @@
         </div>
       {/if}
 
-      {#if note.access === 'OWNER'}
-        <button
-          type="button"
-          class="icon-button on-surface"
-          title={t('card.addCollaborator')}
-          aria-label={t('card.addCollaborator')}
-          onclick={() => ui.openShare(note.id)}
-        >
-          <Icon name="person-add" size={18} />
-        </button>
-      {/if}
+      <button
+        type="button"
+        class="icon-button on-surface"
+        title={t('card.addCollaborator')}
+        aria-label={t('card.addCollaborator')}
+        onclick={() => ui.openShare(note.id)}
+      >
+        <Icon name="person-add" size={18} />
+      </button>
 
       <!-- The original's sixth button is the picture; labels are in its "More" menu, and their
            picker hangs under the card like the palette's. -->
@@ -594,6 +592,18 @@
       border-color var(--keep-duration) var(--keep-ease);
   }
 
+  /* On a phone the editor's container grows out of the card and shrinks back onto it
+     (`editorFlight.ts`), so the card is simply there or not: a fade of its own showed it a second
+     time, faint, after the container had already landed. */
+  @media (max-width: 600px) {
+    .card,
+    .card.being-edited {
+      transition:
+        box-shadow var(--keep-duration) var(--keep-ease),
+        border-color var(--keep-duration) var(--keep-ease);
+    }
+  }
+
   /* Keep answers the pointer with a deeper shadow and nothing else. A card that lifts would also
      make its measured position depend on where the pointer happens to be. */
   .card:hover,
@@ -609,6 +619,15 @@
   .card.selected {
     border-color: var(--keep-select-border);
     box-shadow: 0 0 0 1px var(--keep-select-border);
+  }
+
+  /* The Android app marks a held card with a 3dp ring of its own (measured on an emulator, in both
+     themes) — drawn inside the card's own box, so nothing beside it moves — and no tick. */
+  @media (max-width: 600px) {
+    .card.selected {
+      border-color: transparent;
+      box-shadow: inset 0 0 0 3px var(--keep-phone-select-ring);
+    }
   }
 
   /* Centred on the card's corner, as in the original. Absolute offsets count from the padding box, so
@@ -667,10 +686,10 @@
     margin: 0;
     /* Measured off the original: a card's title is about half again the size of its body text, and
        regular weight rather than medium. */
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 400;
     /* 20px on a 25px line, from the original's DOM. */
-    line-height: 25px;
+    line-height: 1.5625rem;
     word-break: break-word;
   }
 
@@ -682,14 +701,14 @@
    */
   @media (max-width: 600px) {
     .title {
-      font-size: 16px;
-      line-height: 20px;
+      font-size: 1rem;
+      line-height: 1.25rem;
     }
   }
 
   .purge {
     margin: 6px 0 0;
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
   }
 
@@ -727,7 +746,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 11px;
+    font-size: 0.6875rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -754,7 +773,7 @@
 
   .more-collaborators {
     margin-left: 4px;
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
   }
 

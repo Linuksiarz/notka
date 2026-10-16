@@ -142,7 +142,7 @@
 
   .trash-notice {
     font-style: italic;
-    font-size: 17px;
+    font-size: 1.0625rem;
     color: var(--keep-text);
   }
 

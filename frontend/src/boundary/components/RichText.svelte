@@ -23,18 +23,21 @@
   import { Placeholder } from '@tiptap/extensions';
   import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
   import { TextSelection } from '@tiptap/pm/state';
+  import type { EditorView } from '@tiptap/pm/view';
   import { MAX_BLOCK_DEPTH } from '../../entity/api/types';
   import type { NoteDocument } from '../../entity/api/types';
   import { fromProseMirror, toProseMirror } from '../../entity/tiptapDocument';
   import { ui } from '../../control/state/ui.svelte';
   import { t } from '../i18n';
   import { Linkify } from '../editor/linkify';
-  import { DRAGGING_ROW, DraggingRow } from '../editor/draggingRow';
+  import { CARRIED_Y, DRAGGING_ROW, DraggingRow } from '../editor/draggingRow';
+  import { checklistSections, type ChecklistRowShape } from '../../entity/checklistSections';
   import type { DragGeometry } from '../editor/draggingRow';
   import { noteBodyExtensions } from '../editor/noteSchema';
   import { CollabSync, COLLAB_PLUGIN_NAME, collabPlugin, diffSteps, newClientId } from '../editor/collabSync';
   import type { Outgoing } from '../editor/collabSync';
   import { ChecklistCompletion } from '../editor/checklistCompletion';
+  import { ChecklistKeys } from '../editor/checklistKeys';
   import { LabelSuggestion } from '../editor/labelSuggestion';
   import type { LabelChoice, LabelSuggestionState } from '../editor/labelSuggestion';
   import type { Label } from '../../entity/api/types';
@@ -114,6 +117,7 @@
           if (!tearingDown) labelMenu = state;
         }
       }),
+      ChecklistKeys,
       ChecklistCompletion.configure({
         labelFor: (count) => t('notes.completedItems', { count }),
         addItemLabel: t('editor.addListItem')
@@ -130,8 +134,32 @@
     },
     onUpdate: ({ editor: instance }) => {
       onupdate(fromProseMirror(instance.getJSON()));
+    },
+    onFocus: ({ editor: instance }) => {
+      requestAnimationFrame(() => adoptBrowserCaret(instance.view));
     }
   });
+
+  /**
+   * A phone opens a note without the caret (the keyboard stays down), so the first tap is what focuses
+   * the editor. A tap on the empty part of a row — right of its words — makes the browser put the caret
+   * at that row's end, but ProseMirror keeps the selection it already held (the end of the note, where
+   * loading the note left it), and the next keystroke, Tab or Backspace went to the note's last row.
+   * Once the editor has focus the browser's caret is the one the reader sees, so it is taken over.
+   */
+  function adoptBrowserCaret(view: EditorView): void {
+    const selection = window.getSelection();
+    const anchor = selection?.anchorNode;
+    if (!selection || !anchor || !selection.isCollapsed || !view.dom.contains(anchor)) return;
+    let pos: number;
+    try {
+      pos = view.posAtDOM(anchor, selection.anchorOffset);
+    } catch {
+      return;
+    }
+    if (pos === view.state.selection.from && view.state.selection.empty) return;
+    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(pos))));
+  }
 
   /**
    * Puts the editable into the page **the moment its host is**, and takes the editor down with it.
@@ -377,6 +405,25 @@
   }
 
   /**
+   * Where an element is laid out inside the wrapper, from the offsets of each box on the way up. A row
+   * that is sliding into its place carries a `transform`, and that makes it the offset parent of its
+   * own label — so a single `offsetTop` read during a tick's motion was the label's place in its row,
+   * and every moving row's handle landed at the top of the list. Offsets ignore transforms, and the
+   * sum does not depend on which box happens to be the offset parent.
+   */
+  function offsetWithin(element: HTMLElement, host: HTMLElement): { top: number; left: number } {
+    let top = 0;
+    let left = 0;
+    let node: Element | null = element;
+    while (node instanceof HTMLElement && node !== host) {
+      top += node.offsetTop;
+      left += node.offsetLeft;
+      node = node.offsetParent;
+    }
+    return { top, left };
+  }
+
+  /**
    * Where every active row's handle belongs, read off the rows the editor has actually drawn.
    *
    * `offsetLeft`/`offsetTop` are relative to the positioned wrapper these handles are absolutely
@@ -406,12 +453,13 @@
       const line = el.querySelector('label') ?? el;
       // The row's own content start is where its checkbox sits — not the list's box, which carries
       // the checklist's own padding, and not another row's, which is a different row.
-      const left = line.offsetLeft - list.handleOffset - list.handle / 2;
+      const place = offsetWithin(line, host);
+      const left = place.left - list.handleOffset - list.handle / 2;
       found.push({
         row: el,
         // **The row's own line, not its box**: a row of three lines is three lines tall, and the
         // original puts its handle level with the first of them.
-        top: line.offsetTop + line.offsetHeight / 2,
+        top: place.top + line.offsetHeight / 2,
         left,
         held: carried?.el === el
       });
@@ -435,8 +483,8 @@
     // The button sits **inside** the row's right edge rather than centred on it: half a target
     // outside the note is half a target that is not there.
     rowDelete = {
-      top: line.offsetTop + line.offsetHeight / 2,
-      left: target.offsetLeft + target.offsetWidth - ROW_DELETE_SIZE - ROW_DELETE_INSET
+      top: offsetWithin(line, host).top + line.offsetHeight / 2,
+      left: offsetWithin(target, host).left + target.offsetWidth - ROW_DELETE_SIZE - ROW_DELETE_INSET
     };
   }
 
@@ -452,11 +500,16 @@
     return 0;
   }
 
+  /** A control's `top` beside a row: the carried row's follows the hand through `CARRIED_Y`. */
+  function placedTop(top: number, row: HTMLElement | null): string {
+    return row && dragging && isCarried(row) ? `calc(${top}px + var(${CARRIED_Y}, 0px))` : `${top + (row ? shiftOf(row) : 0)}px`;
+  }
+
   /** Where the band is drawn, in the wrapper's coordinates: the carried row's box, at the hand. */
   function bandTop(): number {
     const current = drag;
     const row = current ? current.rows[current.carried] : undefined;
-    return row && current ? row.top + current.carriedShift : 0;
+    return row && current ? row.top : 0;
   }
 
   /** How far a row's content is drawn out of its own indent right now: the carried row's level. */
@@ -636,8 +689,8 @@
   /**
    * What the hand is asking for: the place the row lands in, and the level it lands at.
    *
-   * - **The place is the gap the row is over.** Every row of the closed-up list whose own middle is
-   *   above the carried row's middle is a row the carried row stands after. The list is read *closed
+   * - **The place is the gap nearest to where the row is drawn**, each gap of the closed-up list
+   *   starting where the row before it ends. The list is read *closed
    *   up* — the frame that does not move for the whole gesture — and never from where the carried row
    *   happens to be drawn: a rule that compared the hand against the rows as they move has two answers
    *   for one hand position (the rows move *because* of the answer), and the row then walks away on
@@ -659,14 +712,31 @@
       Math.max(wanted, current.listTop),
       Math.max(current.listBottom - height, current.listTop)
     );
-    const middle = wanted + height / 2;
 
+    // The gap nearest to where the row is drawn: each gap of the closed-up list starts where the row
+    // before it ends. At the start of the gesture the row is exactly over its own gap, and it stays there
+    // until it is drawn half a row closer to another — a rule that compared middles had the next row's
+    // middle exactly at the carried row's own, so the first pixel of downward wobble in a sideways
+    // (indenting) pull put the row after its neighbour.
     let gap = 0;
+    let nearest = Infinity;
+    let slot = 0;
+    let slotTop = current.listTop;
+    const consider = () => {
+      const distance = Math.abs(wanted - slotTop);
+      if (distance < nearest) {
+        nearest = distance;
+        gap = slot;
+      }
+    };
+    consider();
     for (let index = 0; index < current.rows.length; index += 1) {
       if (index === current.carried) continue;
       const row = current.rows[index];
       if (!row) continue;
-      if (collapsedTop(current, index) + row.height / 2 < middle) gap += 1;
+      slot += 1;
+      slotTop = collapsedTop(current, index) + row.height;
+      consider();
     }
 
     // The hand travels **half** a level to the side to ask for the other one — the same "has the hand
@@ -730,14 +800,22 @@
     );
     if (elements.length !== list.childCount) return;
 
-    const rows: DragRow[] = [];
+    // The rows the hand moves among are the **active** ones, in the order they are drawn: the ticked rows
+    // stand in the document among them (a ticked row stays under its parent) but are drawn in the
+    // completed section, and a drag never carries a row into or across that section.
+    const all: DragRow[] = [];
+    const shapes: ChecklistRowShape[] = [];
     let offset = 0;
     for (let index = 0; index < list.childCount; index += 1) {
       const child = list.child(index);
       const element = elements[index];
-      if (element) rows.push({ el: element, pos: source.listPos + 1 + offset, top: element.offsetTop, height: element.offsetHeight });
+      if (element) all.push({ el: element, pos: source.listPos + 1 + offset, top: wrapper ? offsetWithin(element, wrapper).top : element.offsetTop, height: element.offsetHeight });
+      shapes.push({ checked: child.attrs.checked === true, depth: Number(child.attrs.depth ?? 0) || 0 });
       offset += child.nodeSize;
     }
+    const rows = checklistSections(shapes)
+      .active.map((index) => all[index])
+      .filter((entry): entry is DragRow => entry !== undefined);
 
     const carried = rows.findIndex((entry) => entry.el === row);
     const grabbed = rows[carried];
@@ -815,6 +893,19 @@
     if (!event || !current || !host) return;
 
     const place = placeFor(current, event.clientY - host.getBoundingClientRect().top, event.clientX);
+    // The row under the hand moves every frame, and that is a single custom property on the wrapper:
+    // the carried row, its band, its handle and its ✕ all read it, so a frame of following the finger
+    // costs the compositor and nothing else. Dispatching a transaction per frame — which is what this
+    // did — recomputed every plugin's decorations and re-rendered the component, and a phone dropped
+    // frames under the finger. The editor only hears about the drag when the arrangement changes.
+    host.style.setProperty(CARRIED_Y, `${Math.round(place.shift)}px`);
+    if (
+      place.gap === current.gap &&
+      place.depth === current.depth &&
+      Math.round(place.indent) === Math.round(current.carriedIndent)
+    ) {
+      return;
+    }
     current.gap = place.gap;
     current.depth = place.depth;
     current.carriedShift = place.shift;
@@ -855,6 +946,7 @@
       frameRequest = 0;
     }
     pending = null;
+    wrapper?.style.removeProperty(CARRIED_Y);
     drag = null;
     dragging = false;
   }
@@ -879,28 +971,50 @@
       return;
     }
 
-    // Where the row goes, counted over the rows that stay: the position just after the `to`-th of
-    // them, in the list as it is before the row is taken out.
-    let insertAt = current.listPos + 1;
-    let counted = 0;
-    let offset = 0;
-    for (let index = 0; index < list.childCount && counted < to; index += 1) {
-      const child = list.child(index);
-      const pos = current.listPos + 1 + offset;
-      offset += child.nodeSize;
-      if (pos === carried.pos) continue;
-      insertAt += child.nodeSize;
-      counted += 1;
+    // Where the row goes: just after the active row it is dropped under (or before the first active
+    // row), and past the ticked rows nested under that one — they are drawn in the completed section,
+    // but in the document they are its parent's, and a row put in front of them would become their
+    // parent instead.
+    const staying = current.rows.filter((_, index) => index !== current.carried);
+    const before = staying[to - 1];
+    let insertAt = staying[0]?.pos ?? current.listPos + 1;
+    if (before) {
+      insertAt = before.pos + (editor.state.doc.nodeAt(before.pos)?.nodeSize ?? 0);
+      let next = editor.state.doc.nodeAt(insertAt);
+      while (
+        next &&
+        next.type.name === 'taskItem' &&
+        next.attrs.checked === true &&
+        (Number(next.attrs.depth ?? 0) || 0) > 0 &&
+        insertAt !== carried.pos
+      ) {
+        insertAt += next.nodeSize;
+        next = editor.state.doc.nodeAt(insertAt);
+      }
     }
 
     const state = editor.state;
     const inside = state.selection.from > carried.pos && state.selection.to < carried.pos + item.nodeSize;
     const caret = inside ? state.selection.from - (carried.pos + 1) : null;
 
+    // A top-level row takes the ticked rows nested under it along: they are drawn in the completed
+    // section under its greyed copy, and left behind they would belong to the row above instead.
+    const along: ProseMirrorNode[] = [];
+    let end = carried.pos + item.nodeSize;
+    if ((Number(item.attrs.depth ?? 0) || 0) === 0) {
+      let next = state.doc.nodeAt(end);
+      while (next && next.type.name === 'taskItem' && next.attrs.checked === true && (Number(next.attrs.depth ?? 0) || 0) > 0) {
+        along.push(next);
+        end += next.nodeSize;
+        next = state.doc.nodeAt(end);
+      }
+    }
+    if (insertAt > carried.pos && insertAt < end) return clearDragDrawing();
+
     const tr = state.tr;
-    tr.delete(carried.pos, carried.pos + item.nodeSize);
+    tr.delete(carried.pos, end);
     const at = tr.mapping.map(insertAt, -1);
-    tr.insert(at, item.type.create({ ...item.attrs, depth: current.depth }, item.content, item.marks));
+    tr.insert(at, [item.type.create({ ...item.attrs, depth: current.depth }, item.content, item.marks), ...along]);
     if (caret !== null) {
       const paragraph = tr.doc.nodeAt(at);
       const limit = Math.max((paragraph?.content.size ?? 0) + 1, 1);
@@ -1079,7 +1193,7 @@
       type="button"
       class="row-delete"
       class:on-band={dragging && isCarried(deleteTarget)}
-      style="top: {rowDelete.top + shiftOf(deleteTarget)}px; left: {rowDelete.left}px"
+      style="top: {placedTop(rowDelete.top, deleteTarget)}; left: {rowDelete.left}px"
       aria-label={t('editor.deleteItem')}
       title={t('editor.deleteItem')}
       onmousedown={(event) => event.preventDefault()}
@@ -1097,7 +1211,7 @@
          will land at, and a shadow would travel with it and leave a strip of the note beside it. -->
     <div
       class="drag-band"
-      style="top: {bandTop()}px; height: {drag.bandHeight}px; left: {drag.bandLeft}px; right: {drag
+      style="top: calc({bandTop()}px + var({CARRIED_Y}, 0px)); height: {drag.bandHeight}px; left: {drag.bandLeft}px; right: {drag
         .bandRight}px"
     ></div>
   {/if}
@@ -1108,7 +1222,7 @@
         type="button"
         class="drag-handle"
         class:held={handle.held}
-        style="top: {handle.top + shiftOf(handle.row)}px; left: {handle.left +
+        style="top: {placedTop(handle.top, handle.row)}; left: {handle.left +
           indentOf(handle.row)}px; width: {list.handle}px"
         aria-label={t('editor.reorderItem')}
         title={t('editor.reorderItem')}
@@ -1143,8 +1257,8 @@
     outline: none;
     flex: 1 1 auto;
     color: inherit;
-    font-size: 14px;
-    line-height: 24px;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
     word-break: break-word;
   }
 
@@ -1171,15 +1285,15 @@
   }
 
   :global(.note-body h1) {
-    font-size: 22px;
+    font-size: 1.375rem;
   }
 
   :global(.note-body h2) {
-    font-size: 18px;
+    font-size: 1.125rem;
   }
 
   :global(.note-body h3) {
-    font-size: 16px;
+    font-size: 1rem;
   }
 
   :global(.note-body ul),
@@ -1198,7 +1312,8 @@
   /* A row is its line — 24px — with the original's own 7px of air above and below it, so its text sits
      in the middle of its box and a second line makes the row 24px taller rather than shifting what is
      already written. Measured: a three-line row there is 84px tall, and 3 x 24 + 14 = 86 here. */
-  :global(.note-body li[data-checked]) {
+  :global(.note-body li[data-checked]),
+  :global(.note-body li.completed-ghost) {
     padding: 7px 0;
   }
 
@@ -1220,18 +1335,24 @@
      remaining **10px** (on a phone the Android app's checkbox is 66px in, so the list adds 45). (Spelling the 26px here instead put the checkbox at 42px from the card's edge
      and every row 16px right of the original's, which is what the side-by-side showed.) The indent is
      also what leaves the handle a margin to hang in rather than a strip of the note's edge. */
+  /* A flex column, so the sections are drawn by each row's `order` and the rows themselves stay where
+     the document has them (`checklistCompletion.ts`). */
   :global(.note-body ul[data-type='taskList']) {
+    display: flex;
+    flex-direction: column;
     list-style: none;
     padding-left: var(--list-inset);
   }
 
-  :global(.note-body li[data-checked]) {
+  :global(.note-body li[data-checked]),
+  :global(.note-body li.completed-ghost) {
     display: flex;
     align-items: flex-start;
     gap: 13px;
   }
 
-  :global(.note-body li[data-checked] > label) {
+  :global(.note-body li[data-checked] > label),
+  :global(.note-body li.completed-ghost > label) {
     display: inline-flex;
     align-items: center;
     height: 24px;
@@ -1242,7 +1363,8 @@
    * in with a white tick once it is ticked — the original's own treatment. `accent-color` alone left
    * the platform's control there, which is what looked wrong next to it.
    */
-  :global(.note-body li[data-checked] > label > input) {
+  :global(.note-body li[data-checked] > label > input),
+  :global(.note-body li.completed-ghost > label > input) {
     appearance: none;
     position: relative;
     /* Measured off the original: the box is **14x14** with a thin outline, where ours was 18. */
@@ -1279,7 +1401,8 @@
     mask-repeat: no-repeat;
   }
 
-  :global(.note-body li[data-checked] > div) {
+  :global(.note-body li[data-checked] > div),
+  :global(.note-body li.completed-ghost > div) {
     flex: 1 1 auto;
     min-width: 0;
   }
@@ -1350,6 +1473,23 @@
     /* The box the decoration draws the shared chevron into; the size itself lives in the module. */
     width: 20px;
     height: 20px;
+  }
+
+  /* The greyed copy of an unticked parent above its ticked rows in the section — the row as the list
+     draws it, unticked and inert, the way the Android app draws it. */
+  :global(.note-body li.completed-ghost) {
+    opacity: 0.38;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* The Android app draws no line over its "Checked items" (recorded on an emulator); the web
+     original's 1px line is the desktop's. */
+  @media (max-width: 600px) {
+    :global(.note-body .completed-row),
+    :global(:root[data-theme='dark'] .note-body .completed-row) {
+      border-top: 0;
+    }
   }
 
   /* A folded section still has its heading; only the rows go. Declared after the flex rule on a
@@ -1501,15 +1641,17 @@
    */
   @media (max-width: 600px) {
     :global(.note-body) {
-      font-size: 16px;
+      font-size: 1rem;
     }
 
-    :global(.note-body li[data-checked]) {
+    :global(.note-body li[data-checked]),
+    :global(.note-body li.completed-ghost) {
       padding: 14px 0;
       gap: 16px;
     }
 
-    :global(.note-body li[data-checked] > label > input) {
+    :global(.note-body li[data-checked] > label > input),
+    :global(.note-body li.completed-ghost > label > input) {
       width: 19px;
       height: 19px;
       border-width: 2px;
@@ -1539,7 +1681,7 @@
     min-height: 32px;
     padding: 4px 16px;
     color: inherit;
-    font-size: 14px;
+    font-size: 0.875rem;
     text-align: left;
   }
 

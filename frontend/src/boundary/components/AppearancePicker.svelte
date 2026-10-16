@@ -217,9 +217,9 @@
 
   .sheet .heading {
     margin: 20px 26px 13px;
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 500;
-    line-height: 24px;
+    line-height: 1.5rem;
   }
 
   .sheet .row {

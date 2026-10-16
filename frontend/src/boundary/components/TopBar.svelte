@@ -15,6 +15,7 @@
   import BrandMark from './BrandMark.svelte';
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
+  import PhoneSelectionBar from './PhoneSelectionBar.svelte';
   import { NOTE_SORTS } from '../../entity/noteOrder';
   import { DropdownMenu } from 'bits-ui';
 
@@ -211,7 +212,15 @@
   </div>
 </Sheet>
 
-<header class="topbar" data-scrolled={scrolled}>
+<header class="topbar" data-scrolled={scrolled} class:phone-selecting={ui.phone && ui.selecting}>
+  {#if ui.phone && ui.selecting}
+    <PhoneSelectionBar
+      onArchive={() => void archiveSelected()}
+      onTrash={() => void trashSelected()}
+      onSelectAll={selectAll}
+      onDownload={downloadSelected}
+    />
+  {:else}
   <div class="brand-block">
     <button
       type="button"
@@ -233,7 +242,7 @@
     {/if}
   </div>
 
-  {#if ui.selecting}
+  {#if ui.selecting && !ui.phone}
     <!-- The selection bar takes the header over, the way Keep swaps the search field for it. -->
     <div class="selection" role="toolbar" aria-label={t('selection.count', { count: ui.selectedNoteIds.length })}>
       <button
@@ -432,6 +441,7 @@
     {/if}
   </div>
   {/if}
+  {/if}
 </header>
 
 <style>
@@ -494,7 +504,7 @@
   }
 
   .selection-count {
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 500;
   }
 
@@ -525,7 +535,7 @@
     outline: none;
     background: transparent;
     color: var(--keep-text);
-    font-size: 16px;
+    font-size: 1rem;
   }
 
   .search input::placeholder {
@@ -583,8 +593,8 @@
     align-items: center;
     min-height: 32px;
     padding: 5px 10px 5px 17px;
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
     color: var(--keep-text);
     cursor: pointer;
     outline: none;
@@ -637,7 +647,7 @@
 
   .identity span {
     color: var(--keep-text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   /* The sidebar owns the menu button on wide screens; the top bar only needs one when the
@@ -673,7 +683,7 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 22px;
+    font-size: 1.375rem;
     font-weight: 500;
     letter-spacing: 0.2px;
     color: var(--keep-text);
@@ -686,7 +696,7 @@
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
-    font-size: 22px;
+    font-size: 1.375rem;
     font-weight: 500;
     letter-spacing: 0.2px;
     color: var(--keep-text);

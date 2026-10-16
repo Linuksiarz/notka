@@ -141,13 +141,13 @@
 
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 500;
   }
 
   .heading {
     margin: 8px 0 0;
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 500;
     letter-spacing: 0.8px;
     text-transform: uppercase;
@@ -188,20 +188,20 @@
 
   .what small {
     color: var(--keep-text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .muted {
     margin: 0;
     color: var(--keep-text-secondary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.5;
   }
 
   .error {
     margin: 0;
     color: var(--keep-danger);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .done {

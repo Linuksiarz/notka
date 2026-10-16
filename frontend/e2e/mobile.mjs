@@ -183,8 +183,25 @@ const at = { pointerType: 'touch', isPrimary: true, clientX: heldBox.x + 40, cli
 await held.dispatchEvent('pointerdown', at);
 await page.waitForTimeout(600);
 await held.dispatchEvent('pointerup', at);
-const picked = await page.locator('.selection').count();
-check('holding a finger on a card picks it', picked === 1, `selection bars: ${picked}`);
+const picked = await page.evaluate(() => {
+  const bar = document.querySelector('.phone-selection');
+  const card = document.querySelector('.card.selected');
+  return {
+    bar: Boolean(bar),
+    height: bar ? Math.round(bar.getBoundingClientRect().height) : null,
+    count: bar?.querySelector('.count')?.textContent ?? null,
+    actions: bar ? bar.querySelectorAll('button').length : 0,
+    ring: card ? getComputedStyle(card).boxShadow : null,
+    tick: document.querySelectorAll('.card-tick').length > 0 && getComputedStyle(document.querySelector('.card-tick')).display !== 'none'
+  };
+});
+// Measured on the Android app (emulator): the header becomes a 72dp bar with ✕, the bare count and five
+// actions (pin, reminder, colour, labels, ⋮), and the held card wears a 3dp ring with no tick.
+check(
+  "holding a finger on a card picks it, with the Android app's selection bar and ring",
+  picked.bar && picked.height === 72 && picked.count === '1' && picked.actions === 6 && /3px/.test(picked.ring ?? '') && !picked.tick,
+  JSON.stringify(picked)
+);
 await page.getByRole('button', { name: 'Clear selection' }).click().catch(() => {});
 await page.waitForTimeout(300);
 
@@ -225,7 +242,7 @@ const bar = await page.evaluate(() => {
     undo: document.querySelector('.toolbar [aria-label="Undo"]')?.hasAttribute('disabled')
   };
 });
-// Measured off the original's Android app: the pin, the bell and the archive on 43px buttons in the
+// Measured off the original's Android app: the pin, the bell and the archive on 40px buttons in the
 // bar, 8px above and below them — none of them in the title's row.
 check(
   "the editor has the original's own bar: back, pin, reminder and archive",
@@ -235,8 +252,8 @@ check(
     bar.archive === 1 &&
     bar.headBell === 0 &&
     bar.headPin === 0 &&
-    bar.button === 43 &&
-    bar.height === 59,
+    bar.button === 40 &&
+    bar.height === 56,
   JSON.stringify(bar)
 );
 // Loading the note is not the reader's edit: an Undo enabled here took the note back to empty, and
@@ -249,6 +266,33 @@ check(
 );
 
 // the pickers must stay inside the window, at every width a phone can be
+// The system's Back leaves the note, not the app: the editor owns one history entry while it is open.
+// (A phone's Back button and gesture are `history.back()` to the page.)
+const addressBefore = page.url();
+await page.goBack();
+await page.waitForTimeout(700);
+const afterBack = { editor: await page.locator('.editor').count(), address: page.url() };
+check(
+  "the system's Back leaves the note and stays in the app",
+  afterBack.editor === 0 && afterBack.address === addressBefore,
+  JSON.stringify(afterBack)
+);
+await page.locator('.card').first().click();
+await page.waitForSelector('.editor', { timeout: 10_000 });
+await page.waitForTimeout(500);
+const entryOpen = await page.evaluate(() => window.history.state?.notkaEditor === true);
+await page.locator('[aria-label="Back to notes"]').click();
+await page.waitForTimeout(900);
+const entryAfter = await page.evaluate(() => window.history.state?.notkaEditor === true);
+check(
+  'the note owns one history entry while it is open, and closing it by its own arrow gives that entry back',
+  entryOpen && !entryAfter && (await page.locator('.editor').count()) === 0 && page.url() === addressBefore,
+  `entry while open: ${entryOpen}, after closing: ${entryAfter}`
+);
+await page.locator('.card').first().click();
+await page.waitForSelector('.editor', { timeout: 10_000 });
+await page.waitForTimeout(500);
+
 const pickers = [];
 for (const width of [360, 393, 412]) {
   await page.setViewportSize({ width, height: 893 });
@@ -347,16 +391,36 @@ check(
   JSON.stringify({ formatBar, boldText, h1InRow })
 );
 
-// The list's own ⋮ beside its title: tick the first row, then delete the ticked rows.
-await page.locator('.editor li[data-checked] input').first().click();
-await page.waitForTimeout(400);
+// The Android app's nested tick: ticking a nested row leaves its parent where it is and draws the row
+// in the completed section under a greyed copy of the parent; the list's own ⋮ then deletes it.
+await page.locator('.editor li[data-checked]:has(p:text-is("inner")) input').click();
+await page.waitForTimeout(500);
+const nestedTick = await page.evaluate(() => {
+  const list = document.querySelector('.editor ul[data-type="taskList"]');
+  const drawn = [...(list?.children ?? [])]
+    .filter((child) => getComputedStyle(child).display !== 'none')
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+    .map((child) =>
+      child.classList.contains('completed-ghost') ? `ghost:${child.textContent.trim()}` : (child.querySelector('p')?.textContent ?? '').trim() || child.className
+    );
+  return drawn.filter((entry) => entry.length > 0);
+});
+check(
+  'a ticked nested row is drawn under a greyed copy of its parent, which stays in the list',
+  JSON.stringify(
+    nestedTick
+      .filter((entry) => !entry.startsWith('add-item') && !entry.startsWith('completed-row'))
+      .map((entry) => entry.split(' ')[0])
+  ) === JSON.stringify(['outer', 'ghost:outer', 'inner']),
+  JSON.stringify(nestedTick)
+);
 await page.getByRole('button', { name: 'List options' }).click();
 await page.getByRole('button', { name: 'Delete checked items' }).click();
 await page.waitForTimeout(600);
 const remaining = await page.locator('.editor li[data-checked]').allTextContents();
 check(
-  "the list's ⋮ deletes the checked rows, and the row that was under one moves up a level",
-  remaining.length === 1 && remaining[0].includes('inner') &&
+  "the list's ⋮ deletes the checked rows and leaves their parent",
+  remaining.length === 1 && remaining[0].includes('outer') &&
     (await page.locator('.editor li[data-checked]').first().getAttribute('data-depth')) === '0',
   JSON.stringify(remaining)
 );

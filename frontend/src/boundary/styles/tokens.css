@@ -52,6 +52,14 @@
   /* Note text on a colored card */
   --keep-note-text: #202124;
   --keep-note-text-secondary: rgba(32, 33, 36, 0.72);
+  /* The Android app's selection bar and the ring around a picked card, measured on an emulator:
+     the light theme's bar is the header's own surface with its shadow under it. */
+  --keep-selection-bar: #faf8ff;
+  --keep-selection-edge: 0 2px 6px rgba(0, 0, 0, 0.12);
+  --keep-phone-select-ring: #495d92;
+  /* The Android app's ink on a note, measured in an emulator: its text and, lighter, its glyphs. */
+  --keep-phone-ink: #1a1b21;
+  --keep-phone-glyph: #45464f;
 
   /* Elevation (Keep uses very flat cards; dialogs get the only real shadow) */
   /* Keep's cards are flat in both themes: a plain note is outlined, a coloured one carries its own
@@ -272,6 +280,12 @@
 
   --keep-note-text: #e8eaed;
   --keep-note-text-secondary: rgba(232, 234, 237, 0.72);
+  --keep-phone-ink: #e3e2e9;
+  /* The dark theme's bar is darker than the header, which shows as a 12dp strip under it. */
+  --keep-selection-bar: #121318;
+  --keep-selection-edge: 0 12px 0 #38393f;
+  --keep-phone-select-ring: #b2c5ff;
+  --keep-phone-glyph: #c5c6d0;
 
   /* Measured off Google Keep in its dark theme: the card carries a 1px light border and no shadow
      at all. Keeping the surface colour equal to the page is what makes that border do the work. */

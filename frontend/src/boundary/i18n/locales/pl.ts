@@ -197,6 +197,7 @@ export const pl: Messages = {
     'Nikt inny nie widzi jeszcze tej notatki. Każdy, komu ją udostępnisz, widzi ten sam kolor i tło, a każdy z uprawnieniem „może edytować” może je zmienić wszystkim.',
   'share.permissionFor': 'Uprawnienie dla {name}',
   'share.remove': 'Usuń {name}',
+  'share.owner': 'Właściciel',
 
   'notes.headingArchive': 'Archiwum',
   'notes.emptySearch': 'Żadna notatka nie pasuje do wyszukiwania',
@@ -354,9 +355,9 @@ export const pl: Messages = {
   'errors.note.version_conflict':
     'Ktoś zmienił tę notatkę, gdy ją edytowałeś. Twoja treść nie została zapisana.',
   'errors.share.recipient_not_found': 'Żadne konto Notki nie używa adresu {email}.',
-  'errors.share.cannot_share_with_self': 'Jesteś już właścicielem tej notatki.',
+  'errors.share.cannot_share_with_self': 'Masz już dostęp do tej notatki.',
   'errors.share.already_shared': 'Ta notatka jest już udostępniona adresowi {email}.',
-  'errors.share.not_owner': 'Tylko właściciel może zarządzać współpracownikami.',
+  'errors.share.not_owner': 'Tylko właściciel notatki może to zrobić.',
   'errors.share.not_found': 'Ten współpracownik nie ma dostępu do tej notatki.',
   'errors.label.not_found': 'Taka etykieta nie istnieje.',
   'errors.label.name_taken': 'Masz już etykietę o nazwie {label}.',

@@ -27,6 +27,7 @@
   import { pendingWrites } from '../control/state/pendingWrites.svelte';
   import { toast } from 'svelte-sonner';
   import { followSystemBar } from './systemBar';
+  import { followVisualViewport } from './visualViewport';
 
   let booted = $state(false);
 
@@ -48,6 +49,7 @@
 
   // The status bar of the installed app wears whatever is at the top of the screen, as a native one does.
   onMount(followSystemBar);
+  onMount(followVisualViewport);
 
   onMount(() => {
     ui.init();

@@ -2,6 +2,7 @@
   import type { NoteDocument } from '../../entity/api/types';
   import { listNumbers } from '../../entity/noteDocument';
   import { COMPLETED_SECTION } from '../editor/completedSection';
+  import { checklistSections } from '../../entity/checklistSections';
   import { t } from '../i18n';
   import Icon from './Icon.svelte';
 
@@ -19,18 +20,44 @@
 
   let { document, maxBlocks, groupCompleted = false }: Props = $props();
 
-  let completedOpen = $state(true);
-
-  const all = $derived(maxBlocks ? document.blocks.slice(0, maxBlocks) : document.blocks);
+  /**
+   * A card draws no empty lines at its end: the original's cards do not, and every list note stored
+   * before the editor stopped adding one (`noteSchema.ts`, `trailingNode`) carries an empty paragraph
+   * after its list.
+   */
+  const written = $derived.by(() => {
+    let end = document.blocks.length;
+    while (end > 1) {
+      const last = document.blocks[end - 1];
+      if (!last || last.type !== 'paragraph' || last.spans.some((span) => span.text.length > 0)) break;
+      end -= 1;
+    }
+    return document.blocks.slice(0, end);
+  });
+  const all = $derived(maxBlocks ? written.slice(0, maxBlocks) : written);
   const numbers = $derived(listNumbers(document.blocks));
-  const truncated = $derived(maxBlocks !== undefined && document.blocks.length > maxBlocks);
+  const truncated = $derived(maxBlocks !== undefined && written.length > maxBlocks);
 
-  const done = $derived(groupCompleted ? all.filter((block) => block.checked === true) : []);
-  const blocks = $derived(
-    done.length > 0 ? all.filter((block) => block.checked !== true) : all
+  /** The two sections a list is drawn in — the editor's own rule (`entity/checklistSections.ts`). */
+  const sections = $derived(
+    groupCompleted
+      ? checklistSections(
+          all.map((block) => ({ checked: block.type === 'checklist' && block.checked === true, depth: block.depth ?? 0 }))
+        )
+      : null
   );
+  const blocks = $derived(sections ? sections.active.flatMap((index) => all[index] ?? []) : all);
+  const completed = $derived(
+    sections
+      ? sections.completed.map((group) => ({
+          ghost: group.ghost === null ? null : (all[group.ghost] ?? null),
+          rows: group.rows.flatMap((index) => all[index] ?? [])
+        }))
+      : []
+  );
+  const completedCount = $derived(sections?.completedCount ?? 0);
 
-  const completedLabel = $derived(t('notes.completedItems', { count: done.length }));
+  const completedLabel = $derived(t('notes.completedItems', { count: completedCount }));
 
   function safeHref(href: string | undefined): string | null {
     if (!href) return null;
@@ -134,18 +161,23 @@
       </span>
     </div>
   {/each}
-  {#if done.length > 0}
-    <button
-      type="button"
-      class={COMPLETED_SECTION.toggle}
-      aria-expanded={completedOpen}
-      onclick={() => (completedOpen = !completedOpen)}
-    >
-      <Icon name={completedOpen ? 'expand-more' : 'chevron-right'} size={18} />
+  {#if completedCount > 0}
+    <!-- A heading, not a control: on a card a click anywhere opens the note, the line and this label
+         included. Folding the section is the editor's own (`completedSection.ts`). -->
+    <div class={COMPLETED_SECTION.toggle}>
+      <Icon name="expand-more" size={18} />
       <span>{completedLabel}</span>
-    </button>
-    {#if completedOpen}
-      {#each done as block (block.id)}
+    </div>
+    {#each completed as group, groupIndex (groupIndex)}
+      {#if group.ghost}
+        <!-- The unticked parent of these rows, greyed: it is still in the list above, and drawn again
+             here so the rows read as its own (the Android app's "Checked items"). -->
+        <div class="line checklist {COMPLETED_SECTION.ghost}" data-type="checklist" style="--depth: {group.ghost.depth ?? 0}">
+          <span class="checkbox"></span>
+          <span class="text">{group.ghost.spans.map((span) => span.text).join('')}</span>
+        </div>
+      {/if}
+      {#each group.rows as block (block.id)}
         <div class="line checklist checked" data-type={block.type} style="--depth: {block.depth ?? 0}">
           <span class="checkbox on"><Icon name="check" size={14} /></span>
           <span class="text">
@@ -162,7 +194,7 @@
           </span>
         </div>
       {/each}
-    {/if}
+    {/each}
   {/if}
 
   {#if truncated}
@@ -179,8 +211,8 @@
     white-space: pre-wrap;
     /* Measured off the original's own card: the note text is 16px on a 24px line. Ours inherited the
        app's 14px, which is why the same address wrapped into three lines there and four here. */
-    font-size: 16px;
-    line-height: 24px;
+    font-size: 1rem;
+    line-height: 1.5rem;
   }
 
 
@@ -191,8 +223,8 @@
    */
   @media (max-width: 600px) {
     .note-content {
-      font-size: 12px;
-      line-height: 15px;
+      font-size: 0.75rem;
+      line-height: 0.9375rem;
     }
 
   }
@@ -226,18 +258,18 @@
      follow: 20/18/16px and 24/22/20px become 15/13.5/12px and 18/16.5/15px. */
   @media (max-width: 600px) {
     .line[data-type='heading1'] .text {
-      font-size: 15px;
-      line-height: 18px;
+      font-size: 0.9375rem;
+      line-height: 1.125rem;
     }
 
     .line[data-type='heading2'] .text {
-      font-size: 13.5px;
-      line-height: 16.5px;
+      font-size: 0.8438rem;
+      line-height: 1.0312rem;
     }
 
     .line[data-type='heading3'] .text {
-      font-size: 12px;
-      line-height: 15px;
+      font-size: 0.75rem;
+      line-height: 0.9375rem;
     }
   }
 
@@ -264,7 +296,7 @@
     padding: 14px 0 2px;
     border-top: 1px solid rgba(0, 0, 0, 0.1);
     color: var(--note-fg-secondary, var(--keep-text-secondary));
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     text-align: left;
   }
@@ -337,7 +369,38 @@
     text-decoration: underline;
   }
 
+  /* The greyed copy of an unticked parent above its ticked rows (`entity/checklistSections.ts`). */
+  .completed-ghost {
+    opacity: 0.38;
+  }
+
   .more {
     color: var(--note-fg-secondary, var(--keep-text-secondary));
+  }
+
+  @media (max-width: 600px) {
+    /* The checkbox is sized by the text and centred on its first line: measured off the Android app on
+       an emulator, the box is 11dp beside 14sp text (0.78 of the font) and its centre is the capitals'
+       own, to 0.4dp. A fixed 18px box was taller than the phone's 15px line, so the text sat above it. */
+    .checkbox {
+      width: 0.78em;
+      height: 0.78em;
+      margin-top: calc((1lh - 0.78em) / 2);
+      border-width: 1px;
+      border-radius: 2px;
+    }
+
+    .checkbox :global(svg) {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  /* The Android app's card has no line over its checked items, as its editor has none. */
+  @media (max-width: 600px) {
+    .completed-toggle,
+    :global(:root[data-theme='dark']) .completed-toggle {
+      border-top: 0;
+    }
   }
 </style>

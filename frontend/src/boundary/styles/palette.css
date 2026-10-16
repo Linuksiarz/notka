@@ -5,6 +5,14 @@
 /* ---------------------------------------------------------------- colors (11 + default) */
 
 /*
+ * `--note-tonal` is the fill of the phone editor's round and square buttons on a coloured note. It is a
+ * colour of its own per note colour and theme, not an overlay of white or black — measured 2026-10-15
+ * off the Android app on an emulator (every colour, both themes), and the yellow's agrees with the
+ * owner's own phone. A plain note's is `--keep-tonal-button`, because Keep draws that one from the
+ * device's own colour scheme.
+ */
+
+/*
  * The values are the original's current palette, read from its colour picker's DOM on 2026-10-13 in
  * both themes (Coral, Peach, Sand, Mint, Sage, Fog, Storm, Dusk, Blossom, Clay, Chalk — the ids stay
  * the API's). The palette this file carried before was the original's older, more saturated one.
@@ -31,155 +39,147 @@
   --note-swatch-border: var(--keep-divider);
 }
 
-[data-color='red'] {
-  --note-bg: #faafa8;
+/*
+ * The ink is the same on every colour: only the background (and the swatch and the tonal fill measured
+ * with it) is a colour's own. A coloured note's border is its own colour, so it draws none.
+ */
+[data-color]:not([data-color='default']) {
   --note-fg: #202124;
   --note-fg-secondary: rgba(32, 33, 36, 0.72);
   --note-border: transparent;
+}
+
+:root[data-theme='dark'] [data-color] {
+  --note-fg: #e8eaed;
+  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+}
+
+/*
+ * The phone's editor wears the Android app's own ink — one pair for every colour, the text's and,
+ * a step lighter, the glyphs' — measured in an emulator (`docs/METRICS.md`). It follows the two rules
+ * above, with the specificity to win over the dark theme's.
+ */
+@media (max-width: 600px) {
+  :root .editor[data-color] {
+    --note-fg: var(--keep-phone-ink);
+    --note-fg-secondary: var(--keep-phone-glyph);
+  }
+}
+
+[data-color='red'] {
+  --note-bg: #faafa8;
   --note-swatch: #faafa8;
+  --note-tonal: #fda49c;
 }
 [data-color='orange'] {
   --note-bg: #f39f76;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #f39f76;
+  --note-tonal: #ffb693;
 }
 [data-color='yellow'] {
   --note-bg: #fff8b8;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #fff8b8;
+  --note-tonal: #eee58c;
 }
 [data-color='green'] {
   --note-bg: #e2f6d3;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #e2f6d3;
+  --note-tonal: #c4efac;
 }
 [data-color='teal'] {
   --note-bg: #b4ddd3;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #b4ddd3;
+  --note-tonal: #83d5c5;
 }
 [data-color='blue'] {
   --note-bg: #d4e4ed;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #d4e4ed;
+  --note-tonal: #e0f4ff;
 }
 [data-color='darkblue'] {
   --note-bg: #aeccdc;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #aeccdc;
+  --note-tonal: #bee9ff;
 }
 [data-color='purple'] {
   --note-bg: #d3bfdb;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #d3bfdb;
+  --note-tonal: #f4d8ff;
 }
 [data-color='pink'] {
   --note-bg: #f6e2dd;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #f6e2dd;
+  --note-tonal: #ffede8;
 }
 [data-color='brown'] {
   --note-bg: #e9e3d4;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #e9e3d4;
+  --note-tonal: #dfdacc;
 }
 [data-color='gray'] {
   --note-bg: #efeff1;
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   --note-swatch: #efeff1;
+  --note-tonal: #d7dadf;
 }
 
 :root[data-theme='dark'] [data-color='default'] {
   --note-bg: #202124;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #202124;
 }
 :root[data-theme='dark'] [data-color='red'] {
   --note-bg: #77172e;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #77172e;
+  --note-tonal: #8f4a54;
 }
 :root[data-theme='dark'] [data-color='orange'] {
   --note-bg: #692b17;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #692b17;
+  --note-tonal: #8f4c37;
 }
 :root[data-theme='dark'] [data-color='yellow'] {
   --note-bg: #7c4a03;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #7c4a03;
+  --note-tonal: #683d00;
 }
 :root[data-theme='dark'] [data-color='green'] {
   --note-bg: #264d3b;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #264d3b;
+  --note-tonal: #006656;
 }
 :root[data-theme='dark'] [data-color='teal'] {
   --note-bg: #0c625d;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #0c625d;
+  --note-tonal: #004f50;
 }
 :root[data-theme='dark'] [data-color='blue'] {
   --note-bg: #256377;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #256377;
+  --note-tonal: #004d61;
 }
 :root[data-theme='dark'] [data-color='darkblue'] {
   --note-bg: #284255;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #284255;
+  --note-tonal: #004b6f;
 }
 :root[data-theme='dark'] [data-color='purple'] {
   --note-bg: #472e5b;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #472e5b;
+  --note-tonal: #583a6f;
 }
 :root[data-theme='dark'] [data-color='pink'] {
   --note-bg: #6c394f;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #6c394f;
+  --note-tonal: #8b4b66;
 }
 :root[data-theme='dark'] [data-color='brown'] {
   --note-bg: #4b443a;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #4b443a;
+  --note-tonal: #6e5d40;
 }
 :root[data-theme='dark'] [data-color='gray'] {
   --note-bg: #232427;
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
   --note-swatch: #232427;
+  --note-tonal: #3e4758;
 }
 
 /* ------------------------------------------------------------- backgrounds (9) */
@@ -189,13 +189,15 @@
    imported theme replaces it through `--theme-art-<id>-<light|dark>`, `--theme-tint-<id>` and
    `--theme-tint-dark-<id>`, which
    `control/state/backgroundThemes.svelte.ts` sets on the root. A background covers the whole surface
-   and crops to whatever shape the card has, which is why these are `cover`. */
+   and crops to whatever shape the card has, which is why these are `cover` — and it crops from the
+   top left, keeping the **bottom right corner**, as the original's do: a wide card shows the picture's
+   lower part and a tall one its right part, never its middle. */
 [data-background] {
   --note-fg: #202124;
   --note-fg-secondary: rgba(32, 33, 36, 0.72);
   --note-border: transparent;
   background-repeat: no-repeat;
-  background-position: center;
+  background-position: right bottom;
   background-size: cover;
 }
 

@@ -45,8 +45,8 @@
 
   :global(.confirm-message) {
     margin: 0 0 24px;
-    font-size: 15px;
-    line-height: 22px;
+    font-size: 0.9375rem;
+    line-height: 1.375rem;
     color: var(--keep-text);
   }
 
@@ -61,7 +61,7 @@
     padding: 8px 16px;
     border-radius: 4px;
     color: var(--keep-accent);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 

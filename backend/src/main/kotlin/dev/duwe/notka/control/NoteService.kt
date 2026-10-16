@@ -51,7 +51,7 @@ data class ResolvedNote(
     val access: Access,
     val owner: UserSummary,
     val labels: List<Label>,
-    val shares: List<ShareWithUser>?,
+    val shares: List<ShareWithUser>,
     /** The cards for the links this note contains, resolved from the cache. */
     val linkPreviews: List<LinkPreview>,
     /** The note's pictures, in the order they were added; their bytes are fetched one by one. */
@@ -442,7 +442,7 @@ class NoteService(
             access = visible.access,
             owner = owner,
             labels = labels.labelsForNote(note.id, viewerId),
-            shares = if (visible.access == Access.OWNER) sharesWithUsers(note.id) else null,
+            shares = sharesWithUsers(note.id),
             linkPreviews = linkPreviews.forDocument(note.document),
             images = images?.listForNote(note.id).orEmpty(),
             docVersion = notes.stepHead(note.id).first,
