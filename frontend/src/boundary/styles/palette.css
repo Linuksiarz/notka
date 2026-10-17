@@ -126,6 +126,13 @@
   --note-bg: #202124;
   --note-swatch: #202124;
 }
+
+/* A plain note on a phone is the Android app's card surface (`tokens.css`), in the dark theme too. */
+@media (max-width: 600px) {
+  :root[data-theme='dark'] [data-color='default'] {
+    --note-bg: var(--keep-surface);
+  }
+}
 :root[data-theme='dark'] [data-color='red'] {
   --note-bg: #77172e;
   --note-swatch: #77172e;

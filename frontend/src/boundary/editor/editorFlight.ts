@@ -6,7 +6,7 @@
  * Every function takes the elements it moves and gives them back untouched, so nothing in this module
  * reads application state: the component decides *whether* to animate, this decides *how*.
  */
-import { MOTION } from './motion';
+import { MOTION, standardCurve } from './motion';
 
 /**
  * Where an element *sits*, not where it is being drawn: a card that is still animating in carries a
@@ -59,115 +59,122 @@ export async function flyToCard(
 }
 
 /**
- * A phone's editor is the whole screen, and the original does not scale it onto its card the way the
- * desktop's floating card is scaled: the *container* grows out of the card and shrinks back into it
- * (Material's container transform). Measured frame by frame off the Android app on an emulator: the
- * container is the card's rectangle growing to the screen, its top bar and its bottom bar ride the
- * container's edges (the bar's actions at its right edge, the bottom bar at its bottom edge), the title
- * travels with its top-left corner, and the note's text fades in once the container has nearly arrived.
- * Closing runs it backwards, the text going first. Nothing is stretched.
+ * A phone's editor is the whole screen, and it grows out of the card it was opened from the way the
+ * original's does: Material's container transform. Recorded on an Android emulator with the system's
+ * animations slowed ten times (2026-10-17), the open note is drawn **whole and uniformly scaled** to
+ * the container's width from the first frame — its bars, its text and its background picture alike,
+ * nothing stretched — and the container cuts it off at its bottom edge while it grows from the card's
+ * rectangle to the screen's. The bottom bar therefore appears only as the container reaches the bottom.
+ * The card's own content is visible under it for the first few frames. Closing runs it backwards: what
+ * is written goes first, then the container lands on the card and the card shows through it.
  *
- * The container is the editor's own box cut to the rectangle with `clip-path`; the bars follow it with
- * a `transform` and a `width`, which lays out the two bars and nothing else.
+ * Every part of it is a `transform` or an `opacity`, so the compositor runs it and nothing the page
+ * does at the same time can make it stutter. A clip-path and a width animation did it before, and both
+ * run on the main thread — the first open of a note (Tiptap mounting, the system bar sampling the
+ * screen) dropped their frames, which is what the owner saw as choppy on a phone.
+ *
+ * The container is the host, scaled uniformly from its top-left corner, and its own overflow clip is
+ * the container's edge. A container shorter than the scaled note is a *sliding window*: the host is
+ * moved up until its bottom edge is the container's bottom, and the editor inside it is moved down by
+ * the same amount, so the note stays where it is drawn and only the edge travels. The editor's offset
+ * is not linear in the host's scale, so both animations are computed along the curve, frame by frame.
  */
-interface Edges {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-  /** The container's width at the card's size. */
-  width: number;
+const FRAMES = 24;
+
+interface Flight {
+  host: Keyframe[];
+  editor: Keyframe[];
+  /** The card's corner, in the editor's own pixels at the scale it starts from. */
+  radius: number;
 }
 
-function edgesOf(card: HTMLElement, within: DOMRect): Edges {
-  const rect = layoutRect(card);
-  const left = rect.left - within.left;
-  const right = within.right - (rect.left + rect.width);
-  return { top: rect.top - within.top, right, bottom: within.bottom - (rect.top + rect.height), left, width: rect.width };
-}
-
-function clipOf(edges: Edges, radius: string): string {
-  return `inset(${edges.top}px ${edges.right}px ${edges.bottom}px ${edges.left}px round ${radius})`;
-}
-
-const FULL_SCREEN = 'inset(0px 0px 0px 0px round 0px)';
-const BAR = /\b(editor-bar|toolbar)\b/;
-
-interface Part {
-  element: HTMLElement;
-  /** Where the part is drawn while the container is the card's size, as keyframe properties. */
-  atCard: Keyframe;
-  /** The same part drawn where it stands in the open editor. */
-  atScreen: Keyframe;
-  /** The note's text: it is shown only once the container has (nearly) arrived. */
-  text: boolean;
-}
-
-/** Every part of the editor, and where it stands when the container is the card's size. */
-function partsOf(editor: HTMLElement, edges: Edges, within: DOMRect): Part[] {
-  const parts: Part[] = [];
-  for (const child of Array.from(editor.children)) {
-    if (!(child instanceof HTMLElement)) continue;
-    if (BAR.test(child.className)) {
-      const y = child.classList.contains('toolbar') ? -edges.bottom : edges.top;
-      parts.push({
-        element: child,
-        atCard: { transform: `translate(${edges.left}px, ${y}px)`, width: `${edges.width}px` },
-        atScreen: { transform: 'none', width: `${within.width}px` },
-        text: false
-      });
-      continue;
-    }
-    const corner = { transform: `translate(${edges.left}px, ${edges.top}px)` };
-    const home = { transform: 'none' };
-    if (child.classList.contains('body')) {
-      // The title travels with the corner; what is written under it is the text.
-      parts.push({ element: child, atCard: corner, atScreen: home, text: false });
-      for (const inner of Array.from(child.children)) {
-        if (inner instanceof HTMLElement && !inner.classList.contains('head')) {
-          parts.push({ element: inner, atCard: { opacity: 0 }, atScreen: { opacity: 1 }, text: true });
-        }
-      }
-      continue;
-    }
-    parts.push({ element: child, atCard: { ...corner, opacity: 0 }, atScreen: { ...home, opacity: 1 }, text: true });
+/** One frame of the container per step of `progress`, which maps time to 0 (the card) .. 1 (the screen). */
+function flightOf(host: HTMLElement, card: HTMLElement, progress: (time: number) => number): Flight | null {
+  const within = layoutRect(host);
+  const to = layoutRect(card);
+  const { width, height } = within;
+  if (width === 0 || height === 0 || to.width === 0 || to.height === 0) return null;
+  const left = to.left - within.left;
+  const top = to.top - within.top;
+  const hostFrames: Keyframe[] = [];
+  const editorFrames: Keyframe[] = [];
+  for (let step = 0; step <= FRAMES; step++) {
+    const offset = step / FRAMES;
+    const p = progress(offset);
+    const scale = (to.width + (width - to.width) * p) / width;
+    const container = to.height + (height - to.height) * p;
+    const slide = Math.max(0, height - container / scale);
+    hostFrames.push({
+      offset,
+      transformOrigin: '0 0',
+      transform: `translate(${left * (1 - p)}px, ${top * (1 - p) - slide * scale}px) scale(${scale})`
+    });
+    editorFrames.push({ offset, transform: `translateY(${slide}px)` });
   }
-  return parts;
+  const corner = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 0;
+  return { host: hostFrames, editor: editorFrames, radius: corner / (to.width / width) };
 }
+
+/** The flight each host is on: a newer one owns the inline styles an older one would tidy away. */
+const flights = new WeakMap<HTMLElement, object>();
+
+/** Rounds the container's corners for the flight: the bottom ones on the clip, the top ones on the note. */
+function board(host: HTMLElement, editor: HTMLElement, radius: number): object {
+  for (const element of [host, editor, ...Array.from(editor.children)]) {
+    element.getAnimations().forEach((animation) => animation.cancel());
+  }
+  const ticket = {};
+  flights.set(host, ticket);
+  host.style.overflow = 'hidden';
+  host.style.borderRadius = `0 0 ${radius}px ${radius}px`;
+  editor.style.borderRadius = `${radius}px ${radius}px 0 0`;
+  return ticket;
+}
+
+function land(host: HTMLElement, editor: HTMLElement, ticket: object): void {
+  if (flights.get(host) !== ticket) return;
+  flights.delete(host);
+  host.style.overflow = '';
+  host.style.borderRadius = '';
+  editor.style.borderRadius = '';
+}
+
+/** Keeps the card on screen, under the container, for the part of the flight it shows through. */
+const SHOWN: Keyframe = { visibility: 'visible', opacity: 1 };
 
 /** The editor grows out of the card it was opened from. */
-export function growFromCard(editor: HTMLElement, card: HTMLElement): void {
-  const within = editor.getBoundingClientRect();
-  if (within.width === 0 || within.height === 0) return;
-  const edges = edgesOf(card, within);
-  const motion = { duration: MOTION.long, easing: MOTION.standard };
-  editor.animate([{ clipPath: clipOf(edges, getComputedStyle(card).borderTopLeftRadius) }, { clipPath: FULL_SCREEN }], motion);
-  for (const part of partsOf(editor, edges, within)) {
-    part.element.animate(
-      part.text
-        ? [part.atCard, { ...part.atCard, offset: 0.6 }, part.atScreen]
-        : [part.atCard, part.atScreen],
-      motion
-    );
-  }
+export function growFromCard(host: HTMLElement, editor: HTMLElement, card: HTMLElement): void {
+  const flight = flightOf(host, card, standardCurve);
+  if (!flight) return;
+  const ticket = board(host, editor, flight.radius);
+  const timing: KeyframeAnimationOptions = { duration: MOTION.long, easing: 'linear' };
+  const grow = host.animate(flight.host, timing);
+  editor.animate(flight.editor, timing);
+  // The note comes in over its card in the first fifth; the card is hidden under it from then on.
+  editor.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1 }], timing);
+  card.animate([SHOWN, SHOWN], { duration: MOTION.long * 0.2 });
+  void grow.finished.catch(() => undefined).then(() => land(host, editor, ticket));
 }
 
-/** The editor shrinks back into its card, which the list is showing again by the time it lands. */
-export async function shrinkIntoCard(editor: HTMLElement, card: HTMLElement | null): Promise<void> {
-  const within = editor.getBoundingClientRect();
-  if (!card || within.width === 0 || within.height === 0) return;
-  const edges = edgesOf(card, within);
+/**
+ * The editor shrinks back into its card, which the list is showing again by the time it lands. The
+ * card is kept on screen under it until the returned function is called — once the list has taken it
+ * back.
+ */
+export async function shrinkIntoCard(host: HTMLElement, editor: HTMLElement, card: HTMLElement | null): Promise<() => void> {
+  const flight = card ? flightOf(host, card, (time) => 1 - standardCurve(time)) : null;
+  if (!card || !flight) return () => undefined;
+  board(host, editor, flight.radius);
   // `forwards`: the editor stays the size of the card until the component goes away.
-  const motion: KeyframeAnimationOptions = { duration: MOTION.medium, easing: MOTION.standard, fill: 'forwards' };
-  for (const part of partsOf(editor, edges, within)) {
-    part.element.animate(
-      part.text ? [part.atScreen, { ...part.atCard, offset: 0.4 }, part.atCard] : [part.atScreen, part.atCard],
-      motion
-    );
+  const timing: KeyframeAnimationOptions = { duration: MOTION.medium, easing: 'linear', fill: 'forwards' };
+  const shrink = host.animate(flight.host, timing);
+  editor.animate(flight.editor, timing);
+  for (const part of Array.from(editor.children)) {
+    part.animate([{ opacity: 1 }, { opacity: 0, offset: 0.35 }, { opacity: 0 }], timing);
   }
-  const shrink = editor.animate(
-    [{ clipPath: FULL_SCREEN }, { clipPath: clipOf(edges, getComputedStyle(card).borderTopLeftRadius) }],
-    motion
-  );
+  // The container is the card's colour; it lets the card through as it lands.
+  editor.animate([{ opacity: 1 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], timing);
+  const shown = card.animate([SHOWN, SHOWN], { duration: MOTION.medium, fill: 'forwards' });
   await shrink.finished.catch(() => undefined);
+  return () => shown.cancel();
 }

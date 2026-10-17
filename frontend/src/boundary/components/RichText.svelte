@@ -1152,7 +1152,7 @@
   class:readonly={!editable}
   class:dragging
   bind:this={wrapper}
-  style="--list-inset: {list.inset}px; --list-indent: {list.indent}px"
+  style="--list-inset: {list.inset}px; --list-indent: {list.indent}px; --list-handle-offset: {list.handleOffset}px"
 >
   <!-- The wrapper takes a class so it can be made to fill the note body; without it the editable
        stops at the last line and a click below it lands on the container instead. -->
@@ -1489,6 +1489,14 @@
     :global(.note-body .completed-row),
     :global(:root[data-theme='dark'] .note-body .completed-row) {
       border-top: 0;
+    }
+
+    /* The Android app's "Checked items" stands to the left of the rows (measured 2026-10-17): its
+       chevron is centred in the handles' column and its words start where the checkboxes do. The
+       20px chevron box is pulled out of the list's inset by the handle's own offset. */
+    :global(.note-body .completed-toggle) {
+      margin-left: calc(-1 * (var(--list-handle-offset) + 10px));
+      gap: calc(var(--list-handle-offset) - 10px);
     }
   }
 

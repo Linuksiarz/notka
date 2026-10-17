@@ -357,8 +357,10 @@
    * label starting at 73px.
    */
   @media (max-width: 600px) {
+    /* The Android app's drawer is its card surface, not the page (measured, both themes). */
     .sidebar {
       width: 326px;
+      background: var(--keep-surface);
     }
 
     /* The name stands where the search pill stands beside it: centred in the 64px bar, 21px in, in
@@ -445,6 +447,14 @@
       z-index: 65;
       background: rgba(0, 0, 0, 0.32);
       border: 0;
+    }
+  }
+
+  /* The Android app's drawer veils the page with 60% black, in both themes (measured 2026-10-17: the
+     dark page 30 → 12, the light one 238 → 95). */
+  @media (max-width: 600px) {
+    .scrim {
+      background: rgba(0, 0, 0, 0.6);
     }
   }
 </style>

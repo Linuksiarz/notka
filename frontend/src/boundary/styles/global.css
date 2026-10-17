@@ -8,6 +8,10 @@
  */
 body {
   user-select: none;
+  /* Nor is a tap a link being followed: Android's browser veils whatever was touched for as long as
+     the finger stays down, and the note only opens once it lifts — a card lit up, waited, and then
+     grew. The original answers a tap with the note itself. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 input,
@@ -101,7 +105,6 @@ a {
   border-radius: 50%;
   color: var(--keep-text-secondary);
   transition: background-color var(--keep-duration) var(--keep-ease);
-  -webkit-tap-highlight-color: transparent;
 }
 
 .icon-button:hover:not(:disabled) {

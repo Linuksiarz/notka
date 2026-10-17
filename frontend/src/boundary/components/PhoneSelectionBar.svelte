@@ -186,17 +186,22 @@
 
 <style>
   /*
-   * Measured on the Android app (emulator, 412dp): the bar is 72dp tall, in the dark theme a darker
-   * surface (`--keep-selection-bar`) over a 12dp strip of the header's own grey under it, in the light
-   * one the header's surface with its shadow; ✕ centred 28dp in, the count at 65dp, the actions 48dp
-   * apart, ⋮ centred 26dp from the right edge.
+   * Measured on the Android app (emulator, 412dp): the bar is 72dp tall and spans the screen, in the
+   * dark theme a darker surface (`--keep-selection-bar`) straight on the page, in the light one the
+   * header's surface with its shadow; ✕ centred 28dp in, the count at 65dp, the actions 48dp apart,
+   * ⋮ centred 26dp from the right edge.
+   *
+   * It hangs from the top of the 64px header and reaches over its padding to both edges of the
+   * window; the 8px it is taller than the header lie over the notes' own top margin. Growing the
+   * header instead would push every card down the moment a note is picked (rule 20).
    */
   .phone-selection {
     display: flex;
     align-items: center;
     flex: 1 1 auto;
+    align-self: flex-start;
     height: 72px;
-    margin: 0 -12px 0 calc(-1 * var(--keep-topbar-inset, 0px));
+    margin: 0 calc(-1 * var(--keep-topbar-padding));
     padding: 0 6px 0 4px;
     background: var(--keep-selection-bar);
     color: var(--keep-phone-ink);

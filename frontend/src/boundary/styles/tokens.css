@@ -281,9 +281,10 @@
   --keep-note-text: #e8eaed;
   --keep-note-text-secondary: rgba(232, 234, 237, 0.72);
   --keep-phone-ink: #e3e2e9;
-  /* The dark theme's bar is darker than the header, which shows as a 12dp strip under it. */
+  /* The dark theme's bar is darker than the page and sits straight on it: the 12dp strip of a lighter
+     grey that an emulator reading put under it is not on the owner's phone, who saw it as a glitch. */
   --keep-selection-bar: #121318;
-  --keep-selection-edge: 0 12px 0 #38393f;
+  --keep-selection-edge: none;
   --keep-phone-select-ring: #b2c5ff;
   --keep-phone-glyph: #c5c6d0;
 
@@ -295,4 +296,38 @@
     0 9px 46px 8px rgba(0, 0, 0, 0.3);
   --keep-shadow-popover: 0 2px 6px 2px rgba(0, 0, 0, 0.35), 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --keep-shadow-editor: 0 1px 3px 0 rgba(0, 0, 0, 0.6), 0 4px 8px 3px rgba(0, 0, 0, 0.3);
+}
+
+/*
+ * A phone is the original's Android app (AGENTS.md rule 26), and the app paints its surfaces from
+ * Material 3's colour scheme, not from the web original's greys: a lavender-grey page with lighter
+ * cards in the light theme, and in the dark one a page a step *lighter* than its cards — the web
+ * original's dark page and cards are one `#202124`. Measured off the app on an emulator (1391x3014,
+ * 412dp, 2026-10-17, both themes; `docs/METRICS.md`): the page (and the status bar, which wears it),
+ * a plain card and its 1dp outline, the search pill, the drawer and its active row, the "+" button.
+ */
+@media (max-width: 600px) {
+  :root {
+    --keep-bg: #eeedf4;
+    --keep-surface: #faf8ff;
+    --keep-search-bg: #faf8ff;
+    --keep-border: #c5c6d0;
+    --keep-divider: #c5c6d0;
+    --keep-active: #dae2ff;
+    --keep-active-fg: #314578;
+    --keep-fab-container: #dae2ff;
+    --keep-fab-on-container: #314578;
+  }
+
+  :root[data-theme='dark'] {
+    --keep-bg: #1e1f25;
+    --keep-surface: #121318;
+    --keep-search-bg: #38393f;
+    --keep-border: #45464f;
+    --keep-divider: #45464f;
+    --keep-active: #314578;
+    --keep-active-fg: #dae2ff;
+    --keep-fab-container: #314578;
+    --keep-fab-on-container: #dae2ff;
+  }
 }

@@ -864,7 +864,8 @@ thrown away.
    its "add" button and its ⋮ menu as **bottom sheets** (`Sheet.svelte`, a bits-ui Dialog) rather than
    popovers; **the system's own bar wears whatever is at the top of the screen** — the page, the open
    note's colour, the veil of a sheet or a menu — from `boundary/systemBar.ts`, which samples the top
-   edge (and follows animations to their end) rather than listing states; an installed web app cannot
+   edge (a surface on its way counts by how much of the status bar's band it covers, so the bar fades
+   to the open note's colour as the note slides in under it) rather than listing states; an installed web app cannot
    draw under the status bar, but `theme-color` makes the bar part of the screen. Its "A" opens a formatting bar (H1, H2, plain text, bold, italic, underline) and a list
    note's title carries a ⋮ with the list's own actions. Desktop keeps the web original's widgets. Branch on `ui.phone` in markup, and keep a
    phone number that the script also needs (the checklist's `PHONE_LIST`) in one place.

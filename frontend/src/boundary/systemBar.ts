@@ -19,24 +19,25 @@ export function followSystemBar(): () => void {
   };
   const sync = () => {
     frame = 0;
-    const color = colorAtTopEdge();
+    const moving = movingElements();
+    const color = colorAtTopEdge(moving);
     if (meta && meta.content !== color) meta = recolor(meta, color);
-    // Something is still on its way — a note growing out of its card, a veil fading in. Those run
-    // on the Web Animations API, which reports no end event, so the bar follows them frame by frame
-    // until the screen has settled.
-    if (settling()) schedule();
+    // Something is on its way: the bar follows it frame by frame, and is read once more when it is there.
+    if (moving.size > 0) schedule();
   };
 
-  // What is at the top changes when something opens, closes, recolours or finishes moving; the text
-  // being typed never does, so character data is not watched.
+  // What is at the top changes when something opens, closes, recolours, starts or finishes moving;
+  // the text being typed never does, so character data is not watched. A script-driven animation
+  // announces nothing when it starts, so an inline style — which a flight sets as it takes off — wakes
+  // the bar as well: closing a note changes nothing else until the note has already landed.
   const observer = new MutationObserver(schedule);
   observer.observe(document.documentElement, {
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ['class', 'data-theme', 'data-color', 'data-background', 'data-state', 'hidden']
+    attributeFilter: ['class', 'style', 'data-theme', 'data-color', 'data-background', 'data-state', 'hidden']
   });
-  const events = ['transitionend', 'animationend', 'resize'] as const;
+  const events = ['transitionrun', 'transitionend', 'animationstart', 'animationend', 'resize'] as const;
   events.forEach((name) => window.addEventListener(name, schedule, true));
   schedule();
 
@@ -45,6 +46,58 @@ export function followSystemBar(): () => void {
     events.forEach((name) => window.removeEventListener(name, schedule, true));
     cancelAnimationFrame(frame);
   };
+}
+
+/**
+ * How tall the original's status bar is, in CSS pixels: the band a note growing to the whole screen
+ * slides under before it arrives. Android's own status bar is 24dp on a phone without a cut-out and
+ * more with one; this is the band the bar's colour changes over, not a measurement of a particular
+ * phone.
+ */
+const STATUS_BAR = 32;
+
+/**
+ * The original's app draws under a transparent status bar, so a note growing to the whole screen
+ * slides in under the bar as it arrives, and the bar becomes the note's colour over that last stretch
+ * rather than in one step; shrinking back, the note uncovers the bar as it leaves the top. A web app's
+ * bar is one colour, so a surface on its way counts for as much of the status bar's band as it covers
+ * at this frame — its top edge in the band, its width and its opacity — over whatever stands still.
+ * Nothing about where an animation will end is predicted, and no animation is touched to find out.
+ */
+function coverage(element: Element): number {
+  const box = element.getBoundingClientRect();
+  const across = Math.max(0, Math.min(box.right, window.innerWidth) - Math.max(box.left, 0)) / window.innerWidth;
+  const down = box.bottom <= 0 ? 0 : Math.min(1, Math.max(0, (STATUS_BAR - box.top) / STATUS_BAR));
+  let opacity = 1;
+  for (let node: Element | null = element; node; node = node.parentElement) opacity *= Number(getComputedStyle(node).opacity);
+  return across * down * opacity;
+}
+
+/** The elements an animation that will end is moving; one that never ends (a spinner) is not on its way. */
+function movingElements(): Set<Element> {
+  const moving = new Set<Element>();
+  for (const animation of document.getAnimations()) {
+    if (animation.playState !== 'running' || animation.effect?.getComputedTiming().endTime === Infinity) continue;
+    const target = animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
+    if (target) moving.add(target);
+  }
+  return moving;
+}
+
+function isMoving(element: Element, moving: Set<Element>): boolean {
+  for (let node: Element | null = element; node; node = node.parentElement) if (moving.has(node)) return true;
+  return false;
+}
+
+/** What a moving element paints: itself, or the first thing inside it that has a background. */
+function paintedSurface(element: Element): Element | null {
+  const queue = [element];
+  for (let next = queue.shift(); next; next = queue.shift()) {
+    if (parseColor(getComputedStyle(next).backgroundColor)) return next;
+    queue.push(...Array.from(next.children));
+    if (queue.length > 64) break;
+  }
+  return null;
 }
 
 /**
@@ -60,26 +113,30 @@ function recolor(old: HTMLMetaElement, color: string): HTMLMetaElement {
   return fresh;
 }
 
-/** Whether an animation that will end is running; one that never ends (a spinner) is not settling. */
-function settling(): boolean {
-  return document
-    .getAnimations()
-    .some((animation) => animation.playState === 'running' && animation.effect?.getComputedTiming().endTime !== Infinity);
-}
-
-/** The colour painted in the middle of the window's top edge, every layer there laid over the next. */
-function colorAtTopEdge(): string {
+/**
+ * The colour of the status bar's band: what stands still at the middle of the window's top edge, every
+ * layer there laid over the next, and every surface on its way over that by how much of the band it
+ * covers (`coverage`).
+ */
+function colorAtTopEdge(moving: Set<Element>): string {
   // Top-most first; the page's own background is under all of them.
   const stack = document.elementsFromPoint(window.innerWidth / 2, 0).reverse();
   let painted: Rgb = [255, 255, 255];
   const page = parseColor(getComputedStyle(document.body).backgroundColor);
   if (page) painted = over(page, painted);
   for (const element of stack) {
+    if (isMoving(element, moving)) continue;
     const style = getComputedStyle(element);
     const color = parseColor(style.backgroundColor, Number(style.opacity));
     if (color) painted = over(color, painted);
   }
-  return `#${painted.map((channel) => Math.round(channel).toString(16).padStart(2, '0')).join('')}`;
+  for (const element of moving) {
+    if (element.parentElement && isMoving(element.parentElement, moving)) continue;
+    const surface = paintedSurface(element);
+    const color = surface ? parseColor(getComputedStyle(surface).backgroundColor) : null;
+    if (surface && color) painted = over([color[0], color[1], color[2], color[3] * coverage(surface)], painted);
+  }
+  return hex(painted);
 }
 
 type Rgb = [number, number, number];
@@ -100,4 +157,8 @@ function over([red, green, blue, alpha]: Rgba, under: Rgb): Rgb {
     green * alpha + under[1] * (1 - alpha),
     blue * alpha + under[2] * (1 - alpha)
   ];
+}
+
+function hex(color: Rgb): string {
+  return `#${color.map((channel) => Math.round(channel).toString(16).padStart(2, '0')).join('')}`;
 }

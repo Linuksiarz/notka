@@ -177,7 +177,28 @@ await page.getByRole('button', { name: 'Sort notes' }).click();
 await page.getByRole('radio', { name: 'Custom (default)' }).click();
 await page.waitForTimeout(300);
 
-const held = page.locator('.card').first();
+// The held card carries a picture, so the ring can be checked where a picture meets the card's edge.
+const pictured = await page.locator('.card').last().getAttribute('data-note-id');
+await page.evaluate(async (id) => {
+  const canvas = Object.assign(document.createElement('canvas'), { width: 200, height: 120 });
+  const brush = canvas.getContext('2d');
+  brush.fillStyle = '#e07a2f';
+  brush.fillRect(0, 0, 200, 120);
+  const picture = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  await fetch(`/api/notes/${id}/images`, { method: 'POST', body: picture });
+}, pictured);
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForSelector(`.card[data-note-id="${pictured}"] img`);
+await page.waitForTimeout(500);
+const cardPlaces = () =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('.card')].map((card) => {
+      const rect = card.getBoundingClientRect();
+      return `${card.dataset.noteId}@${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)}x${Math.round(rect.height)}`;
+    })
+  );
+const placesBefore = await cardPlaces();
+const held = page.locator(`.card[data-note-id="${pictured}"]`);
 const heldBox = await held.boundingBox();
 const at = { pointerType: 'touch', isPrimary: true, clientX: heldBox.x + 40, clientY: heldBox.y + 40, bubbles: true };
 await held.dispatchEvent('pointerdown', at);
@@ -191,7 +212,7 @@ const picked = await page.evaluate(() => {
     height: bar ? Math.round(bar.getBoundingClientRect().height) : null,
     count: bar?.querySelector('.count')?.textContent ?? null,
     actions: bar ? bar.querySelectorAll('button').length : 0,
-    ring: card ? getComputedStyle(card).boxShadow : null,
+    ring: card ? getComputedStyle(card, '::after').boxShadow : null,
     tick: document.querySelectorAll('.card-tick').length > 0 && getComputedStyle(document.querySelector('.card-tick')).display !== 'none'
   };
 });
@@ -202,6 +223,57 @@ check(
   picked.bar && picked.height === 72 && picked.count === '1' && picked.actions === 6 && /3px/.test(picked.ring ?? '') && !picked.tick,
   JSON.stringify(picked)
 );
+// Rule 20: picking is a state of the view, so not one card moves or changes size when the bar appears.
+const placesAfter = await cardPlaces();
+check(
+  'picking a note leaves every card where it was',
+  placesAfter.join(' ') === placesBefore.join(' '),
+  `${placesBefore.join(' ')} -> ${placesAfter.join(' ')}`
+);
+// The bar spans the window from its top edge: an undefined inset left 8px of the page beside it on the
+// left and pushed it 4px past the right edge.
+const selectionBar = await box(page, '.phone-selection');
+check(
+  'the selection bar spans the window from edge to edge, from its top',
+  selectionBar?.left === 0 && selectionBar.right === 412 && selectionBar.top === 0,
+  JSON.stringify(selectionBar)
+);
+// The ring is a layer above the card's content: an inset shadow on the card itself is painted under its
+// children, so a picture covered the ring along its edges.
+const ringLayer = await page.evaluate(() => {
+  const card = document.querySelector('.card.selected');
+  const ring = getComputedStyle(card, '::after');
+  const picture = card.querySelector('img');
+  const above = (element) => {
+    for (let node = element; node && node !== card; node = node.parentElement) {
+      if (getComputedStyle(node).zIndex !== 'auto' && Number(getComputedStyle(node).zIndex) >= Number(ring.zIndex)) return true;
+    }
+    return false;
+  };
+  return {
+    position: ring.position,
+    zIndex: ring.zIndex,
+    inset: [ring.top, ring.right, ring.bottom, ring.left].join(' '),
+    pictureAbove: picture ? above(picture) : null,
+    card: getComputedStyle(card).boxShadow
+  };
+});
+check(
+  'the selection ring is drawn over the pictures, all the way round the card',
+  ringLayer.position === 'absolute' && Number(ringLayer.zIndex) >= 1 && ringLayer.inset === '0px 0px 0px 0px' &&
+    ringLayer.pictureAbove === false && ringLayer.card === 'none',
+  JSON.stringify(ringLayer)
+);
+// The dark theme's bar sits straight on the page: a 12px shadow of a lighter grey drew a strip under it.
+const darkBar = await page.evaluate(() => {
+  const root = document.documentElement;
+  const theme = root.dataset.theme;
+  root.dataset.theme = 'dark';
+  const read = { theme: root.dataset.theme, edge: getComputedStyle(document.querySelector('.phone-selection')).boxShadow };
+  root.dataset.theme = theme;
+  return read;
+});
+check('in the dark theme nothing is drawn under the selection bar', darkBar.theme === 'dark' && darkBar.edge === 'none', JSON.stringify(darkBar));
 await page.getByRole('button', { name: 'Clear selection' }).click().catch(() => {});
 await page.waitForTimeout(300);
 
@@ -214,14 +286,127 @@ const drawer = await page.evaluate(() => ({
 }));
 check("the drawer is the original's: the app's name, the settings, the window's full height",
   drawer.name === 'Notka' && drawer.settings && drawer.fullHeight, JSON.stringify(drawer));
+// The Android app's own surfaces, measured on an emulator in the light theme (docs/METRICS.md), not
+// the web original's white and greys: the drawer and a plain card are the lighter surface on a
+// lavender-grey page, and the drawer veils the page with 60% black.
+const surfaces = await page.evaluate(() => {
+  const background = (selector) => {
+    const element = document.querySelector(selector);
+    return element ? getComputedStyle(element).backgroundColor : null;
+  };
+  const plain = document.querySelector('.card[data-color="default"]:not([data-background])');
+  return {
+    page: getComputedStyle(document.body).backgroundColor,
+    pill: background('.search'),
+    drawer: background('.sidebar'),
+    veil: background('.scrim'),
+    card: plain ? getComputedStyle(plain).backgroundColor : null,
+    outline: plain ? getComputedStyle(plain).borderTopColor : null
+  };
+});
+check(
+  "the phone's surfaces are the Android app's: page, search pill, drawer and its veil, a plain card and its outline",
+  surfaces.page === 'rgb(238, 237, 244)' &&
+    surfaces.pill === 'rgb(250, 248, 255)' &&
+    surfaces.drawer === 'rgb(250, 248, 255)' &&
+    surfaces.veil === 'rgba(0, 0, 0, 0.6)' &&
+    surfaces.card === 'rgb(250, 248, 255)' &&
+    surfaces.outline === 'rgb(197, 198, 208)',
+  JSON.stringify(surfaces)
+);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
 
 console.log('\nthe editor on a phone');
 
+// A coloured note, so the system bar has a colour of its own to take. Then everything the opening
+// writes to the bar and every property it animates is recorded from the tap on.
+const firstCardId = await page.locator('.card').first().getAttribute('data-note-id');
+await page.evaluate(async (id) => {
+  await fetch(`/api/notes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color: 'yellow' }) });
+}, firstCardId);
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForSelector('.card');
+await page.waitForTimeout(500);
+await page.evaluate(() => {
+  const record = { colors: [], properties: new Set() };
+  window.__opening = record;
+  // Every colour the bar is given, with where the note's top edge is at that moment.
+  window.__barColors = record.colors;
+  window.__barStart = document.querySelector('meta[name="theme-color"]')?.content;
+  new MutationObserver(() => {
+    const color = document.querySelector('meta[name="theme-color"]')?.content;
+    const colors = window.__barColors;
+    if (color && (colors.at(-1)?.color ?? window.__barStart) !== color) {
+      const editor = document.querySelector('.editor');
+      colors.push({ color, top: editor ? Math.round(editor.getBoundingClientRect().top) : null });
+    }
+  }).observe(document.head, { childList: true, subtree: true, attributes: true });
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function (keyframes, options) {
+    for (const frame of Array.isArray(keyframes) ? keyframes : [keyframes]) {
+      for (const property of Object.keys(frame)) record.properties.add(property);
+    }
+    return animate.call(this, keyframes, options);
+  };
+});
+const pageColor = await page.evaluate(() => document.querySelector('meta[name="theme-color"]')?.content);
 await page.locator('.card').first().click();
 await page.waitForSelector('.editor', { timeout: 10_000 });
 await page.waitForTimeout(500);
+const opening = await page.evaluate(() => ({
+  colors: window.__opening.colors,
+  properties: [...window.__opening.properties],
+  note: getComputedStyle(document.querySelector('.editor')).backgroundColor
+}));
+const noteColor = `#${(opening.note.match(/\d+/g) ?? []).map((channel) => Number(channel).toString(16).padStart(2, '0')).join('')}`;
+/** Whether the bar travels from one colour to the other without a step back, through at least one between. */
+const channels = (hex) => [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16));
+const apart = (one, other) => channels(one).reduce((sum, channel, index) => sum + Math.abs(channel - channels(other)[index]), 0);
+/** The colours the bar was given that can be told from where it started (a unit or two is a rounding). */
+const visible = (colors, from) => colors.filter((entry) => apart(entry.color, from) > 3);
+const fades = (all, from, to) => {
+  const colors = visible(all, from);
+  const distance = (hex) => apart(hex, to);
+  return (
+    colors.length >= 3 &&
+    colors.at(-1).color === to &&
+    distance(colors[0].color) < distance(from) &&
+    colors.every((entry, index) => index === 0 || distance(entry.color) <= distance(colors[index - 1].color) + 3)
+  );
+};
+// The original's app draws under a transparent status bar: the note slides in under it as it arrives,
+// so the bar turns the note's colour over that last stretch — not at the tap (it looked switched on),
+// and not in one step when the note got there (that flickered).
+check(
+  "the system bar fades to the note's colour as the note slides in under it",
+  fades(opening.colors, pageColor, noteColor) &&
+    visible(opening.colors, pageColor).every((entry) => entry.top !== null && entry.top < 32),
+  JSON.stringify({ pageColor, noteColor, colors: opening.colors })
+);
+await page.evaluate(() => {
+  window.__barColors.length = 0;
+  window.__barStart = document.querySelector('meta[name="theme-color"]')?.content;
+});
+await page.locator('[aria-label="Back to notes"]').click();
+await page.waitForTimeout(700);
+const closing = await page.evaluate(() => window.__barColors.slice());
+check(
+  'and back to the page as the note leaves the top again',
+  fades(closing, noteColor, pageColor),
+  JSON.stringify(closing)
+);
+await page.locator('.card').first().click();
+await page.waitForSelector('.editor', { timeout: 10_000 });
+await page.waitForTimeout(500);
+// Only what the compositor runs by itself: a clip-path or a width ran on the main thread and stuttered
+// whenever the page was busy — and opening a note is when it is busiest.
+const composited = new Set(['offset', 'transform', 'transformOrigin', 'opacity', 'visibility', 'easing', 'composite']);
+check(
+  'a note grows out of its card on transforms and opacity alone',
+  opening.properties.length > 0 && opening.properties.every((property) => composited.has(property)),
+  JSON.stringify(opening.properties)
+);
 const bar = await page.evaluate(() => {
   const barElement = document.querySelector('.editor-bar');
   const back = document.querySelector('[aria-label="Back to notes"]');

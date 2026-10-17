@@ -622,11 +622,23 @@
   }
 
   /* The Android app marks a held card with a 3dp ring of its own (measured on an emulator, in both
-     themes) — drawn inside the card's own box, so nothing beside it moves — and no tick. */
+     themes) — drawn inside the card's own box, so nothing beside it moves — and no tick. The ring is
+     a layer of its own above the content: an inset shadow on the card is painted under its children,
+     so a card's pictures covered the ring along their edges. */
   @media (max-width: 600px) {
     .card.selected {
       border-color: transparent;
+      box-shadow: none;
+    }
+
+    .card.selected::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      border-radius: inherit;
       box-shadow: inset 0 0 0 3px var(--keep-phone-select-ring);
+      pointer-events: none;
     }
   }
 

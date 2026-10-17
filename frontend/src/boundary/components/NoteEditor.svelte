@@ -177,9 +177,9 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         const card = document.querySelector<HTMLElement>(`.card[data-note-id="${opened}"]`);
         const from = card?.getBoundingClientRect();
         if (!card || !from || from.width === 0 || from.height === 0) return;
-        // A phone's editor is the whole screen: its container grows out of the card, nothing is scaled.
+        // A phone's editor is the whole screen: the container transform (`editorFlight.ts`).
         if (ui.phone) {
-          growFromCard(editorCard, card);
+          if (editorHost) growFromCard(editorHost, editorCard, card);
           return;
         }
 
@@ -555,10 +555,12 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
       // A phone's editor shrinks into its card; the card itself is already in the list, so there is no
       // room to make first (the composer's box is not on a phone's screen).
-      if (ui.phone && editorCard && ui.animationsAllowed) {
+      if (ui.phone && editorHost && editorCard && ui.animationsAllowed) {
         const card = document.querySelector<HTMLElement>(`.card[data-note-id="${draft.noteId}"]`);
-        await shrinkIntoCard(editorCard, card);
+        const release = await shrinkIntoCard(editorHost, editorCard, card);
         if (session === opening) closeEditor();
+        // Once the list has taken the card back: until then it is still the note being edited.
+        void tick().then(release);
         return;
       }
 

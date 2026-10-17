@@ -238,6 +238,21 @@ owner's own 412×893 screenshots of both apps.
     measurement. Ours becomes **16px/20px** for a card title and **12px/15px** for its text, with
     the headings taking the same 0.75 (20/18/16px → 15/13.5/12px). A card only: the editor keeps
     its own type (`--keep-*` in `NoteContent.svelte`, `NoteCard.svelte`).
+  - **The phone's surfaces are the Android app's colour scheme**, measured 2026-10-17 off the app on
+    an emulator (1391×3014, 412dp) in both themes, after the owner saw the dark page differ:
+
+    | surface | light | dark | ours |
+    | --- | --- | --- | --- |
+    | page, top bar, status bar | `#eeedf4` | `#1e1f25` | `--keep-bg` |
+    | plain card, plain note's editor, drawer | `#faf8ff` | `#121318` | `--keep-surface` |
+    | a plain card's 1dp outline, the drawer's rules | `#c5c6d0` | `#45464f` | `--keep-border`, `--keep-divider` |
+    | search pill | `#faf8ff` | `#38393f` | `--keep-search-bg` |
+    | drawer's active row (fill / ink), the "+" button | `#dae2ff` / `#314578` | `#314578` / `#dae2ff` | `--keep-active`, `--keep-fab-container` |
+    | veil under the drawer | 60% black (238 → 95) | 60% black (30 → 12) | `.scrim` |
+
+    The web original's dark page and plain cards are one `#202124`; the app's page is a step
+    *lighter* than its cards. The set is the phone block at the end of `tokens.css`; the desktop
+    keeps the web original's.
   - **The phone's top bar has no wordmark**: the original's is a hamburger and a search pill with
     the actions at the right. Reserving 253px for a wordmark *and* letting the search keep its
     input's intrinsic ~191px pushed the actions **183px** off a 412px screen, which is what "widok
@@ -292,9 +307,22 @@ owner's own 412×893 screenshots of both apps.
       one level is **40px**. `RichText`'s `PHONE_LIST` holds those numbers and gives the stylesheet its
       inset and indent, so the drag reads the same level the rows are drawn at.
   - **Opening and closing a note on a phone** is the original's container transform, recorded on the
-    emulator in both apps: the editor's box grows out of the card (clipped to it, never scaled) in about
-    a quarter of a second while what is written fades in, and shrinks back into it in 200ms, over a list
-    that is already showing. The system's Back leaves the note, not the app: the open editor owns one
+    emulator with the system's animations slowed ten times (2026-10-17, a note with a background
+    picture): the open note is drawn **whole, uniformly scaled** to the container's width from the first
+    frame — bars, text and picture alike, nothing stretched — and the container cuts it off at its bottom
+    edge while it grows from the card's rectangle to the screen's in about a quarter of a second, so the
+    bottom bar appears only as the container reaches the bottom. The card's content shows under it for
+    the first fifth. Closing takes 200ms: what is written fades in the first third, the container lands
+    on the card, and the card shows through it in the last quarter, over a list that is already showing.
+    Ours is transforms and opacity only (`editorFlight.ts`), so the compositor runs it whatever the page
+    is doing; the clip-path and width it replaced ran on the main thread and stuttered on a phone. The
+    original draws under a transparent status bar, so the note slides in under the bar over the last
+    stretch of its growth; ours is one colour, so it fades from the page's to the note's by how much of
+    a 32px band the note's top edge, width and opacity cover on each frame — and back as the note leaves
+    the top (`systemBar.ts`). Switching it at the tap looked like the bar lighting up; switching it when
+    the note arrived flickered. A tap draws no highlight of its own (`-webkit-tap-highlight-color`):
+    Android's browser veiled the card for as long as the finger was down, so it lit up, waited for the
+    finger to lift, and only then grew. The system's Back leaves the note, not the app: the open editor owns one
     history entry (`ui.openEditor`), and Back finishes the note as Escape does.
   - **A card's checkbox on a phone** is 0.78 of the text (11dp beside 14sp in the app) and centred on
     the capitals of its first line, to 0.4dp; ours centres a 0.78em box on the first line (`1lh`).
