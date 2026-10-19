@@ -1553,6 +1553,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       display: block;
       padding: 0;
       overflow-y: auto;
+      overflow-x: hidden;
     }
 
     /* The picture is sized by the screen without the keyboard (`visualViewport.ts`), not by the box the
@@ -1648,6 +1649,10 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     flex-direction: column;
     flex: 1 1 auto;
     overflow-y: auto;
+    /* A row carried to the next level is drawn shifted by the level at its full width
+       (`draggingRow.ts`), which reached past the body and showed a horizontal scrollbar for the
+       length of the drag. Nothing in the body scrolls sideways. */
+    overflow-x: hidden;
     padding: 0 16px;
     min-height: 120px;
   }
@@ -1718,6 +1723,26 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   .toolbar-actions :global(.icon-button) {
     width: 34px;
     height: 34px;
+  }
+
+  /* The card's measured ink (`docs/METRICS.md`, "card actions"): the note's own text colour at 71%,
+     full under the pointer. The page's grey ignored the note's colour and the theme's ink. */
+  @media not all and (max-width: 600px) {
+    .toolbar-actions :global(.icon-button) {
+      color: var(--note-fg, var(--keep-text));
+      opacity: 0.71;
+      transition:
+        opacity var(--keep-duration-short) var(--keep-ease-standard),
+        background-color var(--keep-duration-short) var(--keep-ease-standard);
+    }
+
+    .toolbar-actions :global(.icon-button:hover:not(:disabled)) {
+      opacity: 1;
+    }
+
+    .toolbar-actions :global(.icon-button:disabled) {
+      opacity: 0.38;
+    }
   }
 
   .edited-row {

@@ -33,7 +33,12 @@ export const notesApi = {
 
   get: (id: number) => api.get<Note>(`/notes/${id}`),
 
-  update: (id: number, body: UpdateNoteRequest) => api.patch<Note>(`/notes/${id}`, body),
+  /**
+   * On the wire a `null` field means "leave it alone", so taking the background away is the server's
+   * empty-string sentinel; the request type keeps `null` for it, which is what the note itself holds.
+   */
+  update: (id: number, body: UpdateNoteRequest) =>
+    api.patch<Note>(`/notes/${id}`, body.background === null ? { ...body, background: '' } : body),
 
   /** An editor's steps; `409 note.steps_behind` when somebody else's came first. */
   sendSteps: (id: number, body: StepsRequest) => api.post<Note>(`/notes/${id}/steps`, body),

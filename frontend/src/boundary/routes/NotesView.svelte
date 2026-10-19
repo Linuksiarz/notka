@@ -55,7 +55,9 @@
       if (!notes.remindersOnly || !notes.loaded) void notes.loadReminders();
       return;
     }
-    if (notes.view !== view || notes.labelId !== labelId || !notes.loaded) {
+    // The reminders view leaves `view` and `labelId` as they were, so coming back from it has to be
+    // told apart by `remindersOnly`, or the reminders would stay on screen as the notes view.
+    if (notes.view !== view || notes.labelId !== labelId || notes.remindersOnly || !notes.loaded) {
       void notes.load(view, labelId);
     }
   });

@@ -269,7 +269,7 @@ Partial update — only the fields present are applied. Requires `canEdit`.
 | `trashed` | `true` sets `trashed_at = now`, `false` restores the note; `archived` is untouched |
 | `pinned` | metadata like `archived`: never version-guarded, never archived into the history, and visible to everyone with access |
 | `color` | must be one of the 11 color ids or `default`; stored on the note, so it changes for everyone |
-| `background` | one of the 6 background ids, or `null` to clear; likewise shared |
+| `background` | one of the 9 background ids, or `""` to clear (`null`/omitted leaves it alone); likewise shared |
 | `reminderAt` | epoch milliseconds; **`0` takes the reminder away**, `null`/omitted leaves it alone |
 | `reminderRepeat` | `daily`, `weekly`, `monthly`, `yearly`, or omitted for one that does not come back; part of the same instruction as `reminderAt` |
 | `labels` | replaces the caller's label set for this note; label ids must belong to the caller |

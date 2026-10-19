@@ -278,7 +278,7 @@ export interface UpdateNoteRequest {
   pinned?: boolean;
   trashed?: boolean;
   color?: NoteColor;
-  /** `null` clears the background; omit the field to leave it untouched. */
+  /** `null` clears the background (`notesApi.update` sends it as `""`); omit the field to leave it untouched. */
   background?: NoteBackground | null;
   /** Epoch milliseconds; `0` takes the reminder away, `null`/omitted leaves it alone. */
   reminderAt?: number | null;

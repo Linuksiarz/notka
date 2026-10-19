@@ -655,6 +655,8 @@
     justify-content: center;
     width: 34px;
     height: 34px;
+    /* Above the pictures, which come after it and are positioned: the original's pin sits on them. */
+    z-index: 2;
     border-radius: 50%;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
     opacity: 0;
