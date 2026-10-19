@@ -492,6 +492,14 @@ measurement did — put every row 16px right of the original's and the title in 
 is what the side-by-side showed. The reminder's bell was also in the title's corner; the original keeps
 its **pin** there.
 
+### The desktop selection bar's actions
+
+Not measured: the original's selection bar was not captured. Its order follows the Android app's
+measured one (pin, reminder, colour — `PhoneSelectionBar.svelte`), then archive and delete, with *Add
+label* and *Make a copy* in the ⋮ the way a card's own menu has them. The buttons are the bar's own,
+measured 24px glyphs; the pickers are the card's own panels. Replace this with a measurement when one
+is taken.
+
 ## How these numbers are guarded
 
 The desktop numbers are covered by the browser suites in `frontend/e2e`. The **phone** numbers are

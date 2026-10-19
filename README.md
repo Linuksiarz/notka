@@ -30,20 +30,20 @@ collaborators, Markdown export, view-only sharing and more — is listed in
 | 🎨 **Appearance** | 11 colors and 9 backgrounds per note, each background with a light and a dark variant, and the two are independent choices: a background keeps the color it was picked with. Plus a dark theme for the whole app. |
 | 🖼️ **Background themes** | The backgrounds' pictures are a theme: Notka's own CC0 artwork built in, and any theme you import as a `.zip` — the original's illustrations are one, kept outside the app in `themes/google-keep/` ([`docs/THEMES.md`](docs/THEMES.md)). |
 | ⌨️ **Markdown as you type** | `# `, `## `, `### `, `- `, `* `, `1. `, `[ ] ` at line start; `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, links inline. |
-| 🏷️ **Labels** | Per-user labels you can attach to any note, and a label's own view filters the notes that carry it. |
+| 🏷️ **Labels** | Per-user labels you can attach to any note — or type `#` in a note and pick one from the suggestions — and a label's own view filters the notes that carry it. |
 | 👥 **Sharing** | Share a note with another account as *view only* or *can edit*. |
 | 🔄 **Live updates** | When a collaborator edits a shared note, your list and an open note follow along on their own — no refresh. |
-| 🛡️ **No silent overwrites** | If you save from a copy that is already out of date, the server refuses it and offers the newer version instead of dropping your text. |
-| ☑️ **Bulk selection** | Tick the box on a card and the header becomes a selection bar with the actions of the view you are in — archive and delete in the notes, restore and delete forever in the trash — plus *Select all*. |
+| 🛡️ **Nothing typed is lost** | Two people typing into one note at once both keep every keystroke, and a change made offline that no longer fits the note is kept as a note of its own, with a word to say so. |
+| ☑️ **Bulk selection** | Tick the box on a card (or hold it, on a phone) and the header becomes a selection bar with the actions of the view you are in — pin, reminder, colour, labels, archive, delete, make a copy and download in the notes, restore and delete forever in the trash — plus *Select all*. |
 | ↕️ **Checklist rows move by hand** | Drag a row by its six-dot handle: it stays in the list, the rows around it make room, and it lands where it is drawn. One gesture, one undo, and Tab / Shift+Tab change its level. |
 | ⏰ **Reminders** | A moment on a note — optionally repeating daily, weekly, monthly or yearly — gathered in their own view by what is due soonest. |
-| 📌 **Pinning** | Pin the notes you keep coming back to; they lead the list under a *Pinned* heading, above *Others*. |
+| 📌 **Pinning & your own order** | Pin the notes you keep coming back to; they lead the list under a *Pinned* heading, above *Others*. Drag a card to put the notes in your own order, or sort them by the date they were created or modified. |
 | 🗄️ **Archive & trash** | Archive what you are done with; trashed notes purge themselves after 30 days. |
 | 🕓 **Version history** | Every edit to a note's text keeps the state it replaced, listed in *More → Version history* and downloadable as Markdown. |
 | 🖼️ **Pictures** | Add images to a note from the card, the editor or the composer, or paste and drop them in; they sit above the title, open full size, and are shared with collaborators. |
 | ⬇️ **Markdown export & import** | *More → Download as Markdown* on a note, or a `.zip` for several picked notes; *Settings → Import notes* reads such files back, or plain Markdown from elsewhere. Labels travel as `#tags` after the title, the rest in a comment ([`docs/MARKDOWN.md`](docs/MARKDOWN.md)). |
 | 🌍 **Three languages** | American English, British English, and Polish. |
-| 📱 **Installable PWA** | Works on desktop and mobile; add it to your home screen. Opens and edits your notes without a connection, and sends the changes when it is back. |
+| 📱 **Installable PWA** | Works on desktop and mobile; add it to your home screen. Opens and edits your notes without a connection, and sends the changes when it is back. Installed on a phone, it is in the system's *Share* sheet: text, links and pictures shared from another app become a new note. |
 | 🔒 **Self-hosted** | One container, one SQLite file, no external services. |
 
 ### How editing works
@@ -188,7 +188,7 @@ styling. `DemoData.kt` is the exact list; these are the first few.
 
 They also share **Groceries together** (a checklist both can tick) and **Apartment ideas** (a text
 note both can write). Sign in as both in two browsers to watch the live updates, the appearance
-rule, and the conflict warning do their thing. The passwords are public on purpose — never point
+rule, and two people typing into one note at once do their thing. The passwords are public on purpose — never point
 `DEMO=true` at anything you care about.
 
 ### Administration
@@ -258,7 +258,18 @@ GRADLE_USER_HOME=$PWD/.gradle-home ./gradlew :backend:test   # Kotlin unit + HTT
 
 cd frontend
 pnpm run check                                               # svelte-check + TypeScript
-pnpm run test                                                # Vitest (Markdown conversion, i18n)
+pnpm run test                                                # Vitest (document format, Markdown, grid, editor logic, i18n)
+```
+
+The browser suites need a running server and are described in
+[`frontend/e2e/README.md`](frontend/e2e/README.md):
+
+```bash
+pnpm run e2e              # the whole application
+pnpm run e2e:live         # live collaboration between two accounts
+pnpm run e2e:concurrency  # two people typing into one note at once
+pnpm run e2e:editor       # the editor, against a stubbed API (pnpm run build && pnpm run preview)
+pnpm run e2e:mobile       # the phone layout and the share target; Firefox: -- <url> firefox
 ```
 
 ### Building the artifacts
@@ -305,7 +316,7 @@ Both source trees follow **Entity–Control–Boundary**, with dependencies poin
 | [`docs/DATA-MODEL.md`](docs/DATA-MODEL.md) | SQLite schema and the `NoteDocument` content format |
 | [`docs/API.md`](docs/API.md) | Every HTTP endpoint, payload, and error code |
 | [`docs/I18N.md`](docs/I18N.md) | Locales, message catalogues, plural rules, error localization |
-| [`docs/COLLABORATION.md`](docs/COLLABORATION.md) | Live updates, the SSE channel, and the conflict rule |
+| [`docs/COLLABORATION.md`](docs/COLLABORATION.md) | Live updates, the SSE channel, and how simultaneous typing is merged |
 | [`docs/METRICS.md`](docs/METRICS.md) | Every number taken off the original, with the measurement it came from |
 | [`docs/THEMES.md`](docs/THEMES.md) | Background themes: the built-in one, the Google Keep one, and how to make your own |
 | [`docs/MARKDOWN.md`](docs/MARKDOWN.md) | The Markdown file format of the export and the import |
@@ -368,23 +379,28 @@ Errors always use the same envelope, and carry a stable key the frontend localiz
       always goes away after its time — svelte-sonner holds a toast for as long as the pointer is
       over it, and cannot be told not to; the original's goes away regardless (measured 2026-10-14)
 
-What Google Keep has and Notka does not yet, with the effort each would take (compared on
-2026-10-15):
+What Google Keep has and Notka does not yet, with the effort each would take (compared again on
+2026-10-19; drawings and voice notes are out of scope, see above):
 
-| | Feature | Effort |
-| --- | --- | --- |
-| [ ] | Keyboard shortcuts: `c` new note, `l` new list, `/` search, `j`/`k` move between notes, `e` archive, `#` delete, `f` pin, `x` select, `Ctrl+G` grid or list, `?` the list of shortcuts | small |
-| [x] | "Undo" on the snackbar after archiving a note (card, editor and bulk archive; the trash has "Restore") | very small |
-| [ ] | Reminder presets: *Later today 8:00 PM*, *Tomorrow 8:00 AM*, *Next week Mon 8:00 AM* | small |
-| [ ] | *Send* — share a note to another app (Web Share API on a phone) | very small |
-| [ ] | *Uncheck all* / *Delete checked items* in the ⋮ menu on a wide screen (a phone has them) | very small |
-| [ ] | More bulk actions for picked notes: pin, colour, labels, reminder, make a copy | small–medium |
-| [ ] | Settings: add new list items at the bottom, move ticked items to the bottom, show rich link previews | small each |
-| [ ] | A notification when a reminder is due while the app is open | small–medium |
-| [ ] | *Find in note* (the Android app's ⋮ menu) | small–medium |
-| [ ] | Reminder notifications while the app is closed (Web Push from the server) | medium |
-| [x] | Dragging notes in the grid to put them in your own order | medium |
-| [x] | Label suggestions while typing `#` in a note | medium |
+| Feature | Effort |
+| --- | --- |
+| *Undo* on the snackbar after deleting from the editor or the selection bar (a card's own delete already has it) | very small |
+| *Send* — share a note to another app (Web Share API on a phone, the copy to the clipboard elsewhere) | very small |
+| More of the Android app's launcher shortcuts: *New note* and *New photo* next to the existing *New list* | very small |
+| Reminder presets: *Later today 8:00 PM*, *Tomorrow 8:00 AM*, *Next week Mon 8:00 AM*, and the default times for morning, afternoon and evening in Settings | small |
+| Keyboard shortcuts: `c` new note, `l` new list, `/` search, `j`/`k` move between notes, `e` archive, `#` delete, `f` pin, `x` select, `Ctrl+G` grid or list, `?` the list of shortcuts | small |
+| Settings: add new list items at the bottom, move ticked items to the bottom, show rich link previews, enable sharing | small each |
+| Swiping a card sideways to archive it (the Android app) | small–medium |
+| A notification when a reminder is due while the app is open | small–medium |
+| *Find in note* (the Android app's ⋮ menu) | small–medium |
+| Reminder notifications while the app is closed (Web Push from the server) | medium |
+| Location reminders (*Pick a place*) | medium |
+| *Grab image text* — the text of a picture, recognised on the device | large |
+
+Done since the first comparison (2026-10-15): *Undo* after archiving, *Uncheck all* / *Delete
+checked items* in the ⋮ menu on a wide screen, bulk pin, colour, labels, reminder and copy for picked
+notes, receiving a share from another app, dragging notes into your own order, and label suggestions
+after `#`.
 
 ---
 

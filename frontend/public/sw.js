@@ -13,11 +13,17 @@
  *   - Navigations are network-first so a redeployed build is picked up immediately, with the
  *     cached shell as the offline fallback (this is also what makes client-side routes work).
  *   - Everything else same-origin is stale-while-revalidate.
+ *   - A share from another app (the manifest's `share_target`) is a `POST /share` no server
+ *     answers: the worker keeps what was shared in the share inbox and sends the app to `/share`,
+ *     which reads it from there (`control/api/shareInbox.ts`) — with or without a connection.
  */
 
 const CACHE_VERSION = 'notka-v1';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_VERSION}-assets`;
+
+/** The share inbox; its name and keys are the app's `control/api/shareInbox.ts`. */
+const SHARE_CACHE = `${CACHE_VERSION}-share`;
 
 const SHELL_URLS = ['/', '/theme.js', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png'];
 
@@ -63,10 +69,14 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== 'GET') return;
-
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  if (request.method === 'POST' && url.pathname === '/share') {
+    event.respondWith(receiveShare(request));
+    return;
+  }
+  if (request.method !== 'GET') return;
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
@@ -76,6 +86,26 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(staleWhileRevalidate(request));
 });
+
+/**
+ * Keeps one share — the latest — as a JSON entry plus one entry per picture, then answers with a
+ * redirect, so a reload of the page that opens is a plain GET and does not share it again.
+ */
+async function receiveShare(request) {
+  const form = await request.formData();
+  const files = form.getAll('images').filter((value) => value instanceof File && value.size > 0);
+  const inbox = await caches.open(SHARE_CACHE);
+  for (const key of await inbox.keys()) await inbox.delete(key);
+  await Promise.all(
+    files.map((file, index) =>
+      inbox.put(`/share-inbox/image/${index}`, new Response(file, { headers: { 'Content-Type': file.type } }))
+    )
+  );
+  const text = (name) => (typeof form.get(name) === 'string' ? form.get(name) : '');
+  const shared = { title: text('title'), text: text('text'), url: text('url'), images: files.length };
+  await inbox.put('/share-inbox/content', new Response(JSON.stringify(shared), { headers: { 'Content-Type': 'application/json' } }));
+  return Response.redirect('/share', 303);
+}
 
 async function networkFirstNavigation(request) {
   const cache = await caches.open(SHELL_CACHE);

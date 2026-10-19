@@ -765,12 +765,17 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     rewriteBody(withKind(draft.content, nextKind));
   }
 
-  /** The list note's own actions, from the ⋮ beside its title on a phone. */
+  /**
+   * The list note's own actions: the ⋮ beside its title on a phone, and the bar's ⋮ menu on a wide
+   * screen (the original's web app lists them after "Hide checkboxes").
+   */
   function uncheckAllItems(): void {
+    openPanel = null;
     rewriteBody(uncheckAll(draft.content));
   }
 
   function deleteCheckedItems(): void {
+    openPanel = null;
     rewriteBody(withoutChecked(draft.content));
   }
 
@@ -1325,6 +1330,14 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                 <DropdownMenu.Item class="editor-menu-item" onSelect={toggleCheckboxes}>
                   {draft.kind === 'LIST' ? t('card.hideCheckboxes') : t('card.showCheckboxes')}
                 </DropdownMenu.Item>
+                {#if draft.kind === 'LIST'}
+                  <DropdownMenu.Item class="editor-menu-item" onSelect={uncheckAllItems}>
+                    {t('list.uncheckAll')}
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item class="editor-menu-item" onSelect={deleteCheckedItems}>
+                    {t('list.deleteChecked')}
+                  </DropdownMenu.Item>
+                {/if}
                 {#if draft.noteId !== null}
                   <DropdownMenu.Item
                     class="editor-menu-item"

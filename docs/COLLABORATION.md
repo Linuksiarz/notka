@@ -211,7 +211,7 @@ reintroduce:
 | The step protocol, headless | `pnpm run test` (`collabSync.test.ts`) | 6 tests |
 | Live channel | `pnpm run e2e:live` | 11 checks |
 | Simultaneous typing | `pnpm run e2e:concurrency` | 7 checks |
-| Full app regression | `pnpm run e2e` | 149 checks |
+| Full app regression | `pnpm run e2e` | 162 checks |
 | Editor interactions | `pnpm run e2e:editor` | 57 checks |
 
 The browser suites live in `frontend/e2e/` with their own README; they are part of the repository

@@ -122,10 +122,13 @@ src/
 │   ├── noteOrder.ts          the order a view shows its notes in (pinned, then position)
 │   ├── masonry.ts            Keep's grid: each note into the shortest column
 │   ├── pendingChanges.ts     a note as it will be once its waiting writes are stored
+│   ├── sharedNote.ts         what another app shared (title, text, url) as a new note
 │   └── format.ts             locale-free date calculations (days until purge)
 ├── control/                  application layer: no DOM, no Svelte components
 │   ├── api/                  typed fetch client (client.ts, auth.ts, notes.ts, labels.ts) and
-│   │                         localStore.ts (this device's copy, IndexedDB)
+│   │                         localStore.ts (this device's copy, IndexedDB), shareInbox.ts (a share
+│   │                         the service worker kept, Cache Storage)
+│   ├── receiveShare.ts       a waiting share → create, add, pictures
 │   ├── state/                *.svelte.ts rune stores: session, notes, labels, ui, connection,
 │   │                         pendingWrites (the writes waiting for the server)
 │   └── router.svelte.ts      ~90-line history-API router
@@ -146,7 +149,7 @@ src/
   no prop-drilling of collections. Stores never produce user-facing text — the boundary decides
   what to tell the user — which is what keeps `control` free of i18n.
 - **The router is hand-rolled** (history API + `popstate`). Routes: `/`, `/archive`, `/trash`,
-  `/reminders`, `/labels/{id}`, `/settings`, `/login`, `/register`. Keep's well-known URLs are reproduced
+  `/reminders`, `/labels/{id}`, `/settings`, `/share`, `/login`, `/register`. Keep's well-known URLs are reproduced
   (e.g. `/archive`); the Ktor SPA fallback makes them survive a hard refresh.
 - **Markdown is a two-way mapping over `NoteDocument`**, implemented once in `entity/markdown.ts`:
   `documentToMarkdown(document, headingOffset)` and `noteToMarkdown(note)` are the export feature,
@@ -169,6 +172,14 @@ src/
   See `docs/I18N.md`.
 - **PWA**: `public/manifest.webmanifest` + a hand-written runtime-caching `public/sw.js`. No service
   worker plugin and no precache manifest to keep in sync with the Vite build.
+- **Share target**: the manifest's `share_target` puts the installed app in the system's *Share*
+  sheet as a `POST /share` (multipart: `title`, `text`, `url`, `images`). No server answers it — the
+  service worker keeps the share in Cache Storage (`notka-v1-share`) and redirects to `GET /share`,
+  so it works offline and a reload does not share twice. Once somebody is signed in, `App.svelte`
+  takes it out (`control/receiveShare.ts`): the text becomes a text note through the ordinary
+  `create` + `add` (queued with a local id offline, rule 25 of `AGENTS.md`), the pictures go through
+  the ordinary upload, one by one (online only — offline the note is kept without them and the
+  reader is told), and the note opens in the editor.
 
 ## Explicitly out of scope (do not build)
 

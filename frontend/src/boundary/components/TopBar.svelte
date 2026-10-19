@@ -17,7 +17,12 @@
   import Sheet from './Sheet.svelte';
   import PhoneSelectionBar from './PhoneSelectionBar.svelte';
   import { NOTE_SORTS } from '../../entity/noteOrder';
-  import { DropdownMenu } from 'bits-ui';
+  import { DropdownMenu, Popover } from 'bits-ui';
+  import AppearancePicker from './AppearancePicker.svelte';
+  import LabelPicker from './LabelPicker.svelte';
+  import ReminderPicker from './ReminderPicker.svelte';
+  import { SelectionActions } from './selectionActions.svelte';
+  import type { NoteBackground, NoteColor } from '../../entity/api/types';
 
   interface Props {
     onNavigate: (path: string) => void;
@@ -153,6 +158,19 @@
     else if (files.length > 1) void saveMarkdownZip(t('selection.markdownFileName', { count: files.length }), files);
   }
 
+  /** Pin, reminder, colour, labels and copy, the same actions the phone's bar has. */
+  const selection = new SelectionActions();
+  let selectionPanel = $state<'reminder' | 'appearance' | 'labels' | 'menu' | null>(null);
+  let moreAnchor = $state<HTMLElement | null>(null);
+
+  const panelFor = (panel: 'reminder' | 'appearance' | 'labels' | 'menu') => ({
+    open: selectionPanel === panel,
+    onOpenChange: (next: boolean) => {
+      if (next) selectionPanel = panel;
+      else if (selectionPanel === panel) selectionPanel = null;
+    }
+  });
+
   /** Keep's own `Select all` lives in the overflow menu of the selection bar. */
   function selectAll(): void {
     ui.selectAll(notes.visibleNotes.map((note) => note.id));
@@ -281,6 +299,74 @@
           <button
             type="button"
             class="icon-button"
+            title={selection.allPinned ? t('card.unpin') : t('card.pin')}
+            aria-label={selection.allPinned ? t('card.unpin') : t('card.pin')}
+            aria-pressed={selection.allPinned}
+            onclick={() => selection.togglePin()}
+          >
+            <Icon name={selection.allPinned ? 'pin-filled' : 'pin'} size={barIcon} />
+          </button>
+          <Popover.Root {...panelFor('reminder')}>
+            <Popover.Trigger
+              class="icon-button"
+              title={t('reminder.add')}
+              aria-label={t('reminder.add')}
+              disabled={!selection.canEdit}
+            >
+              <Icon name="add-alert" size={barIcon} />
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                data-overlay="selection-picker"
+                class="reminder-picker selection-picker"
+                sideOffset={8}
+                align="end"
+                collisionPadding={8}
+              >
+                <ReminderPicker
+                  reminderAt={selection.shared((note) => note.reminderAt ?? null, null)}
+                  reminderRepeat={selection.shared((note) => note.reminderRepeat ?? null, null)}
+                  onSave={(at, repeat) => {
+                    selectionPanel = null;
+                    selection.remind(at, repeat);
+                  }}
+                  onClear={() => {
+                    selectionPanel = null;
+                    selection.remind(null, null);
+                  }}
+                />
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+          <Popover.Root {...panelFor('appearance')}>
+            <Popover.Trigger
+              class="icon-button"
+              title={t('card.changeColor')}
+              aria-label={t('card.changeColor')}
+              disabled={!selection.canChangeAppearance}
+            >
+              <Icon name="palette" size={barIcon} />
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                data-overlay="selection-picker"
+                class="selection-picker"
+                sideOffset={8}
+                align="end"
+                collisionPadding={8}
+              >
+                <AppearancePicker
+                  color={selection.shared<NoteColor>((note) => note.color, 'default')}
+                  background={selection.shared<NoteBackground | null>((note) => note.background ?? null, null)}
+                  canChange={selection.canChangeAppearance}
+                  onSelect={(color, background) => selection.paint(color, background)}
+                />
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+          <button
+            type="button"
+            class="icon-button"
             title={t('selection.archive')}
             aria-label={t('selection.archive')}
             onclick={() => void archiveSelected()}
@@ -298,7 +384,8 @@
           </button>
         {/if}
 
-        <DropdownMenu.Root>
+        <span class="more-anchor" bind:this={moreAnchor}>
+        <DropdownMenu.Root {...panelFor('menu')}>
           <DropdownMenu.Trigger
             class="icon-button"
             title={t('selection.more')}
@@ -307,7 +394,26 @@
             <Icon name="more-vert" size={barIcon} />
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content preventScroll={false} data-overlay="selection-menu" class="menu" sideOffset={8} align="end">
+            <!-- "Add label" hands the open panel to the label picker, so the menu must not hand the
+                 focus back to its trigger, which is outside the picker and would close it. -->
+            <DropdownMenu.Content
+              preventScroll={false}
+              data-overlay="selection-menu"
+              class="menu"
+              sideOffset={8}
+              align="end"
+              onCloseAutoFocus={(event) => {
+                if (selectionPanel === 'labels') event.preventDefault();
+              }}
+            >
+              {#if view !== 'trash'}
+                <DropdownMenu.Item class="menu-item" onSelect={() => (selectionPanel = 'labels')}>
+                  {t('card.addLabel')}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item class="menu-item" onSelect={() => selection.copy()}>
+                  {t('card.makeCopy')}
+                </DropdownMenu.Item>
+              {/if}
               <DropdownMenu.Item class="menu-item" onSelect={selectAll}>
                 {t('selection.selectAll')}
               </DropdownMenu.Item>
@@ -317,6 +423,26 @@
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
+        </span>
+        <Popover.Root {...panelFor('labels')}>
+          <Popover.Portal>
+            <Popover.Content
+              data-overlay="selection-picker"
+              class="selection-picker"
+              customAnchor={moreAnchor}
+              sideOffset={8}
+              align="end"
+              collisionPadding={8}
+            >
+              <LabelPicker
+                labels={labels.labels}
+                selectedIds={selection.sharedLabelIds}
+                onToggle={(label) => selection.toggleLabel(label)}
+                onCreate={(name) => void selection.createLabel(name)}
+              />
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
       </div>
     </div>
   {:else}
@@ -501,6 +627,15 @@
     gap: 2px;
     margin-left: auto;
     padding-right: 8px;
+  }
+
+  .more-anchor {
+    display: inline-flex;
+  }
+
+  /* bits-ui renders the pickers in a portal; they hang over the notes, above the header. */
+  :global(.selection-picker) {
+    z-index: 90;
   }
 
   .selection-count {

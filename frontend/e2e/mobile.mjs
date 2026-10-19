@@ -688,6 +688,114 @@ check(
 );
 await short.context.close();
 
+console.log('\nsharing into Notka from another app');
+
+// given: the installed app — its service worker in control — and a manifest that names it a share target
+const sharing = await phone(PHONE, [], 's');
+await sharing.page.evaluate(() => navigator.serviceWorker?.ready);
+await sharing.page.reload({ waitUntil: 'networkidle' });
+const shareTarget = await sharing.page.evaluate(async () => (await fetch('/manifest.webmanifest').then((r) => r.json())).share_target);
+check(
+  'the manifest makes the app a share target for text, links and pictures',
+  shareTarget?.action === '/share' &&
+    shareTarget.method === 'POST' &&
+    shareTarget.enctype === 'multipart/form-data' &&
+    shareTarget.params.title === 'title' &&
+    shareTarget.params.text === 'text' &&
+    shareTarget.params.url === 'url' &&
+    shareTarget.params.files?.[0]?.accept.includes('image/png'),
+  JSON.stringify(shareTarget)
+);
+
+/** What the system's share sheet sends: the manifest's `POST /share`, handled by the service worker. */
+const share = (page, fields) =>
+  page.evaluate(async ({ title, text, url, image }) => {
+    const form = new FormData();
+    form.set('title', title);
+    form.set('text', text);
+    form.set('url', url);
+    if (image) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 8;
+      canvas.height = 8;
+      const context2d = canvas.getContext('2d');
+      context2d.fillStyle = '#c33';
+      context2d.fillRect(0, 0, 8, 8);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      form.append('images', new File([blob], 'shared.png', { type: 'image/png' }));
+    }
+    const response = await fetch('/share', { method: 'POST', body: form });
+    return response.url;
+  }, fields);
+
+// when: another app shares a page with its title, a line of text and a picture
+const landed = await share(sharing.page, {
+  title: 'Shared article',
+  text: 'Worth reading',
+  url: 'https://example.org/shared',
+  image: true
+});
+await sharing.page.goto(`${baseUrl}/share`, { waitUntil: 'networkidle' });
+const sharedEditor = await sharing.page.locator('.editor').waitFor({ timeout: 10_000 }).then(() => true, () => false);
+await sharing.page.waitForTimeout(800);
+const sharedStored = await sharing.page.evaluate(async () => {
+  const body = await fetch('/api/notes', { credentials: 'include' }).then((response) => response.json());
+  const note = body.notes.find((candidate) => candidate.title === 'Shared article');
+  return note && {
+    kind: note.kind,
+    lines: note.content.blocks.map((block) => block.spans.map((span) => span.text).join('')),
+    images: note.images?.length ?? 0
+  };
+});
+
+// then: the worker sent the app to /share, and the share became a note of its own that opens
+check('a share is answered with the app, not the server', landed.endsWith('/share'), landed);
+check(
+  'a share becomes a text note with its title, text, link and picture',
+  sharedStored?.kind === 'TEXT' &&
+    JSON.stringify(sharedStored.lines) === JSON.stringify(['Worth reading', 'https://example.org/shared']) &&
+    sharedStored.images === 1,
+  JSON.stringify(sharedStored)
+);
+check(
+  'the shared note opens in the editor and the address bar leaves /share',
+  sharedEditor && new URL(sharing.page.url()).pathname === '/',
+  sharing.page.url()
+);
+await sharing.page.locator('[aria-label="Back to notes"]').click();
+await sharing.page.waitForTimeout(700);
+
+// when: a link is shared with no connection
+await sharing.context.setOffline(true);
+await share(sharing.page, { title: '', text: 'Offline find https://example.org/offline', url: '', image: true });
+await sharing.page.goto(`${baseUrl}/share`, { waitUntil: 'domcontentloaded' }).catch(() => undefined);
+await sharing.page.waitForTimeout(2500);
+const offlineOpened = (await sharing.page.locator('.editor').count()) === 1;
+const offlineTold = (await sharing.page.locator('[data-sonner-toast]').filter({ hasText: 'without its pictures' }).count()) > 0;
+await sharing.page.locator('[aria-label="Back to notes"]').click().catch(() => undefined);
+await sharing.page.waitForTimeout(700);
+const offlineCard = (await sharing.page.locator('.card').filter({ hasText: 'Offline find' }).count()) === 1;
+
+// then: the note is written on the device and opens, and the reader is told its picture waits for nobody
+check(
+  'a share received offline becomes a note on the device, and says its pictures were left out',
+  offlineOpened && offlineTold && offlineCard,
+  JSON.stringify({ offlineOpened, offlineTold, offlineCard })
+);
+
+// when: the connection comes back
+await sharing.context.setOffline(false);
+await sharing.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await sharing.page.waitForTimeout(2500);
+const offlineStored = await sharing.page.evaluate(async () => {
+  const body = await fetch('/api/notes', { credentials: 'include' }).then((response) => response.json());
+  return body.notes.some((note) => note.content.blocks.some((block) => block.spans.some((span) => span.text.includes('Offline find'))));
+});
+
+// then: the queue sends it like any note written offline
+check('a share received offline reaches the server once it is back', offlineStored);
+await sharing.context.close();
+
 await browser.close();
 
 console.log('');

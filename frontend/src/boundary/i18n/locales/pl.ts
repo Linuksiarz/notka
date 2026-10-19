@@ -457,6 +457,8 @@ export const pl: Messages = {
   'list.options': 'Opcje listy',
   'list.uncheckAll': 'Odznacz wszystkie elementy',
   'list.deleteChecked': 'Usuń zaznaczone elementy',
+  'shareTarget.imagesOffline': 'Notatka została zapisana bez obrazów — dodawanie obrazów wymaga połączenia.',
+  'shareTarget.imagesFailed': 'Notatka została zapisana bez obrazów: {reason}',
   'labels.suggestions': 'Etykiety',
   'labels.suggestCreate': 'Utwórz „{name}”'
 };

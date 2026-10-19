@@ -534,6 +534,71 @@ check(
   JSON.stringify(asList)
 );
 
+console.log('\nlist actions in the editor menu');
+
+// given: a list note with two ticked rows and one open one
+const listActionsNote = await alice.page.evaluate(async () => {
+  const row = (text, checked) => ({ id: crypto.randomUUID(), type: 'checklist', depth: 0, checked, spans: [{ text }] });
+  const response = await fetch('/api/notes', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: 'Ticked list',
+      kind: 'LIST',
+      content: { version: 1, blocks: [row('eggs', true), row('flour', false), row('sugar', true)] }
+    })
+  });
+  return (await response.json()).id;
+});
+const readTickedList = () =>
+  alice.page.evaluate(async (id) => {
+    const note = await fetch(`/api/notes/${id}`, { credentials: 'include' }).then((response) => response.json());
+    return note.content.blocks.map((block) => `${block.spans.map((span) => span.text).join('')}:${block.checked}`);
+  }, listActionsNote);
+await alice.page.reload({ waitUntil: 'networkidle' });
+const tickedCard = alice.page.locator('.card').filter({ hasText: 'Ticked list' }).first();
+await tickedCard.locator('.title').click();
+await alice.page.waitForSelector('.editor');
+await alice.page.waitForTimeout(500);
+
+// when: "Uncheck all items" is picked from the editor's own ⋮ menu on a wide screen
+await alice.page.locator('.editor').getByRole('button', { name: 'More options' }).click();
+await alice.page.getByRole('menuitem', { name: 'Uncheck all items' }).click();
+await alice.page.waitForTimeout(1500);
+const unchecked = await readTickedList();
+
+// then: every row is open again, and none is gone
+check(
+  'the editor menu of a list note unchecks every row',
+  JSON.stringify(unchecked) === JSON.stringify(['eggs:false', 'flour:false', 'sugar:false']),
+  JSON.stringify(unchecked)
+);
+
+// when: one row is ticked again and "Delete checked items" is picked
+await alice.page.locator('.editor .note-body li[data-checked] input[type="checkbox"]').first().click();
+await alice.page.waitForTimeout(300);
+await alice.page.locator('.editor').getByRole('button', { name: 'More options' }).click();
+await alice.page.getByRole('menuitem', { name: 'Delete checked items' }).click();
+await alice.page.waitForTimeout(1500);
+const pruned = await readTickedList();
+
+// then: only the ticked row left the note
+check(
+  'the editor menu of a list note deletes the checked rows',
+  JSON.stringify(pruned) === JSON.stringify(['flour:false', 'sugar:false']),
+  JSON.stringify(pruned)
+);
+
+// when: the note is closed and deleted, so the run goes on with the view it had
+await alice.page.keyboard.press('Escape');
+await alice.page.waitForTimeout(600);
+await alice.page.evaluate(
+  (id) => fetch(`/api/notes/${id}?permanent=true`, { method: 'DELETE', credentials: 'include' }),
+  listActionsNote
+);
+await alice.page.reload({ waitUntil: 'networkidle' });
+
 // when: the newest note is pinned from its card
 const newestCard = alice.page.locator('.card').first();
 const newestTitle = await newestCard.locator('.title').innerText();
@@ -788,6 +853,125 @@ check(
     (await alice.page.locator('.card').filter({ hasText: 'Bulk one' }).count()) === 0,
   `${beforeArchive} -> ${await alice.page.locator('.card').count()}`
 );
+
+console.log('\nbulk pin, colour, labels, reminder and copy');
+
+// given: two notes of their own, picked together
+const bulkIds = await alice.page.evaluate(async () => {
+  const ids = [];
+  for (const title of ['Bulk eight', 'Bulk nine']) {
+    const response = await fetch('/api/notes', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, kind: 'TEXT' })
+    });
+    ids.push((await response.json()).id);
+  }
+  return ids;
+});
+const readBulk = () =>
+  alice.page.evaluate(async (ids) => {
+    const body = await fetch('/api/notes', { credentials: 'include' }).then((response) => response.json());
+    return {
+      notes: ids.map((id) => {
+        const note = body.notes.find((candidate) => candidate.id === id);
+        return note && { pinned: note.pinned, color: note.color, labels: note.labels.map((label) => label.name), reminderAt: note.reminderAt ?? null };
+      }),
+      copies: body.notes.filter((note) => note.title === 'Bulk eight' || note.title === 'Bulk nine').length
+    };
+  }, bulkIds);
+await alice.page.reload({ waitUntil: 'networkidle' });
+const pickBulk = async () => {
+  for (const title of ['Bulk eight', 'Bulk nine']) {
+    const card = alice.page.locator('.card').filter({ hasText: title }).first();
+    await card.hover();
+    await alice.page.waitForTimeout(200);
+    if (!(await alice.page.locator('.selection').count())) {
+      await alice.page.locator('.card-tick').first().click();
+    } else {
+      await card.click();
+    }
+    await alice.page.waitForTimeout(200);
+  }
+};
+await pickBulk();
+const bulkBar = alice.page.locator('.selection');
+
+// when: the bar pins them
+await bulkBar.getByRole('button', { name: 'Pin note' }).click();
+await alice.page.waitForTimeout(900);
+
+// when: the bar paints them
+await bulkBar.getByRole('button', { name: 'Change color' }).click();
+await alice.page.locator('[data-overlay="selection-picker"]').getByRole('button', { name: 'Coral' }).click();
+await alice.page.waitForTimeout(900);
+await alice.page.keyboard.press('Escape');
+await alice.page.waitForTimeout(200);
+
+// when: the bar gives them a new label from its overflow menu
+if (!(await bulkBar.count())) await pickBulk();
+await bulkBar.getByRole('button', { name: 'More actions' }).click();
+await alice.page.getByRole('menuitem', { name: 'Add label' }).click();
+const bulkLabel = `Bulk ${run}`;
+await alice.page.locator('[data-overlay="selection-picker"]').getByLabel('Enter label name').fill(bulkLabel);
+await alice.page.keyboard.press('Enter');
+await alice.page.waitForTimeout(1200);
+await alice.page.keyboard.press('Escape');
+await alice.page.waitForTimeout(200);
+
+// when: the bar gives them a reminder
+if (!(await bulkBar.count())) await pickBulk();
+await bulkBar.getByRole('button', { name: 'Add a reminder' }).click();
+await alice.page.locator('[data-overlay="selection-picker"]').getByRole('button', { name: 'Save' }).click();
+await alice.page.waitForTimeout(900);
+const bulkState = await readBulk();
+
+// then: every picked note took each of them, one note's own call at a time
+check(
+  'the selection bar pins every picked note',
+  bulkState.notes.every((note) => note?.pinned === true),
+  JSON.stringify(bulkState)
+);
+check(
+  'the selection bar paints every picked note',
+  bulkState.notes.every((note) => note?.color === 'red'),
+  JSON.stringify(bulkState)
+);
+check(
+  'the selection bar labels every picked note',
+  bulkState.notes.every((note) => note?.labels.includes(bulkLabel)),
+  JSON.stringify(bulkState)
+);
+check(
+  'the selection bar gives every picked note a reminder',
+  bulkState.notes.every((note) => typeof note?.reminderAt === 'number' && note.reminderAt > Date.now()),
+  JSON.stringify(bulkState)
+);
+
+// when: the bar makes a copy of them
+if (!(await bulkBar.count())) await pickBulk();
+await bulkBar.getByRole('button', { name: 'More actions' }).click();
+await alice.page.getByRole('menuitem', { name: 'Make a copy' }).click();
+await alice.page.waitForTimeout(1200);
+const copied = await readBulk();
+
+// then: each picked note has a copy of its own
+check('the selection bar copies every picked note', copied.copies === 4, JSON.stringify(copied));
+
+// when: the notes it made are deleted, so the run goes on with the view it had
+await alice.page.keyboard.press('Escape');
+await alice.page.evaluate(async () => {
+  const body = await fetch('/api/notes', { credentials: 'include' }).then((response) => response.json());
+  for (const note of body.notes.filter((candidate) => candidate.title === 'Bulk eight' || candidate.title === 'Bulk nine')) {
+    await fetch(`/api/notes/${note.id}?permanent=true`, { method: 'DELETE', credentials: 'include' });
+  }
+  const labels = await fetch('/api/labels', { credentials: 'include' }).then((response) => response.json());
+  for (const label of (labels.labels ?? labels).filter((candidate) => candidate.name.startsWith('Bulk '))) {
+    await fetch(`/api/labels/${label.id}`, { method: 'DELETE', credentials: 'include' });
+  }
+});
+await alice.page.reload({ waitUntil: 'networkidle' });
 
 console.log('\nbulk restore and select all');
 

@@ -15,6 +15,7 @@ export type Route =
   | { name: 'label'; labelId: number }
   | { name: 'search'; filter: SearchFilter | null }
   | { name: 'settings' }
+  | { name: 'share' }
   | { name: 'login' }
   | { name: 'register' }
   | { name: 'resetPassword' };
@@ -29,6 +30,8 @@ function parseRoute(pathname: string, search: string): Route {
     return { name: 'search', filter: parseSearchFilter(path) };
   }
   if (path === '/settings') return { name: 'settings' };
+  // Where the service worker sends a share from another app, once it has kept it (`public/sw.js`).
+  if (path === '/share') return { name: 'share' };
   if (path === '/login') return { name: 'login' };
   if (path === '/register') return { name: 'register' };
   if (path === '/reset-password') return { name: 'resetPassword' };
@@ -56,6 +59,8 @@ function routeToPath(route: Route): string {
       return route.filter ? searchFilterPath(route.filter) : '/search';
     case 'settings':
       return '/settings';
+    case 'share':
+      return '/share';
     case 'login':
       return '/login';
     case 'register':

@@ -63,7 +63,7 @@ pnpm run build     # production bundle -> frontend/dist
 pnpm run dev       # dev server on :5173, proxies /api to :8080
 
 # Browser suites (need a running server; see frontend/e2e/README.md)
-pnpm run e2e              # full application regression, 149 checks
+pnpm run e2e              # full application regression, 162 checks
 pnpm run e2e:live         # live collaboration between two accounts
 pnpm run e2e:concurrency  # two people typing into one note at once
 pnpm run e2e:editor       # editor interactions, stubbed API + pnpm preview
@@ -591,8 +591,10 @@ thrown away.
     the existing 1px border so the card's box, and every note beside it, stays where it was). Not the
     note's own colours, and never a second, different hover glyph.
     Ticking one turns the header into a selection bar with a count and the bulk actions **for the view
-    it is in** — archive and delete in the notes, restore and delete-forever in the trash — with Keep's
-    `Select all` in the bar's overflow menu, which picks exactly what the view is showing. Clicking
+    it is in** — pin, reminder, colour, archive and delete in the notes (with *Add label* and *Make a
+    copy* in its ⋮), restore and delete-forever in the trash — with Keep's `Select all` in the bar's
+    overflow menu, which picks exactly what the view is showing. Both bars, the phone's and the
+    desktop's, do it through one `SelectionActions` (`boundary/components/selectionActions.svelte.ts`). Clicking
     further cards picks them instead of opening them, Escape clears it, and unticking the last one puts
     the bar away. Bulk actions go through the **same** REST calls as a single note — never a second
     write path — and the bar is not shown while a note is open.
@@ -858,7 +860,11 @@ thrown away.
    open it takes those in and sends its own again, and only a closed editor's steps that no longer fit
    are kept aside. **Nothing typed is ever dropped**: a queued text change the server refuses
    (somebody removed the note, renamed it meanwhile — `titleBase` — or wrote steps a closed editor can
-   no longer be rebased over) becomes a note of its own, and the user is told. Pictures, sharing, the trash and the settings stay online-only. Where the original
+   no longer be rebased over) becomes a note of its own, and the user is told. Pictures, sharing, the trash and the settings stay online-only.
+   **A share from another app is a new note** (the manifest's `share_target`, `docs/ARCHITECTURE.md`):
+   the service worker keeps it, so it is received offline too, and it goes through `create` + `add`
+   like any other new note — its pictures, being online-only, are left out offline and the reader is
+   told. Where the original
    shows its "offline" cloud, the header shows ours (`connection.reachable`), on a phone as well.
 26. **A phone is the original's Android app, not a narrow web page.** Below the 600px breakpoint the
    chrome is the app's (measured in `docs/METRICS.md`, "The app's own chrome"): cards with no pin and

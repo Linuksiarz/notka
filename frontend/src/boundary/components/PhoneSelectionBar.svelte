@@ -1,22 +1,21 @@
 <script lang="ts">
-  import { toast } from 'svelte-sonner';
   import { labels } from '../../control/state/labels.svelte';
-  import { notes } from '../../control/state/notes.svelte';
   import { ui } from '../../control/state/ui.svelte';
-  import type { Label, Note, NoteBackground, NoteColor, ReminderRepeat } from '../../entity/api/types';
-  import { t, tError } from '../i18n';
+  import type { NoteBackground, NoteColor, ReminderRepeat } from '../../entity/api/types';
+  import { t } from '../i18n';
   import AppearancePicker from './AppearancePicker.svelte';
   import Icon from './Icon.svelte';
   import type { IconName } from './Icon.svelte';
   import LabelPicker from './LabelPicker.svelte';
   import ReminderPicker from './ReminderPicker.svelte';
   import Sheet from './Sheet.svelte';
+  import { SelectionActions } from './selectionActions.svelte';
 
   /**
    * The Android app's selection bar, which takes the whole header over once a note is held: ✕, the
    * count as a bare number, then pin, reminder, colour, labels and ⋮ (measured on an emulator, 48dp
-   * apart). Every action is the same REST call a single note makes (rule 20), once per picked note;
-   * the overflow sheet holds what the desktop's bar shows as buttons.
+   * apart). The actions themselves are `SelectionActions`, shared with the desktop's bar; the
+   * overflow sheet holds what the desktop's bar shows as buttons.
    */
   interface Props {
     onArchive: () => void;
@@ -29,66 +28,11 @@
 
   let sheet = $state<'reminder' | 'appearance' | 'labels' | 'more' | null>(null);
 
-  const picked = $derived.by(() => {
-    const ids = new Set(ui.selectedNoteIds);
-    return [...notes.visibleNotes, ...notes.visibleArchived].filter((note) => ids.has(note.id));
-  });
-
-  /** What the picked notes share — shown in a picker as its current choice. */
-  function shared<T>(read: (note: Note) => T, otherwise: T): T {
-    const first = picked[0];
-    if (!first) return otherwise;
-    const value = read(first);
-    return picked.every((note) => read(note) === value) ? value : otherwise;
-  }
-
-  const allPinned = $derived(picked.length > 0 && picked.every((note) => note.pinned));
-  const sharedLabelIds = $derived(
-    labels.labels
-      .filter((label) => picked.length > 0 && picked.every((note) => note.labels.some((own) => own.id === label.id)))
-      .map((label) => label.id)
-  );
-
-  async function each(action: (note: Note) => Promise<unknown>): Promise<void> {
-    try {
-      await Promise.all(picked.map(action));
-    } catch (error) {
-      toast.error(tError(error as Error));
-    }
-  }
-
-  function togglePin(): void {
-    const pinned = !allPinned;
-    void each((note) => notes.setPinned(note.id, pinned));
-  }
-
-  function paint(color: NoteColor, background: NoteBackground | null): void {
-    void each((note) => notes.setAppearance(note.id, color, background));
-  }
+  const selection = new SelectionActions();
 
   function remind(at: number | null, repeat: ReminderRepeat | null): void {
     sheet = null;
-    void each((note) =>
-      notes.patch(note.id, { reminderAt: at === null ? 0 : at, reminderRepeat: at === null ? null : repeat })
-    );
-  }
-
-  /** The original's label list for a selection: a label every picked note has is taken off them all. */
-  function toggleLabel(label: Label): void {
-    const remove = sharedLabelIds.includes(label.id);
-    void each((note) => {
-      const own = note.labels.map((entry) => entry.id).filter((id) => id !== label.id);
-      return notes.setLabels(note.id, remove ? own : [...own, label.id]);
-    });
-  }
-
-  async function createLabel(name: string): Promise<void> {
-    try {
-      const label = await labels.create(name);
-      toggleLabel(label);
-    } catch (error) {
-      toast.error(tError(error as Error));
-    }
+    selection.remind(at, repeat);
   }
 
   function fromMore(action: () => void): () => void {
@@ -96,10 +40,6 @@
       sheet = null;
       action();
     };
-  }
-
-  function copySelected(): void {
-    void each((note) => notes.copy(note.id));
   }
 </script>
 
@@ -126,14 +66,14 @@
     <button
       type="button"
       class="icon-button"
-      title={allPinned ? t('card.unpin') : t('card.pin')}
-      aria-label={allPinned ? t('card.unpin') : t('card.pin')}
-      aria-pressed={allPinned}
-      onclick={togglePin}
+      title={selection.allPinned ? t('card.unpin') : t('card.pin')}
+      aria-label={selection.allPinned ? t('card.unpin') : t('card.pin')}
+      aria-pressed={selection.allPinned}
+      onclick={() => selection.togglePin()}
     >
-      <Icon name={allPinned ? 'pin-filled' : 'pin'} size={24} />
+      <Icon name={selection.allPinned ? 'pin-filled' : 'pin'} size={24} />
     </button>
-    <button type="button" class="icon-button" title={t('reminder.add')} aria-label={t('reminder.add')} onclick={() => (sheet = 'reminder')}>
+    <button type="button" class="icon-button" title={t('reminder.add')} aria-label={t('reminder.add')} disabled={!selection.canEdit} onclick={() => (sheet = 'reminder')}>
       <Icon name="add-alert" size={24} />
     </button>
     <button type="button" class="icon-button" title={t('card.changeColor')} aria-label={t('card.changeColor')} onclick={() => (sheet = 'appearance')}>
@@ -150,8 +90,8 @@
 
 <Sheet open={sheet === 'reminder'} onClose={() => (sheet = null)} title={t('reminder.add')}>
   <ReminderPicker
-    reminderAt={shared((note) => note.reminderAt ?? null, null)}
-    reminderRepeat={shared((note) => note.reminderRepeat ?? null, null)}
+    reminderAt={selection.shared((note) => note.reminderAt ?? null, null)}
+    reminderRepeat={selection.shared((note) => note.reminderRepeat ?? null, null)}
     onSave={(at, repeat) => remind(at, repeat)}
     onClear={() => remind(null, null)}
   />
@@ -160,26 +100,26 @@
 <Sheet open={sheet === 'appearance'} onClose={() => (sheet = null)} title={t('card.changeColor')}>
   <AppearancePicker
     layout="sheet"
-    color={shared<NoteColor>((note) => note.color, 'default')}
-    background={shared<NoteBackground | null>((note) => note.background ?? null, null)}
-    canChange={picked.every((note) => note.canChangeAppearance)}
-    onSelect={paint}
+    color={selection.shared<NoteColor>((note) => note.color, 'default')}
+    background={selection.shared<NoteBackground | null>((note) => note.background ?? null, null)}
+    canChange={selection.canChangeAppearance}
+    onSelect={(color, background) => selection.paint(color, background)}
   />
 </Sheet>
 
 <Sheet open={sheet === 'labels'} onClose={() => (sheet = null)} title={t('card.labels')}>
   <LabelPicker
     labels={labels.labels}
-    selectedIds={sharedLabelIds}
-    onToggle={toggleLabel}
-    onCreate={(name) => void createLabel(name)}
+    selectedIds={selection.sharedLabelIds}
+    onToggle={(label) => selection.toggleLabel(label)}
+    onCreate={(name) => void selection.createLabel(name)}
   />
 </Sheet>
 
 <Sheet open={sheet === 'more'} onClose={() => (sheet = null)} title={t('selection.more')}>
   {@render sheetItem('archive', t('selection.archive'), onArchive)}
   {@render sheetItem('trash', t('selection.trash'), onTrash)}
-  {@render sheetItem('content-copy', t('card.makeCopy'), copySelected)}
+  {@render sheetItem('content-copy', t('card.makeCopy'), () => selection.copy())}
   {@render sheetItem('checklist', t('selection.selectAll'), onSelectAll)}
   {@render sheetItem('download', t('selection.downloadMarkdown'), onDownload)}
 </Sheet>

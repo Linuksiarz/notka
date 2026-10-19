@@ -443,6 +443,8 @@ export const enUS = {
   'list.options': 'List options',
   'list.uncheckAll': 'Uncheck all items',
   'list.deleteChecked': 'Delete checked items',
+  'shareTarget.imagesOffline': 'The note was saved without its pictures — adding pictures needs a connection.',
+  'shareTarget.imagesFailed': 'The note was saved without its pictures: {reason}',
   'labels.suggestions': 'Labels',
   'labels.suggestCreate': 'Create “{name}”'
 } as const;

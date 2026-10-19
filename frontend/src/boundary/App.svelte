@@ -10,7 +10,7 @@
   import { notes } from '../control/state/notes.svelte';
   import { session } from '../control/state/session.svelte';
   import { ui } from '../control/state/ui.svelte';
-  import { t } from './i18n';
+  import { t, tError } from './i18n';
   import ComposeFab from './components/ComposeFab.svelte';
   import LabelsDialog from './components/LabelsDialog.svelte';
   import NoteComposer from './components/NoteComposer.svelte';
@@ -28,6 +28,7 @@
   import { toast } from 'svelte-sonner';
   import { followSystemBar } from './systemBar';
   import { followVisualViewport } from './visualViewport';
+  import { receiveShare } from '../control/receiveShare';
 
   let booted = $state(false);
 
@@ -90,6 +91,29 @@
     // Themes live on the server now, and which one is shown is the account's own choice.
     void backgroundThemes.load();
   });
+
+  /**
+   * A share from another app becomes a note and opens, the way the original's share sheet ends in its
+   * editor. It waits in the share inbox until somebody is signed in, so a share that had to go
+   * through the sign-in screen first is not lost.
+   */
+  $effect(() => {
+    if (!booted || !authenticated) return;
+    void acceptShare();
+  });
+
+  async function acceptShare(): Promise<void> {
+    try {
+      const received = await receiveShare();
+      if (router.route.name === 'share') router.navigate('/', { replace: true });
+      if (received === null) return;
+      if (received.imagesOffline) toast(t('shareTarget.imagesOffline'));
+      else if (received.imagesError) toast.error(t('shareTarget.imagesFailed', { reason: tError(received.imagesError) }));
+      ui.openEditor(received.note.id);
+    } catch (error) {
+      toast.error(tError(error as Error));
+    }
+  }
 
   // A waiting write the server refused was kept as a note of its own; say so, once.
   $effect(() => {
