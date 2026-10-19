@@ -162,6 +162,39 @@
   }
 
   /**
+   * A phone's tap on a checklist's checkbox **ticks its row without raising the keyboard**.
+   *
+   * Tiptap's task item answers the checkbox's `change` by focusing the editor, which on a phone opens
+   * the on-screen keyboard: ticking something off while reading pulled the keyboard up over the note,
+   * as if the reader had asked to edit it. Ticking is not typing. The browser has already toggled the
+   * box when this runs; the row is written to the document here instead, and the `change` is kept from
+   * reaching the task item's own handler. The focus stays exactly where it was: down, when the note is
+   * being read. The text of an active row is untouched by this, so tapping it still focuses the editor,
+   * because that tap is the browser's own.
+   *
+   * It is listened for in the **capture** phase, because the task item's handler sits on the checkbox
+   * itself: a listener that ran after it would be too late, the keyboard already asked for.
+   */
+  function tickRowWithoutKeyboard(view: EditorView, event: Event): void {
+    if (!ui.phone || !view.editable) return;
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') return;
+    const row = target.closest('li[data-checked]');
+    if (!row || !view.dom.contains(row)) return;
+    // The row's own content starts one position inside the row, which is where `posAtDOM` lands.
+    const pos = view.posAtDOM(row, 0) - 1;
+    const node = view.state.doc.nodeAt(pos);
+    if (node?.type.name !== 'taskItem') return;
+    event.stopPropagation();
+    view.dispatch(
+      view.state.tr.setNodeMarkup(pos, undefined, {
+        ...node.attrs,
+        checked: target.checked
+      })
+    );
+  }
+
+  /**
    * Puts the editable into the page **the moment its host is**, and takes the editor down with it.
    *
    * `svelte-tiptap`'s `EditorContent` moves the editor in after an `await tick()` of its own, and the
@@ -177,7 +210,11 @@
   function mountEditor(host: HTMLElement): () => void {
     host.append(editor.view.dom);
     editor.setOptions({ element: host });
+    // The checkbox's own handler sits on the input, so this has to run before it (capture).
+    const onChange = (event: Event) => tickRowWithoutKeyboard(editor.view, event);
+    editor.view.dom.addEventListener('change', onChange, true);
     return () => {
+      editor.view.dom.removeEventListener('change', onChange, true);
       tearingDown = true;
       editor.destroy();
     };

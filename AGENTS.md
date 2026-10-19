@@ -422,7 +422,10 @@ thrown away.
     **Ticking a row animates the reorder** (`checklistCompletion.ts`): the rows and the heading slide
     into the room it leaves and the ticked row fades in under the heading, as the app's does.
     **An existing note opens on a phone without the caret** — it is opened to be read, the keyboard
-    stays down — and a new note opens with it (rule 16 is the desktop's).
+    stays down — and a new note opens with it (rule 16 is the desktop's). **Ticking a row does not
+    raise it either**: the checkbox toggles its row without focusing the editor, and only the text of
+    an active row brings the caret (and the keyboard) in (`RichText.svelte`,
+    `tickRowWithoutKeyboard`).
 12a. **A card's "N completed items" heading is a label, not a control**: on a card a click anywhere opens
     the note, the heading and the line above it included (`NoteContent.svelte`). Folding the section is
     the editor's own (`completedSection.ts`). **The editor shows who a note is shared with** — the

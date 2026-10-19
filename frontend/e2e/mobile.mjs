@@ -622,6 +622,47 @@ check(
   JSON.stringify(menu)
 );
 await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+
+// Ticking is not editing. A phone opens a note to be read, so the keyboard stays down — and a tap on
+// a checkbox must leave it down. Only the text of an active row asks for the caret. (Tiptap's task
+// item focuses the editor from the checkbox's own handler, which raised the keyboard over the note.)
+await page.locator('[aria-label="Back to notes"]').click();
+await page.waitForTimeout(700);
+await page.getByRole('button', { name: 'New note', exact: true }).click();
+await page.getByRole('button', { name: 'List', exact: true }).click();
+await page.waitForSelector('.editor li[data-checked] p');
+await page.locator('.editor textarea.title').fill('keys');
+await page.locator('.editor li[data-checked] p').first().click();
+await page.keyboard.type('tick me');
+await page.keyboard.press('Enter');
+await page.keyboard.type('edit me');
+await page.locator('[aria-label="Back to notes"]').click();
+await page.waitForTimeout(800);
+await page.locator('.card', { hasText: 'keys' }).first().click();
+await page.waitForSelector('.editor', { timeout: 10_000 });
+await page.waitForTimeout(500);
+const readMode = await page.evaluate(() => document.querySelector('.editor .note-body')?.matches(':focus') ?? null);
+await page.locator('.editor li[data-checked]:has(p:text-is("tick me")) input').click();
+await page.waitForTimeout(500);
+const ticked = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.editor li[data-checked]')].find((li) => li.querySelector('p')?.textContent === 'tick me');
+  return {
+    focused: document.querySelector('.editor .note-body')?.matches(':focus') ?? null,
+    checked: row?.querySelector('input')?.checked ?? null,
+    drawn: row?.getAttribute('data-checked') ?? null
+  };
+});
+await page.locator('.editor li[data-checked] p:text-is("edit me")').click();
+await page.waitForTimeout(400);
+const afterText = await page.evaluate(() => document.querySelector('.editor .note-body')?.matches(':focus') ?? null);
+check(
+  "ticking a row leaves the keyboard down, and only an active row's text raises it",
+  readMode === false && ticked.focused === false && ticked.checked === true && ticked.drawn === 'true' && afterText === true,
+  JSON.stringify({ readMode, ticked, afterText })
+);
+await page.locator('[aria-label="Back to notes"]').click();
+await page.waitForTimeout(700);
 await context.close();
 
 console.log('\nthe editor bar over a scrolled note');
