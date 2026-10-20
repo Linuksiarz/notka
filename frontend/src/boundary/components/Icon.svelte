@@ -176,7 +176,6 @@
     flex: 0 0 auto;
     width: var(--icon-size);
     height: var(--icon-size);
-    color: inherit;
   }
 
   .icon :global(svg) {

@@ -292,12 +292,20 @@
       type="button"
       class="pin-button"
       class:pinned={note.pinned}
+      class:on-picture={(note.images?.length ?? 0) > 0}
       title={note.pinned ? t('card.unpin') : t('card.pin')}
       aria-label={note.pinned ? t('card.unpinNote') : t('card.pinNote')}
       aria-pressed={note.pinned}
       onclick={togglePin}
     >
-      <Icon name={note.pinned ? 'pin-filled' : 'pin'} size={24} />
+      {#if note.images?.length}
+        <span class="pin-glyph">
+          <Icon name="pin-filled" size={24} class="pin-halo" />
+          <Icon name={note.pinned ? 'pin-filled' : 'pin'} size={24} />
+        </span>
+      {:else}
+        <Icon name={note.pinned ? 'pin-filled' : 'pin'} size={24} />
+      {/if}
     </button>
   {/if}
 
@@ -355,7 +363,7 @@
     <div class="actions trash-actions">
       <button
         type="button"
-        class="icon-button on-surface"
+        class="icon-button"
         title={t('card.restore')}
         aria-label={t('card.restoreNote')}
         onclick={restore}
@@ -364,7 +372,7 @@
       </button>
       <button
         type="button"
-        class="icon-button on-surface"
+        class="icon-button"
         title={t('card.deleteForever')}
         aria-label={t('card.deleteNoteForever')}
         onclick={destroy}
@@ -378,7 +386,7 @@
       <div class="picker-anchor">
         <Popover.Root {...openFor('appearance')}>
           <Popover.Trigger
-            class="icon-button on-surface"
+            class="icon-button"
             title={t('card.changeColor')}
             aria-label={t('card.changeColor')}
             disabled={!note.canChangeAppearance}
@@ -412,7 +420,7 @@
         <div class="picker-anchor">
           <Popover.Root {...openFor('reminder')}>
             <Popover.Trigger
-              class="icon-button on-surface"
+              class="icon-button"
               title={note.reminderAt != null ? t('reminder.clear') : t('reminder.add')}
               aria-label={note.reminderAt != null ? t('reminder.clear') : t('reminder.add')}
             >
@@ -440,7 +448,7 @@
 
       <button
         type="button"
-        class="icon-button on-surface"
+        class="icon-button"
         title={t('card.addCollaborator')}
         aria-label={t('card.addCollaborator')}
         onclick={() => ui.openShare(note.id)}
@@ -460,7 +468,7 @@
       />
       <button
         type="button"
-        class="icon-button on-surface"
+        class="icon-button"
         title={t('images.add')}
         aria-label={t('images.add')}
         onclick={() => imageInput?.click()}
@@ -490,7 +498,7 @@
 
       <button
         type="button"
-        class="icon-button on-surface"
+        class="icon-button"
         title={note.archived ? t('card.unarchive') : t('card.archive')}
         aria-label={note.archived ? t('card.unarchiveNote') : t('card.archiveNote')}
         onclick={archive}
@@ -501,7 +509,7 @@
       <div class="picker-anchor">
         <DropdownMenu.Root {...openFor('menu')}>
           <DropdownMenu.Trigger
-            class="icon-button on-surface"
+            class="icon-button"
             title={t('card.more')}
             aria-label={t('card.moreOptions')}
           >
@@ -592,18 +600,6 @@
       border-color var(--keep-duration) var(--keep-ease);
   }
 
-  /* On a phone the editor's container grows out of the card and shrinks back onto it
-     (`editorFlight.ts`), so the card is simply there or not: a fade of its own showed it a second
-     time, faint, after the container had already landed. */
-  @media (max-width: 600px) {
-    .card,
-    .card.being-edited {
-      transition:
-        box-shadow var(--keep-duration) var(--keep-ease),
-        border-color var(--keep-duration) var(--keep-ease);
-    }
-  }
-
   /* Keep answers the pointer with a deeper shadow and nothing else. A card that lifts would also
      make its measured position depend on where the pointer happens to be. */
   .card:hover,
@@ -621,29 +617,6 @@
     box-shadow: 0 0 0 1px var(--keep-select-border);
   }
 
-  /* The Android app marks a held card with a 3dp ring of its own (measured on an emulator, in both
-     themes) — drawn inside the card's own box, so nothing beside it moves — and no tick. The ring is
-     a layer of its own above the content: an inset shadow on the card is painted under its children,
-     so a card's pictures covered the ring along their edges. */
-  @media (max-width: 600px) {
-    .card.selected {
-      border-color: transparent;
-      box-shadow: none;
-    }
-
-    .card.selected::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      border-radius: inherit;
-      box-shadow: inset 0 0 0 3px var(--keep-phone-select-ring);
-      pointer-events: none;
-    }
-  }
-
-  /* Centred on the card's corner, as in the original. Absolute offsets count from the padding box, so
-     one extra pixel lands the centre on the actual corner. */
   /* Measured from the original's DOM: a 34px button 6px under the card's top and 8px in from its
      right edge. */
   .pin-button {
@@ -678,11 +651,34 @@
     color: var(--note-fg, var(--keep-text));
   }
 
-  /* Tooltips on touch devices are useless, so the pin is simply always visible there. */
-  @media (hover: none) {
-    .pin-button {
-      opacity: 1;
-    }
+  /*
+   * Over a picture the original draws another glyph (read off its sprite, 2026-10-19): the pin in dark
+   * ink on a white silhouette that runs 2px beyond its outline — so it reads on any photo, in either
+   * theme — and the outline pin is white inside. Here that is the filled pin in white with a 2px
+   * stroke, under the ordinary glyph.
+   */
+  .pin-button.on-picture,
+  .pin-button.on-picture.pinned {
+    color: var(--keep-pin-on-picture);
+  }
+
+  .pin-glyph {
+    display: grid;
+    opacity: 0.71;
+  }
+
+  .pin-glyph :global(.icon) {
+    grid-area: 1 / 1;
+  }
+
+  .pin-button :global(.pin-halo) {
+    color: var(--keep-pin-halo);
+  }
+
+  .pin-button :global(.pin-halo path) {
+    stroke: currentColor;
+    stroke-width: 4px;
+    stroke-linejoin: round;
   }
 
   .body {
@@ -705,19 +701,6 @@
     /* 20px on a 25px line, from the original's DOM. */
     line-height: 1.5625rem;
     word-break: break-word;
-  }
-
-  /*
-   * On a phone the original's card type is smaller, measured from the owner's own screenshots of both
-   * apps on the same device (412 CSS px at 3.375x): the title's ink is 13.3px against our 15.7px, and
-   * the body's line pitch 15.1px against our 20.6px — the same text, so the ratio is the measurement:
-   * the title goes to 16px on a 20px line and the body to 12px on 15px.
-   */
-  @media (max-width: 600px) {
-    .title {
-      font-size: 1rem;
-      line-height: 1.25rem;
-    }
   }
 
   .purge {
@@ -747,7 +730,7 @@
   .chip {
     max-width: 140px;
     border-radius: 12px;
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--keep-note-chip);
     overflow: hidden;
   }
 
@@ -756,23 +739,14 @@
     display: block;
     max-width: 140px;
     padding: 1px 8px;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
     font-size: 0.6875rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    cursor: pointer;
   }
 
   .chip button:hover {
     text-decoration: underline;
-  }
-
-  :root[data-theme='dark'] .chip {
-    background: rgba(255, 255, 255, 0.14);
   }
 
   .collaborators {
@@ -797,7 +771,6 @@
     /* Keep spreads the icons across the whole footer and lines the outer ones up with the card's
        padding, instead of stacking them against the right edge. */
     justify-content: space-between;
-    gap: 0;
     min-height: 48px;
     /* Measured from the original's DOM: 34px buttons, 4px in from the card's edges and 5px above its
        bottom, carrying 18px glyphs. */
@@ -806,9 +779,6 @@
     transition: opacity var(--keep-duration) var(--keep-ease);
   }
 
-  /* Semi-transparent at rest, brighter under the pointer — the way Keep's own icons read. */
-  /* The note's own ink at 71% — the original's opacity, measured — not a secondary colour on top of
-     an opacity, which read far paler than the original. */
   /* 34px where the card has room (a desktop card's 240px fits all six); on a phone's narrower card
      the buttons give way evenly rather than pushing the last one off the card. */
   .actions > :global(*) {
@@ -816,6 +786,9 @@
     min-width: 0;
   }
 
+  /* Semi-transparent at rest, brighter under the pointer — the way Keep's own icons read: the note's
+     own ink at 71% — the original's opacity, measured — not a secondary colour on top of an opacity,
+     which read far paler than the original. */
   .actions :global(.icon-button) {
     width: 100%;
     max-width: 34px;
@@ -829,7 +802,6 @@
 
   .actions :global(.icon-button:hover) {
     opacity: 1;
-    color: var(--note-fg, var(--keep-text));
   }
 
   .card:hover .actions,
@@ -877,9 +849,52 @@
     background: var(--keep-hover);
   }
 
+  /* Tooltips on touch devices are useless, so the pin and the actions are simply always visible
+     there. */
   @media (hover: none) {
+    .pin-button,
     .actions {
       opacity: 1;
+    }
+  }
+
+  @media (max-width: 600px) {
+    /* On a phone the editor's container grows out of the card and shrinks back onto it
+       (`editorFlight.ts`), so the card is simply there or not: a fade of its own showed it a second
+       time, faint, after the container had already landed. */
+    .card,
+    .card.being-edited {
+      transition:
+        box-shadow var(--keep-duration) var(--keep-ease),
+        border-color var(--keep-duration) var(--keep-ease);
+    }
+
+    /* The Android app marks a held card with a 3dp ring of its own (measured on an emulator, in both
+       themes) — drawn inside the card's own box, so nothing beside it moves — and no tick. The ring
+       is a layer of its own above the content: an inset shadow on the card is painted under its
+       children, so a card's pictures covered the ring along their edges. */
+    .card.selected {
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    .card.selected::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      border-radius: inherit;
+      box-shadow: inset 0 0 0 3px var(--keep-phone-select-ring);
+      pointer-events: none;
+    }
+
+    /* The original's card type is smaller, measured from the owner's own screenshots of both apps on
+       the same device (412 CSS px at 3.375x): the title's ink is 13.3px against our 15.7px, and the
+       body's line pitch 15.1px against our 20.6px — the same text, so the ratio is the measurement:
+       the title goes to 16px on a 20px line and the body to 12px on 15px. */
+    .title {
+      font-size: 1rem;
+      line-height: 1.25rem;
     }
   }
 </style>

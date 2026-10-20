@@ -510,7 +510,10 @@ Response `200`:
       "license": "CC0",
       "backgrounds": {
         "food": { "light": "/api/themes/watercolour/files/3", "dark": "/api/themes/watercolour/files/3", "tint": "#fbe4d8", "tintDark": null }
-      }
+      },
+      "logo": "/api/themes/watercolour/files/4",
+      "highlight": "#fde3cf",
+      "highlightDark": null
     }
   ],
   "defaultThemeId": "notka",
@@ -518,7 +521,9 @@ Response `200`:
 }
 ```
 
-`selectedThemeId` is the account's own pick; `null` follows `defaultThemeId`.
+`selectedThemeId` is the account's own pick; `null` follows `defaultThemeId`. `logo` is `null` for a
+theme that keeps Notka's mark, and `highlight`/`highlightDark` (the sidebar's active entry) are `null`
+where the theme leaves the built-in colour.
 
 ### `PUT /api/themes/selection`
 

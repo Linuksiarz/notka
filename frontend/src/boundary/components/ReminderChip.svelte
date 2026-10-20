@@ -38,7 +38,7 @@
     max-width: 100%;
     margin-top: 6px;
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--keep-radius-pill);
     background: color-mix(in srgb, var(--note-fg, var(--keep-text)) 9%, transparent);
     color: var(--note-fg, var(--keep-text));
     font-size: 0.75rem;

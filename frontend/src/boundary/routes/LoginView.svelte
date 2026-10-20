@@ -127,66 +127,8 @@
 
   .demo button {
     padding: 4px 0;
-    font: inherit;
     font-size: 0.8125rem;
-    color: inherit;
     text-align: left;
     text-decoration: underline;
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.75rem;
-    color: var(--keep-text-secondary);
-  }
-
-  input {
-    padding: 12px 14px;
-    border: 1px solid var(--keep-divider);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--keep-text);
-    font-size: 0.9375rem;
-  }
-
-  input:focus {
-    border-color: var(--keep-accent);
-    outline: none;
-  }
-
-  .primary {
-    margin-top: 8px;
-    padding: 12px 16px;
-    border-radius: 4px;
-    background: var(--keep-accent);
-    color: #fff;
-    font-weight: 500;
-    font-size: 0.9375rem;
-  }
-
-  .primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .link {
-    align-self: center;
-    padding: 8px;
-    color: var(--keep-accent);
-    font-weight: 500;
-  }
-
-  .error {
-    margin: 0;
-    color: var(--keep-danger);
-    font-size: 0.8125rem;
   }
 </style>

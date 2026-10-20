@@ -203,18 +203,6 @@
     padding: 16px 20px 20px;
   }
 
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 500;
-  }
-
   .invite {
     display: flex;
     gap: 8px;

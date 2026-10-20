@@ -100,6 +100,19 @@
     overscroll-behavior: contain;
   }
 
+  /* Every dialog opens on the same header: its title, and the button that closes it at the right. */
+  :global(.ok-dialog-body > * > header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  :global(.ok-dialog-body > * > header > h2) {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 500;
+  }
+
   @media (max-width: 600px) {
     :global(.ok-dialog) {
       top: auto;

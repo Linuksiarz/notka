@@ -56,6 +56,7 @@ frontend/e2e/_*.mjs
 # it is never part of this repository — the folder ships only its manifest and the instructions —
 # and the zip packed from it is a local build of the theme.
 themes/google-keep/*.svg
+themes/google-keep/*.png
 themes/*.zip
 
 # Local agent tooling (a preview server's launch configuration with this machine's paths)

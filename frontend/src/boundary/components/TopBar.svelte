@@ -571,11 +571,8 @@
 </header>
 
 <style>
-  /* Keep lines the menu button up with the icon column of the rail, folded or not. The rail puts
-     its icons at 24px with a 22px glyph, so their centre is at 35px; this button is 40px wide, so
-     it starts at 15px. */
   /* Measured from the original's DOM: the bar's buttons are 48px, and the hamburger sits in the
-     same column as the navigation's icons. */
+     same column as the navigation's icons, folded or not. */
   .menu-button,
   .actions .icon-button {
     width: 48px;
@@ -687,7 +684,6 @@
     display: flex;
     align-items: center;
     margin-left: auto;
-    gap: 0;
   }
 
   /* The original's account button: a 40px target, 14px from the window's edge. */
@@ -785,8 +781,6 @@
     font-size: 0.75rem;
   }
 
-  /* The sidebar owns the menu button on wide screens; the top bar only needs one when the
-     sidebar becomes an overlay. */
   /* The original's logo is a 44×40 picture right after the menu button (x=64), and the name follows
      it at x=108. Our mark is our own (`BrandMark`), drawn 36px tall in that 44px place. */
   .brand-icon {
@@ -794,6 +788,12 @@
     justify-content: center;
     width: 44px;
     margin: 0 -8px 0 -4px;
+  }
+
+  /* A theme's own logo (`docs/THEMES.md`) takes the original's whole 44×40 place, as its logo does. */
+  .brand-icon :global(img) {
+    width: 44px;
+    height: 40px;
   }
 
   /*
@@ -812,12 +812,13 @@
     min-width: 0;
   }
 
-  /* The name of the view the header is showing, in the place the app's own name stands. */
+  /* The app's name, or the name of the view the header is showing in the place the app's own name
+     stands. */
+  .wordmark,
   .view-heading {
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
-    text-overflow: ellipsis;
     font-size: 1.375rem;
     font-weight: 500;
     letter-spacing: 0.2px;
@@ -828,13 +829,10 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    font-size: 1.375rem;
-    font-weight: 500;
-    letter-spacing: 0.2px;
-    color: var(--keep-text);
+  }
+
+  .view-heading {
+    text-overflow: ellipsis;
   }
 
   @media (max-width: 600px) {
@@ -850,8 +848,14 @@
       display: none;
     }
 
+    /* Measured off the original's Android app at 412px: the search is a full pill, 60px tall, with
+       no magnifier — its hint starts 25px in — and the view's two switches inside it, centred 90px
+       and 34px from its right end. */
     .search {
-      flex: 1 1 auto;
+      height: 60px;
+      gap: 8px;
+      border-radius: 30px;
+      padding: 0 10px 0 25px;
       max-width: none;
       /* An `input` carries an intrinsic width of about twenty characters (191px here), and a flex
          item is never narrower than its content unless it is told it may be: without this the search
@@ -871,16 +875,6 @@
       box-shadow: none;
     }
 
-    /* Measured off the original's Android app at 412px: the search is a full pill, 60px tall, with
-       no magnifier — its hint starts 25px in — and the view's two switches inside it, centred 90px
-       and 34px from its right end. */
-    .search {
-      height: 60px;
-      gap: 8px;
-      border-radius: 30px;
-      padding: 0 10px 0 25px;
-    }
-
     .search .icon-button {
       flex: 0 0 auto;
       width: 48px;
@@ -897,8 +891,8 @@
        the search pill keeps its room. */
     .menu-button,
     .actions .icon-button {
-      width: 40px;
-      height: 40px;
+      width: var(--keep-icon-button-size);
+      height: var(--keep-icon-button-size);
     }
 
     .menu-button {

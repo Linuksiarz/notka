@@ -349,6 +349,11 @@ export interface Theme {
   author: string | null;
   license: string | null;
   backgrounds: Partial<Record<NoteBackground, ThemeImages>>;
+  /** The url of the app's logo in this theme; `null` keeps Notka's own mark. */
+  logo: string | null;
+  /** The sidebar's active entry, `#rrggbb`, in the light and the dark colour scheme. */
+  highlight: string | null;
+  highlightDark: string | null;
 }
 
 export interface ThemesResponse {

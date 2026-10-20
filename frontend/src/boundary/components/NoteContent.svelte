@@ -215,20 +215,6 @@
     line-height: 1.5rem;
   }
 
-
-  /*
-   * On a phone the original's card text is smaller, measured from the owner's own screenshots of both
-   * apps on the same device: the text's line pitch is 15.1px there against our 20.6px, and the same
-   * text in the same card, so the ratio is the measurement — 12px on a 15px line.
-   */
-  @media (max-width: 600px) {
-    .note-content {
-      font-size: 0.75rem;
-      line-height: 0.9375rem;
-    }
-
-  }
-
   .line {
     display: flex;
     align-items: flex-start;
@@ -254,25 +240,6 @@
     line-height: 1.25rem;
   }
 
-  /* On a phone the card's headings take the text's own 0.75 ratio, which rem-based sizes cannot
-     follow: 20/18/16px and 24/22/20px become 15/13.5/12px and 18/16.5/15px. */
-  @media (max-width: 600px) {
-    .line[data-type='heading1'] .text {
-      font-size: 0.9375rem;
-      line-height: 1.125rem;
-    }
-
-    .line[data-type='heading2'] .text {
-      font-size: 0.8438rem;
-      line-height: 1.0312rem;
-    }
-
-    .line[data-type='heading3'] .text {
-      font-size: 0.75rem;
-      line-height: 0.9375rem;
-    }
-  }
-
   /* A nested line is indented without moving the ones around it. */
   .line[data-type='bulleted'],
   .line[data-type='numbered'],
@@ -280,13 +247,9 @@
     padding-left: calc(var(--depth, 0) * 18px);
   }
 
-  :global(:root[data-theme='dark']) .completed-toggle {
-    border-top-color: rgba(255, 255, 255, 0.1);
-  }
-
   /* The same name the editor's heading carries (`boundary/editor/completedSection.ts`); here it is a
-     component-scoped class rather than a global one, because a card is not inside an editable. */
-  /* Measured from the original's DOM: a 1px line at 10% ink, 5px under the last active row, and the
+     component-scoped class rather than a global one, because a card is not inside an editable.
+     Measured from the original's DOM: a 1px line at 10% ink, 5px under the last active row, and the
      heading 15px under the line. */
   .completed-toggle {
     display: flex;
@@ -294,7 +257,7 @@
     gap: 4px;
     margin: 5px 0 2px;
     padding: 14px 0 2px;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    border-top: 1px solid var(--keep-completed-rule);
     color: var(--note-fg-secondary, var(--keep-text-secondary));
     font-size: 0.8125rem;
     font-weight: 500;
@@ -306,11 +269,6 @@
     color: var(--note-fg-secondary, var(--keep-text-secondary));
     font-variant-numeric: tabular-nums;
     min-width: 12px;
-  }
-
-  .line[data-type='bulleted'] .text,
-  .line[data-type='numbered'] .text {
-    flex: 1 1 auto;
   }
 
   .text {
@@ -354,7 +312,7 @@
   .s.code {
     font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.9em;
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--keep-note-code);
     border-radius: 3px;
     padding: 0 3px;
   }
@@ -379,6 +337,31 @@
   }
 
   @media (max-width: 600px) {
+    /* On a phone the original's card text is smaller, measured from the owner's own screenshots of
+       both apps on the same device: the text's line pitch is 15.1px there against our 20.6px, and the
+       same text in the same card, so the ratio is the measurement — 12px on a 15px line. */
+    .note-content {
+      font-size: 0.75rem;
+      line-height: 0.9375rem;
+    }
+
+    /* The card's headings take the text's own 0.75 ratio, which rem-based sizes cannot follow:
+       20/18/16px and 24/22/20px become 15/13.5/12px and 18/16.5/15px. */
+    .line[data-type='heading1'] .text {
+      font-size: 0.9375rem;
+      line-height: 1.125rem;
+    }
+
+    .line[data-type='heading2'] .text {
+      font-size: 0.8438rem;
+      line-height: 1.0312rem;
+    }
+
+    .line[data-type='heading3'] .text {
+      font-size: 0.75rem;
+      line-height: 0.9375rem;
+    }
+
     /* The checkbox is sized by the text and centred on its first line: measured off the Android app on
        an emulator, the box is 11dp beside 14sp text (0.78 of the font) and its centre is the capitals'
        own, to 0.4dp. A fixed 18px box was taller than the phone's 15px line, so the text sat above it. */
@@ -394,12 +377,9 @@
       width: 100%;
       height: 100%;
     }
-  }
 
-  /* The Android app's card has no line over its checked items, as its editor has none. */
-  @media (max-width: 600px) {
-    .completed-toggle,
-    :global(:root[data-theme='dark']) .completed-toggle {
+    /* The Android app's card has no line over its checked items, as its editor has none. */
+    .completed-toggle {
       border-top: 0;
     }
   }

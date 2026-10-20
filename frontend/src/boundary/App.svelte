@@ -315,7 +315,7 @@
     }
   }
 
-  @media (min-width: 900px) {
+  @media (min-width: 901px) {
     .content {
       /* Measured off the original: the header leaves 33px before the composer, and the notes are
          **centred** in the room beside the rail rather than pinned to it — which is what puts the

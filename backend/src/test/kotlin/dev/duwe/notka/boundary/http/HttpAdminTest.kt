@@ -25,6 +25,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -65,6 +66,7 @@ class HttpAdminTest {
 
     private val manifest = """
         {"format":1,"name":"Watercolour","author":"Ada","license":"CC0",
+         "logo":"logo.png","highlight":"#FDE3CF",
          "backgrounds":{"food":{"light":"food.png","tint":"#FBE4D8"},"music":{"light":"m.svg","dark":"m-dark.svg"}}}
     """.trimIndent().toByteArray()
     private val svg = """<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>""".toByteArray()
@@ -149,6 +151,7 @@ class HttpAdminTest {
             "watercolour/food.png" to picture("png", 4, 4),
             "watercolour/m.svg" to svg,
             "watercolour/m-dark.svg" to svg,
+            "watercolour/logo.png" to picture("png", 8, 8),
         )
 
         // when
@@ -167,6 +170,11 @@ class HttpAdminTest {
         assertEquals("#fbe4d8", food.stringField("tint"))
         assertEquals("watercolour", defaulted.stringField("defaultThemeId"))
         assertEquals("notka", picked.stringField("selectedThemeId"))
+        assertEquals("#fde3cf", theme.stringField("highlight"))
+        assertEquals(JsonNull, theme.getValue("highlightDark"))
+        val logo = root.get(theme.stringField("logo"))
+        assertEquals(HttpStatusCode.OK, logo.status)
+        assertEquals("image/png", logo.headers[HttpHeaders.ContentType])
 
         // and: the picture comes back with a policy that keeps an SVG's script from running
         val music = theme.getValue("backgrounds").jsonObject.getValue("music").jsonObject
@@ -192,16 +200,44 @@ class HttpAdminTest {
         root.postJson("/api/auth/login", ADMIN_LOGIN)
         val unknown = """{"format":1,"name":"X","backgrounds":{"space":{"light":"a.png"}}}""".toByteArray()
         val disguised = """{"format":1,"name":"X","backgrounds":{"food":{"light":"a.png"}}}""".toByteArray()
+        val noLogo = """{"format":1,"name":"X","logo":"logo.png"}""".toByteArray()
+        val badHighlight = """{"format":1,"name":"X","highlight":"yellow"}""".toByteArray()
+        val nothing = """{"format":1,"name":"X"}""".toByteArray()
 
         // when
         val notAZip = root.uploadTheme("hello".toByteArray())
         val unknownBackground = root.uploadTheme(zip("theme.json" to unknown, "a.png" to picture("png", 2, 2)))
         val svgAsPng = root.uploadTheme(zip("theme.json" to disguised, "a.png" to svg))
+        val missingLogo = root.uploadTheme(zip("theme.json" to noLogo))
+        val notAColour = root.uploadTheme(zip("theme.json" to badHighlight))
+        val empty = root.uploadTheme(zip("theme.json" to nothing))
 
         // then
         assertEquals("theme.archive", notAZip.errorField("key"))
         assertEquals("theme.unknown_background", unknownBackground.errorField("key"))
         assertEquals("theme.file_type", svgAsPng.errorField("key"))
+        assertEquals("theme.missing_file", missingLogo.errorField("key"))
+        assertEquals("theme.tint", notAColour.errorField("key"))
+        assertEquals("theme.empty", empty.errorField("key"))
+    }
+
+    @Test
+    fun aThemeMayCarryOnlyALogoAndAHighlight() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val root = jsonClient()
+        root.postJson("/api/auth/login", ADMIN_LOGIN)
+        val brand = """{"format":1,"name":"Brand","logo":"logo.svg","highlightDark":"#41331c"}""".toByteArray()
+
+        // when
+        val uploaded = root.uploadTheme(zip("theme.json" to brand, "logo.svg" to svg))
+
+        // then
+        assertEquals(HttpStatusCode.Created, uploaded.status)
+        val theme = uploaded.asJson()
+        assertTrue(theme.getValue("backgrounds").jsonObject.isEmpty())
+        assertEquals("#41331c", theme.stringField("highlightDark"))
+        assertTrue(theme.stringField("logo").startsWith("/api/themes/brand/files/"))
     }
 }
 

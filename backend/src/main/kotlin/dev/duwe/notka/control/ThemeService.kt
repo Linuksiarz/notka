@@ -21,13 +21,16 @@ const val MAX_THEME_FILE_BYTES: Int = 5 * 1024 * 1024
 /** Largest theme archive, packed or unpacked. */
 const val MAX_THEME_ARCHIVE_BYTES: Int = 30 * 1024 * 1024
 
-/** An uploaded theme as the app shows it: each background's pictures by the id they are served under. */
+/** An uploaded theme as the app shows it: each picture by the id it is served under. */
 data class ThemeInfo(
     val id: String,
     val name: String,
     val author: String?,
     val license: String?,
     val backgrounds: Map<String, ThemeImages>,
+    val logoFileId: Int?,
+    val highlight: String?,
+    val highlightDark: String?,
 )
 
 data class ThemeImages(val lightFileId: Int, val darkFileId: Int, val tint: String?, val tintDark: String?)
@@ -73,14 +76,13 @@ class ThemeService(
             throw DomainException.validation(ErrorKeys.THEME_MANIFEST, "theme.json is not JSON")
         }
         val manifest = ThemeManifests.parse(raw, files.keys)
-        val used = manifest.backgrounds.values.flatMap { listOf(it.light, it.dark) }.toSortedSet()
         themes.replace(
             id = manifest.id,
             name = manifest.name,
             author = manifest.author,
             license = manifest.license,
             manifest = ThemeManifests.toJson(manifest).toString(),
-            files = used.map { name -> picture(name, files.getValue(name)) },
+            files = manifest.files.map { name -> picture(name, files.getValue(name)) },
             createdAt = clock(),
         )
         return list().first { it.id == manifest.id }
@@ -105,6 +107,9 @@ class ThemeService(
             author = stored.author,
             license = stored.license,
             backgrounds = manifest.backgrounds.mapValues { (_, background) -> background.images(stored.files) },
+            logoFileId = manifest.logo?.let { stored.files.getValue(it) },
+            highlight = manifest.highlight,
+            highlightDark = manifest.highlightDark,
         )
     }
 

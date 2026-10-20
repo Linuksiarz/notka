@@ -11,7 +11,8 @@ import { activeThemeId, BUILT_IN_THEME_ID } from '../../entity/backgroundTheme';
  * for itself or follows the default, and the server keeps that choice, so it follows the account to
  * every browser. A note only names its background, so two people with different themes see the same
  * note in their own pictures. Applying a theme is setting `--theme-art-<id>-<light|dark>` and
- * `--theme-tint(-dark)-<id>` on the root (`palette.css`); the built-in theme sets none of them.
+ * `--theme-tint(-dark)-<id>` on the root (`palette.css`), and `--theme-highlight(-dark)` for the
+ * sidebar (`tokens.css`); the built-in theme sets none of them. A theme's logo is {@link logo}.
  */
 
 /** What the theme lists show about a theme. */
@@ -56,6 +57,8 @@ class BackgroundThemesState {
   /** This account's own pick; `null` follows {@link defaultId}. */
   selectedId = $derived(this.#choice.selectedThemeId);
   activeId = $derived(activeThemeId(this.#choice));
+  /** The active theme's logo, or `null` for Notka's own mark. */
+  logo = $derived(this.#choice.themes.find((theme) => theme.id === this.activeId)?.logo ?? null);
 
   /** Reads the instance's themes and this account's choice, and applies it. Fails quietly: the built-in theme is always there. */
   async load(): Promise<void> {
@@ -92,6 +95,8 @@ class BackgroundThemesState {
   #apply(choice: ThemesResponse): void {
     this.#choice = choice;
     const root = document.documentElement.style;
+    root.removeProperty('--theme-highlight');
+    root.removeProperty('--theme-highlight-dark');
     for (const id of NOTE_BACKGROUNDS) {
       for (const name of [`--theme-art-${id}-light`, `--theme-art-${id}-dark`, `--theme-tint-${id}`, `--theme-tint-dark-${id}`]) {
         root.removeProperty(name);
@@ -99,6 +104,8 @@ class BackgroundThemesState {
     }
     const active = choice.themes.find((theme) => theme.id === activeThemeId(choice));
     if (!active) return;
+    if (active.highlight) root.setProperty('--theme-highlight', active.highlight);
+    if (active.highlightDark) root.setProperty('--theme-highlight-dark', active.highlightDark);
     for (const [id, images] of Object.entries(active.backgrounds)) {
       if (!images) continue;
       root.setProperty(`--theme-art-${id}-light`, `url("${images.light}")`);

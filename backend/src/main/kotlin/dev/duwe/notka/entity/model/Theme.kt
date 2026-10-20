@@ -22,14 +22,25 @@ private const val ID_MAX_LENGTH = 40
 /** The pictures one note background is drawn with in a theme, by file name inside the theme. */
 data class ThemeBackground(val light: String, val dark: String, val tint: String?, val tintDark: String?)
 
-/** A `theme.json`, checked. */
+/**
+ * A `theme.json`, checked. Besides the backgrounds a theme may carry the app's [logo] (a file name
+ * inside the theme) and the colour the sidebar marks its active entry with, which the original derives
+ * from its logo: [highlight] for the light colour scheme, [highlightDark] for the dark one.
+ */
 data class ThemeManifest(
     val id: String,
     val name: String,
     val author: String?,
     val license: String?,
     val backgrounds: Map<String, ThemeBackground>,
-)
+    val logo: String? = null,
+    val highlight: String? = null,
+    val highlightDark: String? = null,
+) {
+    /** Every file the theme uses. */
+    val files: Set<String>
+        get() = (backgrounds.values.flatMap { listOf(it.light, it.dark) } + listOfNotNull(logo)).toSortedSet()
+}
 
 /**
  * Reads and checks a theme's `theme.json` against the files its archive holds. A theme with nothing
@@ -60,19 +71,19 @@ object ThemeManifests {
         val id = slug(data.string("id")?.takeIf { it.isNotBlank() } ?: name)
         if (id.isEmpty() || id == BUILT_IN_THEME_ID) fail(ErrorKeys.THEME_NAME)
 
-        val entries = data["backgrounds"] as? JsonObject ?: fail(ErrorKeys.THEME_EMPTY)
+        val entries = data["backgrounds"] as? JsonObject ?: JsonObject(emptyMap())
         val backgrounds = entries.mapValues { (key, value) ->
             if (key !in NOTE_BACKGROUNDS) fail(ErrorKeys.THEME_UNKNOWN_BACKGROUND, key)
             val entry = value as? JsonObject ?: JsonObject(emptyMap())
             val light = entry.string("light").orEmpty()
             val dark = entry.string("dark")?.takeIf { it.isNotEmpty() } ?: light
-            for (file in listOf(light, dark)) {
-                if (file.isEmpty() || file !in files) fail(ErrorKeys.THEME_MISSING_FILE, file.ifEmpty { key })
-                if (imageType(file) == null) fail(ErrorKeys.THEME_FILE_TYPE, file)
-            }
-            ThemeBackground(light, dark, entry.colour("tint", key), entry.colour("tintDark", key))
+            for (file in listOf(light, dark)) requireImage(file, files, key)
+            ThemeBackground(light, dark, entry.colour("tint", "$key."), entry.colour("tintDark", "$key."))
         }
-        if (backgrounds.isEmpty()) fail(ErrorKeys.THEME_EMPTY)
+        val logo = data.string("logo")?.also { requireImage(it, files, "logo") }
+        val highlight = data.colour("highlight")
+        val highlightDark = data.colour("highlightDark")
+        if (backgrounds.isEmpty() && logo == null && highlight == null && highlightDark == null) fail(ErrorKeys.THEME_EMPTY)
 
         return ThemeManifest(
             id = id,
@@ -80,6 +91,9 @@ object ThemeManifests {
             author = data.string("author")?.trim()?.take(AUTHOR_MAX_LENGTH)?.ifEmpty { null },
             license = data.string("license")?.trim()?.take(LICENSE_MAX_LENGTH)?.ifEmpty { null },
             backgrounds = backgrounds,
+            logo = logo,
+            highlight = highlight,
+            highlightDark = highlightDark,
         )
     }
 
@@ -103,6 +117,9 @@ object ThemeManifests {
                 },
             ),
         )
+        manifest.logo?.let { put("logo", it) }
+        manifest.highlight?.let { put("highlight", it) }
+        manifest.highlightDark?.let { put("highlightDark", it) }
     }
 
     private fun slug(value: String): String = java.text.Normalizer.normalize(value.lowercase(), java.text.Normalizer.Form.NFKD)
@@ -114,11 +131,17 @@ object ThemeManifests {
     private fun JsonObject.string(key: String): String? =
         (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
-    private fun JsonObject.colour(field: String, background: String): String? {
+    private fun requireImage(file: String, files: Set<String>, owner: String) {
+        if (file.isEmpty() || file !in files) fail(ErrorKeys.THEME_MISSING_FILE, file.ifEmpty { owner })
+        if (imageType(file) == null) fail(ErrorKeys.THEME_FILE_TYPE, file)
+    }
+
+    /** A `#rrggbb` colour; [prefix] names where it sits in the manifest when it is refused. */
+    private fun JsonObject.colour(field: String, prefix: String = ""): String? {
         val value = this[field] ?: return null
         if (value is JsonNull) return null
         val colour = (value as? JsonPrimitive)?.takeIf { it.isString }?.content
-        if (colour == null || !HEX.matches(colour)) fail(ErrorKeys.THEME_TINT, "$background.$field")
+        if (colour == null || !HEX.matches(colour)) fail(ErrorKeys.THEME_TINT, "$prefix$field")
         return colour.lowercase()
     }
 

@@ -270,18 +270,6 @@
     padding: 16px 20px 24px;
   }
 
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 500;
-  }
-
   h3 {
     margin: 0 0 8px;
     font-size: 0.8125rem;
@@ -380,7 +368,7 @@
   .badge {
     padding: 2px 8px;
     border-radius: 12px;
-    background: var(--keep-chip-background, var(--keep-hover));
+    background: var(--keep-hover);
     font-size: 0.6875rem;
     font-weight: 500;
     color: var(--keep-text);
@@ -424,7 +412,7 @@
 
   .ok {
     margin: 0;
-    color: #188038;
+    color: var(--keep-success);
     font-size: 0.8125rem;
   }
 

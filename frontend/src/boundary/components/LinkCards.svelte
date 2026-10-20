@@ -201,7 +201,7 @@
     font-size: 0.875rem;
     font-weight: 500;
     line-height: 1.125rem;
-    color: var(--keep-note-text, var(--keep-text));
+    color: var(--keep-note-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

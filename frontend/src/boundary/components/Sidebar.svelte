@@ -288,7 +288,6 @@
     }
   }
 
-
   .nav {
     display: flex;
     flex-direction: column;
@@ -333,9 +332,6 @@
     color: var(--keep-active-fg);
   }
 
-
-
-
   .footer {
     flex: 0 0 auto;
     padding-bottom: 8px;
@@ -349,6 +345,38 @@
 
   .scrim {
     display: none;
+  }
+
+  @media (max-width: 900px) {
+    /* A drawer covers the window from top to bottom; the column's height leaves room for a header
+       the drawer stands over. */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100dvh;
+      z-index: 70;
+      transform: translateX(-100%);
+      /* The original's drawer, measured: 150ms on the standard curve, in and out alike. */
+      transition:
+        transform var(--keep-duration-short) var(--keep-ease-standard),
+        box-shadow var(--keep-duration-short) var(--keep-ease-standard);
+    }
+
+    /* Only an open drawer casts a shadow: a closed one sits just off the screen's edge, and its shadow
+       showed there as a grey strip down the left of the notes. */
+    .sidebar.open {
+      transform: translateX(0);
+      box-shadow: var(--keep-shadow-dialog);
+    }
+
+    .scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 65;
+      background: rgba(0, 0, 0, 0.32);
+    }
   }
 
   /*
@@ -402,11 +430,6 @@
       color: var(--keep-text);
     }
 
-    .drawer-labels button {
-      color: inherit;
-      font: inherit;
-    }
-
     .item {
       height: 59px;
       width: calc(100% - 26px);
@@ -415,44 +438,9 @@
       gap: calc(73px - 43px - 13px);
       border-radius: var(--keep-radius-pill);
     }
-  }
 
-  @media (max-width: 900px) {
-    /* A drawer covers the window from top to bottom; the column's height leaves room for a header
-       the drawer stands over. */
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 100dvh;
-      z-index: 70;
-      transform: translateX(-100%);
-      /* The original's drawer, measured: 150ms on the standard curve, in and out alike. */
-      transition:
-        transform var(--keep-duration-short) var(--keep-ease-standard),
-        box-shadow var(--keep-duration-short) var(--keep-ease-standard);
-    }
-
-    /* Only an open drawer casts a shadow: a closed one sits just off the screen's edge, and its shadow
-       showed there as a grey strip down the left of the notes. */
-    .sidebar.open {
-      transform: translateX(0);
-      box-shadow: var(--keep-shadow-dialog);
-    }
-
-    .scrim {
-      display: block;
-      position: fixed;
-      inset: 0;
-      z-index: 65;
-      background: rgba(0, 0, 0, 0.32);
-      border: 0;
-    }
-  }
-
-  /* The Android app's drawer veils the page with 60% black, in both themes (measured 2026-10-17: the
-     dark page 30 → 12, the light one 238 → 95). */
-  @media (max-width: 600px) {
+    /* The Android app's drawer veils the page with 60% black, in both themes (measured 2026-10-17:
+       the dark page 30 → 12, the light one 238 → 95). */
     .scrim {
       background: rgba(0, 0, 0, 0.6);
     }

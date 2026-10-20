@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { activeThemeId, BUILT_IN_THEME_ID } from './backgroundTheme';
 import type { Theme, ThemesResponse } from './api/types';
 
-const watercolour: Theme = { id: 'watercolour', name: 'Watercolour', author: null, license: null, backgrounds: {} };
+const watercolour: Theme = { id: 'watercolour', name: 'Watercolour', author: null, license: null, backgrounds: {}, logo: null, highlight: null, highlightDark: null };
 
 function choice(overrides: Partial<ThemesResponse>): ThemesResponse {
   return { themes: [watercolour], defaultThemeId: BUILT_IN_THEME_ID, selectedThemeId: null, ...overrides };

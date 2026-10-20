@@ -325,18 +325,6 @@
     padding: 16px 20px 24px;
   }
 
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 500;
-  }
-
   h3 {
     margin: 0 0 8px;
     font-size: 0.8125rem;
@@ -502,7 +490,7 @@
 
   .ok {
     margin: 0;
-    color: #188038;
+    color: var(--keep-success);
     font-size: 0.8125rem;
   }
 

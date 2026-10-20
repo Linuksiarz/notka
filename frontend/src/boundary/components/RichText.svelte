@@ -1346,14 +1346,6 @@
     min-height: 38px;
   }
 
-  /* A row is its line — 24px — with the original's own 7px of air above and below it, so its text sits
-     in the middle of its box and a second line makes the row 24px taller rather than shifting what is
-     already written. Measured: a three-line row there is 84px tall, and 3 x 24 + 14 = 86 here. */
-  :global(.note-body li[data-checked]),
-  :global(.note-body li.completed-ghost) {
-    padding: 7px 0;
-  }
-
   :global(.note-body li p) {
     min-height: 0;
   }
@@ -1369,10 +1361,11 @@
 
   /* **The checkbox sits 26px from the note's own edge**, measured off the original — and the note's
      body already carries 16px of padding for the title and the paragraphs, so the list adds the
-     remaining **10px** (on a phone the Android app's checkbox is 66px in, so the list adds 45). (Spelling the 26px here instead put the checkbox at 42px from the card's edge
-     and every row 16px right of the original's, which is what the side-by-side showed.) The indent is
-     also what leaves the handle a margin to hang in rather than a strip of the note's edge. */
-  /* A flex column, so the sections are drawn by each row's `order` and the rows themselves stay where
+     remaining **10px** (on a phone the Android app's checkbox is 66px in, so the list adds 45).
+     (Spelling the 26px here instead put the checkbox at 42px from the card's edge and every row 16px
+     right of the original's, which is what the side-by-side showed.) The indent is also what leaves
+     the handle a margin to hang in rather than a strip of the note's edge.
+     A flex column, so the sections are drawn by each row's `order` and the rows themselves stay where
      the document has them (`checklistCompletion.ts`). */
   :global(.note-body ul[data-type='taskList']) {
     display: flex;
@@ -1381,11 +1374,15 @@
     padding-left: var(--list-inset);
   }
 
+  /* A row is its line — 24px — with the original's own 7px of air above and below it, so its text sits
+     in the middle of its box and a second line makes the row 24px taller rather than shifting what is
+     already written. Measured: a three-line row there is 84px tall, and 3 x 24 + 14 = 86 here. */
   :global(.note-body li[data-checked]),
   :global(.note-body li.completed-ghost) {
     display: flex;
     align-items: flex-start;
     gap: 13px;
+    padding: 7px 0;
   }
 
   :global(.note-body li[data-checked] > label),
@@ -1449,14 +1446,6 @@
     opacity: 0.6;
   }
 
-  /*
-   * The completed-items heading, drawn by the editor's own extension. Keep sets it apart from the
-   * rows with a little air and puts the chevron where the checkboxes are.
-   *
-   * A stylesheet cannot import TypeScript, so these four names are also written down in
-   * `boundary/editor/completedSection.ts`, which is where the extension reads them from.
-   * `completedSection.test.ts` fails if the two spellings drift apart.
-   */
   /* The original's "+ List item": a 39px row under the active rows, its plus in the checkboxes'
      column and its words where a row's text starts, in the secondary ink. */
   :global(.note-body .add-item-row button) {
@@ -1466,10 +1455,7 @@
     width: 100%;
     height: 39px;
     padding: 0;
-    border: 0;
-    background: transparent;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
-    font: inherit;
     text-align: left;
     cursor: text;
   }
@@ -1479,15 +1465,19 @@
     margin-left: -3px;
   }
 
+  /*
+   * The completed-items heading, drawn by the editor's own extension. Keep sets it apart from the
+   * rows with a little air and puts the chevron where the checkboxes are.
+   *
+   * A stylesheet cannot import TypeScript, so these four names are also written down in
+   * `boundary/editor/completedSection.ts`, which is where the extension reads them from.
+   * `completedSection.test.ts` fails if the two spellings drift apart.
+   */
   /* The original draws a 1px line at 10% ink over the completed section, in the editor as on a card. */
   :global(.note-body .completed-row) {
     display: flex;
     margin-top: 4px;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
-  }
-
-  :global(:root[data-theme='dark'] .note-body .completed-row) {
-    border-top-color: rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--keep-completed-rule);
   }
 
   :global(.note-body .completed-toggle) {
@@ -1495,12 +1485,8 @@
     align-items: center;
     gap: 8px;
     padding: 6px 0;
-    border: 0;
-    background: transparent;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
-    font: inherit;
     text-align: left;
-    cursor: pointer;
   }
 
   :global(.note-body .completed-chevron) {
@@ -1523,8 +1509,7 @@
   /* The Android app draws no line over its "Checked items" (recorded on an emulator); the web
      original's 1px line is the desktop's. */
   @media (max-width: 600px) {
-    :global(.note-body .completed-row),
-    :global(:root[data-theme='dark'] .note-body .completed-row) {
+    :global(.note-body .completed-row) {
       border-top: 0;
     }
 
@@ -1546,7 +1531,7 @@
   :global(.note-body code) {
     padding: 1px 4px;
     border-radius: 3px;
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--keep-note-code);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.92em;
   }
@@ -1581,8 +1566,6 @@
     height: 24px;
     /* `top` is the row's centre, `left` the handle's own left edge. */
     transform: translateY(-50%);
-    border: 0;
-    background: transparent;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
     cursor: grab;
     touch-action: none;
@@ -1615,11 +1598,9 @@
    * widget standing in for it, a floating copy of it and a "shadow" copy at the landing place were all
    * built and thrown away, each named by the owner as the thing that was wrong.
    *
-   * The band reaches the note's edges by measurement (`--band-left`/`--band-right`, written by
-   * `draggingRow.ts`), not by a guessed indent: a 22px shadow that stopped short of the note's edge
-   * left a strip of the note beside the band, and the handle's own dark box poked out of it as a
-   * vertical line. `position: relative` is what puts the band over the rows sliding under it; that is
-   * also why nothing is measured from this row's own label while it is carried.
+   * The band reaches the note's edges by measurement (`bandLeft`/`bandRight`, read off the card's
+   * rectangle), not by a guessed indent: a 22px shadow that stopped short of the note's edge left a
+   * strip of the note beside the band, and the handle's own dark box poked out of it as a vertical line.
    */
   :global(.note-body li.dragging-row) {
     /* **Positioned, so the row paints over the rows sliding under it** — the rows below it in the
@@ -1655,12 +1636,9 @@
     width: 32px;
     height: 32px;
     padding: 0;
-    border: 0;
     border-radius: 50%;
     transform: translateY(-50%);
-    background: transparent;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
-    cursor: pointer;
   }
 
   .row-delete:hover {

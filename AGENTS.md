@@ -569,8 +569,9 @@ thrown away.
     would drag them instead of the card.
 18. **Nothing is drawn outside a card from inside it.** `.card` clips (`overflow: hidden`) so its
     artwork and pictures end at the rounded corners; the selection tick box, which the original hangs
-    off the card's corner, is therefore drawn by the **grid** (`.card-tick`, positioned from the card's
-    rectangle and centred on its corner), not by the card.
+    off the card's corner, is therefore drawn by the **grid** (`.card-tick`, in the card's slot and
+    centred on its corner), not by the card. It lives in the slot so that it moves with the card:
+    measured once off the screen, it was left behind where a dragged card had been.
 19. **Metrics come off the original, not out of the air.** Where Keep's look is a number, it was
     measured from a screenshot — pixels, not opinions. **The measurements themselves live in
     `docs/METRICS.md`**, with the window each was taken from, because `AGENTS.md` had grown past the

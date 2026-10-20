@@ -68,7 +68,7 @@
     min-height: var(--keep-composer-height);
     margin: 0 auto var(--keep-composer-margin);
     padding: 0 8px 0 16px;
-    border: 1px solid var(--keep-composer-border);
+    border: 1px solid var(--keep-border);
     border-radius: var(--keep-radius);
     background: var(--keep-surface);
     box-shadow: var(--keep-shadow-composer);

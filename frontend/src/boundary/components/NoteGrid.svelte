@@ -64,41 +64,16 @@
    * The tick box for bulk selection, drawn by the grid rather than by the card.
    *
    * In the original it is centred on the card's corner and hangs outside it, and a card clips what
-   * is drawn inside it (its artwork, its rounded corners). So the grid draws one absolutely
-   * positioned box per hovered or selected note, placed from that card's rectangle and centred on
-   * its corner.
+   * is drawn inside it (its artwork, its rounded corners). So the grid draws it in the card's
+   * **slot**, which carries the card's place: the tick travels with every move of the card — a
+   * re-deal, a drag — instead of being measured once off the screen and left behind where the card
+   * used to be. Nothing is hovered while a card is in the hand.
    */
   let hoveredId = $state<number | null>(null);
-  let ticks = $state<Array<{ id: number; x: number; y: number; on: boolean }>>([]);
 
-  function measureTicks(): void {
-    const container = gridElement;
-    if (!container) return;
-    const base = container.getBoundingClientRect();
-    const wanted = new Set<number>(ui.selectedNoteIds);
-    if (hoveredId !== null) wanted.add(hoveredId);
-    const next: Array<{ id: number; x: number; y: number; on: boolean }> = [];
-    for (const id of wanted) {
-      const card = container.querySelector<HTMLElement>(`.card[data-note-id="${id}"]`);
-      if (!card) continue;
-      const box = card.getBoundingClientRect();
-      next.push({
-        id,
-        x: box.left - base.left,
-        y: box.top - base.top,
-        on: ui.selectedNoteIds.includes(id)
-      });
-    }
-    ticks = next;
+  function showsTick(id: number): boolean {
+    return ui.selectedNoteIds.includes(id) || (hoveredId === id && dragged === null);
   }
-
-  $effect(() => {
-    hoveredId;
-    ui.selectedNoteIds.length;
-    shown.length;
-    const frame = requestAnimationFrame(measureTicks);
-    return () => cancelAnimationFrame(frame);
-  });
 
   // Attached in code rather than in the markup: a `mousemove` handler on a plain container is an
   // accessibility warning, and nothing here is an interaction the container itself should carry.
@@ -110,6 +85,7 @@
       // The tick box is the target while the pointer is on its way to it; clearing here would take
       // the box out from under the pointer before it can be clicked.
       if (event.target.closest('.card-tick')) return;
+      if (dragged !== null) return;
       const card = event.target.closest<HTMLElement>('.card');
       hoveredId = card?.dataset.noteId ? Number(card.dataset.noteId) : null;
     };
@@ -280,6 +256,7 @@
       const from = sections.find((section) => section.key === slot.section)?.notes.map((each) => each.id) ?? [];
       dragged = { id: note.id, section: slot.section, from };
       dragOrder = from;
+      hoveredId = null;
       // After the browser has taken its picture of the card: what stays behind is its empty place.
       requestAnimationFrame(() => {
         if (dragged?.id === note.id) lifted = note.id;
@@ -451,6 +428,7 @@
         <div
           class="slot"
           class:lifted={lifted === item.note.id}
+          class:hovered={hoveredId === item.note.id}
           data-place={item.key}
           data-note-id={item.note.id}
           data-section={item.section}
@@ -459,30 +437,31 @@
           {@attach observeSize}
         >
           <NoteCard note={item.note} {variant} beingEdited={item.note.id === ui.editorNoteId} />
+          {#if showsTick(item.note.id)}
+            {@const picked = ui.selectedNoteIds.includes(item.note.id)}
+            <button
+              type="button"
+              class="card-tick"
+              class:on={picked}
+              draggable="false"
+              aria-label={t('selection.selectNote')}
+              aria-pressed={picked}
+              onclick={() => ui.toggleSelected(item.note.id)}
+            >
+              <Icon name="check" size={18} />
+            </button>
+          {/if}
         </div>
       {/if}
     {/each}
 
-    {#each ticks as tick (tick.id)}
-      <button
-        type="button"
-        class="card-tick"
-        class:on={tick.on}
-        style="left: {tick.x}px; top: {tick.y}px"
-        aria-label={t('selection.selectNote')}
-        aria-pressed={tick.on}
-        onclick={() => ui.toggleSelected(tick.id)}
-      >
-        <Icon name="check" size={18} />
-      </button>
-    {/each}
   </div>
 {/if}
 
 <style>
   /*
-   * The notes' own block, a whole number of columns wide and centred; the headings, the cards and the
-   * tick boxes are all positioned against it, and `relayout` gives it its height.
+   * The notes' own block, a whole number of columns wide and centred; the headings and the cards (each
+   * with its tick box) are positioned against it, and `relayout` gives it its height.
    */
   .sections {
     position: relative;
@@ -492,12 +471,15 @@
   }
 
   /*
-   * Measured off the original: a 20px light disc with a dark tick, its centre on the card's corner.
-   * The disc is the *same* whether the pointer is only over the card or the note is picked — picking
-   * it turns the disc on permanently and adds the light line to the card itself (see `NoteCard`).
+   * Measured off the original: a 20px disc, its centre on the card's corner, whose two colours invert
+   * with the theme (`--keep-select-fill`/`--keep-select-tick`). The disc is the *same* whether the
+   * pointer is only over the card or the note is picked — picking it turns the disc on permanently and
+   * adds the light line to the card itself (see `NoteCard`).
    */
   .card-tick {
     position: absolute;
+    top: 0;
+    left: 0;
     z-index: 2;
     display: inline-flex;
     align-items: center;
@@ -506,16 +488,10 @@
     height: 20px;
     /* The card's corner is the circle's centre. */
     transform: translate(-50%, -50%);
-    border: 0;
     border-radius: 50%;
     background: var(--keep-select-fill);
     color: var(--keep-select-tick);
     animation: tick-in var(--keep-duration-short) var(--keep-ease-standard);
-  }
-
-  .card-tick.on {
-    /* Picked: nothing about the disc changes, only how long it stays. */
-    background: var(--keep-select-fill);
   }
 
   @keyframes tick-in {
@@ -533,6 +509,12 @@
     position: absolute;
     top: 0;
     left: 0;
+  }
+
+  /* A slot is a stacking context of its own (`translate`), so the hovered one is lifted above its
+     neighbours for the tick that hangs off its corner. */
+  .slot.hovered {
+    z-index: 1;
   }
 
   /* The dragged card's own place, left empty while the card is in the hand. */
@@ -553,7 +535,6 @@
     letter-spacing: 0.8px;
     text-transform: uppercase;
   }
-
 
   /* The Android app's held card has no tick: its ring says it (NoteCard). */
   @media (max-width: 600px) {

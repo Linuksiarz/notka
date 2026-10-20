@@ -131,7 +131,6 @@
       position: fixed;
       inset: 0;
       z-index: 39;
-      border: 0;
       background: var(--keep-fab-scrim);
     }
 

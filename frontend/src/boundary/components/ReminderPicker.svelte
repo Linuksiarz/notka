@@ -89,7 +89,7 @@
     min-width: 300px;
     padding: 0 0 8px;
     border: 1px solid var(--keep-border);
-    border-radius: 8px;
+    border-radius: var(--keep-radius);
     background: var(--keep-surface);
     box-shadow: var(--keep-shadow-card);
   }
@@ -158,5 +158,4 @@
   :global(.reminder-delete:hover) {
     background: var(--keep-hover);
   }
-
 </style>

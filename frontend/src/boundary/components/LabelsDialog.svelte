@@ -159,18 +159,6 @@
     padding: 16px 20px 20px;
   }
 
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 500;
-  }
-
   .create,
   li {
     display: flex;
@@ -209,7 +197,12 @@
     font-size: 0.8125rem;
   }
 
-  .muted,
+  .muted {
+    margin: 0;
+    color: var(--keep-text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
 
   .done {
     align-self: flex-end;

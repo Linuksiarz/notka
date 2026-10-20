@@ -37,7 +37,6 @@
     margin: 8px 0 0;
     font-size: 1.375rem;
     font-weight: 400;
-    color: var(--keep-text-secondary);
   }
 
   p {

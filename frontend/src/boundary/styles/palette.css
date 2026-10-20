@@ -20,105 +20,111 @@
  */
 
 /*
+ * A colour is `--note-color`, and it is the note's fill unless a background paints over it: the
+ * background rules below set `--note-bg` to their own tint, and `:where` keeps this rule beneath
+ * them. The colour stays readable as `--note-color` either way.
+ */
+:where([data-color]) {
+  --note-bg: var(--note-color);
+}
+
+/*
  * Google Keep outlines a plain note and a note with background artwork in its dark theme — measured
  * off a screenshot, where a note with a background still carries a 1px line of rgb(98,100,103). A
  * coloured note is not outlined (its border is its own colour, read from the DOM). The per-colour
  * rules below set the border to `transparent`, so dark puts it back for those two.
+ *
+ * A card with a background **and** a colour is framed in that colour, in both themes: the artwork
+ * paints over the fill, and the 1px border is where the original keeps the colour visible in the
+ * grid (the owner's "notatki które mają wybrane tło i inny niż standardowy kolor … mają ramkę w
+ * kolorze notatki").
  */
 :root[data-theme='dark'] .card[data-color='default'],
 :root[data-theme='dark'] .card[data-background] {
   --note-border: var(--keep-border);
 }
 
+:root .card[data-background]:not([data-color='default']) {
+  --note-border: var(--note-color);
+}
+
 [data-color='default'] {
   --note-bg: var(--keep-surface);
-  --note-fg: var(--keep-note-text);
-  --note-fg-secondary: var(--keep-note-text-secondary);
   --note-border: var(--keep-border);
   --note-swatch: #ffffff;
   --note-swatch-border: var(--keep-divider);
 }
 
 /*
- * The ink is the same on every colour: only the background (and the swatch and the tonal fill measured
- * with it) is a colour's own. A coloured note's border is its own colour, so it draws none.
+ * The ink is the same on every colour and every background, the theme's own note text: only the fill
+ * (and the tonal fill measured with it) is a colour's own, and its swatch in the picker is that fill.
+ * A coloured note's border is its own colour, so it draws none.
  */
-[data-color]:not([data-color='default']) {
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
+[data-color],
+[data-background] {
+  --note-fg: var(--keep-note-text);
+  --note-fg-secondary: var(--keep-note-text-secondary);
 }
 
-:root[data-theme='dark'] [data-color] {
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
+[data-color]:not([data-color='default']),
+[data-background] {
+  --note-border: transparent;
+  --note-swatch: var(--note-bg);
 }
 
 /*
  * The phone's editor wears the Android app's own ink — one pair for every colour, the text's and,
- * a step lighter, the glyphs' — measured in an emulator (`docs/METRICS.md`). It follows the two rules
- * above, with the specificity to win over the dark theme's.
+ * a step lighter, the glyphs' — measured in an emulator (`docs/METRICS.md`).
  */
 @media (max-width: 600px) {
-  :root .editor[data-color] {
+  .editor[data-color] {
     --note-fg: var(--keep-phone-ink);
     --note-fg-secondary: var(--keep-phone-glyph);
   }
 }
 
 [data-color='red'] {
-  --note-bg: #faafa8;
-  --note-swatch: #faafa8;
+  --note-color: #faafa8;
   --note-tonal: #fda49c;
 }
 [data-color='orange'] {
-  --note-bg: #f39f76;
-  --note-swatch: #f39f76;
+  --note-color: #f39f76;
   --note-tonal: #ffb693;
 }
 [data-color='yellow'] {
-  --note-bg: #fff8b8;
-  --note-swatch: #fff8b8;
+  --note-color: #fff8b8;
   --note-tonal: #eee58c;
 }
 [data-color='green'] {
-  --note-bg: #e2f6d3;
-  --note-swatch: #e2f6d3;
+  --note-color: #e2f6d3;
   --note-tonal: #c4efac;
 }
 [data-color='teal'] {
-  --note-bg: #b4ddd3;
-  --note-swatch: #b4ddd3;
+  --note-color: #b4ddd3;
   --note-tonal: #83d5c5;
 }
 [data-color='blue'] {
-  --note-bg: #d4e4ed;
-  --note-swatch: #d4e4ed;
+  --note-color: #d4e4ed;
   --note-tonal: #e0f4ff;
 }
 [data-color='darkblue'] {
-  --note-bg: #aeccdc;
-  --note-swatch: #aeccdc;
+  --note-color: #aeccdc;
   --note-tonal: #bee9ff;
 }
 [data-color='purple'] {
-  --note-bg: #d3bfdb;
-  --note-swatch: #d3bfdb;
+  --note-color: #d3bfdb;
   --note-tonal: #f4d8ff;
 }
 [data-color='pink'] {
-  --note-bg: #f6e2dd;
-  --note-swatch: #f6e2dd;
+  --note-color: #f6e2dd;
   --note-tonal: #ffede8;
 }
 [data-color='brown'] {
-  --note-bg: #e9e3d4;
-  --note-swatch: #e9e3d4;
+  --note-color: #e9e3d4;
   --note-tonal: #dfdacc;
 }
 [data-color='gray'] {
-  --note-bg: #efeff1;
-  --note-swatch: #efeff1;
+  --note-color: #efeff1;
   --note-tonal: #d7dadf;
 }
 
@@ -134,58 +140,47 @@
   }
 }
 :root[data-theme='dark'] [data-color='red'] {
-  --note-bg: #77172e;
-  --note-swatch: #77172e;
+  --note-color: #77172e;
   --note-tonal: #8f4a54;
 }
 :root[data-theme='dark'] [data-color='orange'] {
-  --note-bg: #692b17;
-  --note-swatch: #692b17;
+  --note-color: #692b17;
   --note-tonal: #8f4c37;
 }
 :root[data-theme='dark'] [data-color='yellow'] {
-  --note-bg: #7c4a03;
-  --note-swatch: #7c4a03;
+  --note-color: #7c4a03;
   --note-tonal: #683d00;
 }
 :root[data-theme='dark'] [data-color='green'] {
-  --note-bg: #264d3b;
-  --note-swatch: #264d3b;
+  --note-color: #264d3b;
   --note-tonal: #006656;
 }
 :root[data-theme='dark'] [data-color='teal'] {
-  --note-bg: #0c625d;
-  --note-swatch: #0c625d;
+  --note-color: #0c625d;
   --note-tonal: #004f50;
 }
 :root[data-theme='dark'] [data-color='blue'] {
-  --note-bg: #256377;
-  --note-swatch: #256377;
+  --note-color: #256377;
   --note-tonal: #004d61;
 }
 :root[data-theme='dark'] [data-color='darkblue'] {
-  --note-bg: #284255;
-  --note-swatch: #284255;
+  --note-color: #284255;
   --note-tonal: #004b6f;
 }
 :root[data-theme='dark'] [data-color='purple'] {
-  --note-bg: #472e5b;
-  --note-swatch: #472e5b;
+  --note-color: #472e5b;
   --note-tonal: #583a6f;
 }
 :root[data-theme='dark'] [data-color='pink'] {
-  --note-bg: #6c394f;
-  --note-swatch: #6c394f;
+  --note-color: #6c394f;
   --note-tonal: #8b4b66;
 }
 :root[data-theme='dark'] [data-color='brown'] {
-  --note-bg: #4b443a;
-  --note-swatch: #4b443a;
+  --note-color: #4b443a;
   --note-tonal: #6e5d40;
 }
 :root[data-theme='dark'] [data-color='gray'] {
-  --note-bg: #232427;
-  --note-swatch: #232427;
+  --note-color: #232427;
   --note-tonal: #3e4758;
 }
 
@@ -200,124 +195,98 @@
    top left, keeping the **bottom right corner**, as the original's do: a wide card shows the picture's
    lower part and a tall one its right part, never its middle. */
 [data-background] {
-  --note-fg: #202124;
-  --note-fg-secondary: rgba(32, 33, 36, 0.72);
-  --note-border: transparent;
   background-repeat: no-repeat;
   background-position: right bottom;
   background-size: cover;
 }
 
-:root[data-theme='dark'] [data-background] {
-  --note-fg: #e8eaed;
-  --note-fg-secondary: rgba(232, 234, 237, 0.72);
-}
-
 [data-background='groceries'] {
   --note-bg: var(--theme-tint-groceries, #ebf0dc);
-  --note-swatch: var(--theme-tint-groceries, #ebf0dc);
   background-image: var(--theme-art-groceries-light, url('/backgrounds/groceries-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='groceries'] {
   --note-bg: var(--theme-tint-dark-groceries, #2a3123);
-  --note-swatch: var(--theme-tint-dark-groceries, #2a3123);
   background-image: var(--theme-art-groceries-dark, url('/backgrounds/groceries-dark.svg'));
 }
 
 [data-background='food'] {
   --note-bg: var(--theme-tint-food, #fbe4d8);
-  --note-swatch: var(--theme-tint-food, #fbe4d8);
   background-image: var(--theme-art-food-light, url('/backgrounds/food-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='food'] {
   --note-bg: var(--theme-tint-dark-food, #352621);
-  --note-swatch: var(--theme-tint-dark-food, #352621);
   background-image: var(--theme-art-food-dark, url('/backgrounds/food-dark.svg'));
 }
 
 [data-background='music'] {
   --note-bg: var(--theme-tint-music, #e2e5f5);
-  --note-swatch: var(--theme-tint-music, #e2e5f5);
   background-image: var(--theme-art-music-light, url('/backgrounds/music-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='music'] {
   --note-bg: var(--theme-tint-dark-music, #25263a);
-  --note-swatch: var(--theme-tint-dark-music, #25263a);
   background-image: var(--theme-art-music-dark, url('/backgrounds/music-dark.svg'));
 }
 
 [data-background='recipes'] {
   --note-bg: var(--theme-tint-recipes, #fdf0d6);
-  --note-swatch: var(--theme-tint-recipes, #fdf0d6);
   background-image: var(--theme-art-recipes-light, url('/backgrounds/recipes-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='recipes'] {
   --note-bg: var(--theme-tint-dark-recipes, #33291c);
-  --note-swatch: var(--theme-tint-dark-recipes, #33291c);
   background-image: var(--theme-art-recipes-dark, url('/backgrounds/recipes-dark.svg'));
 }
 
 [data-background='notes'] {
   --note-bg: var(--theme-tint-notes, #e9ecf5);
-  --note-swatch: var(--theme-tint-notes, #e9ecf5);
   background-image: var(--theme-art-notes-light, url('/backgrounds/notes-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='notes'] {
   --note-bg: var(--theme-tint-dark-notes, #25272f);
-  --note-swatch: var(--theme-tint-dark-notes, #25272f);
   background-image: var(--theme-art-notes-dark, url('/backgrounds/notes-dark.svg'));
 }
 
 [data-background='places'] {
   --note-bg: var(--theme-tint-places, #dcefeb);
-  --note-swatch: var(--theme-tint-places, #dcefeb);
   background-image: var(--theme-art-places-light, url('/backgrounds/places-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='places'] {
   --note-bg: var(--theme-tint-dark-places, #1f2e2c);
-  --note-swatch: var(--theme-tint-dark-places, #1f2e2c);
   background-image: var(--theme-art-places-dark, url('/backgrounds/places-dark.svg'));
 }
 
 [data-background='travel'] {
   --note-bg: var(--theme-tint-travel, #dbeaf7);
-  --note-swatch: var(--theme-tint-travel, #dbeaf7);
   background-image: var(--theme-art-travel-light, url('/backgrounds/travel-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='travel'] {
   --note-bg: var(--theme-tint-dark-travel, #1f2836);
-  --note-swatch: var(--theme-tint-dark-travel, #1f2836);
   background-image: var(--theme-art-travel-dark, url('/backgrounds/travel-dark.svg'));
 }
 
 [data-background='video'] {
   --note-bg: var(--theme-tint-video, #f5e2ef);
-  --note-swatch: var(--theme-tint-video, #f5e2ef);
   background-image: var(--theme-art-video-light, url('/backgrounds/video-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='video'] {
   --note-bg: var(--theme-tint-dark-video, #2f2330);
-  --note-swatch: var(--theme-tint-dark-video, #2f2330);
   background-image: var(--theme-art-video-dark, url('/backgrounds/video-dark.svg'));
 }
 
 [data-background='celebration'] {
   --note-bg: var(--theme-tint-celebration, #fde3e1);
-  --note-swatch: var(--theme-tint-celebration, #fde3e1);
   background-image: var(--theme-art-celebration-light, url('/backgrounds/celebration-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='celebration'] {
   --note-bg: var(--theme-tint-dark-celebration, #352223);
-  --note-swatch: var(--theme-tint-dark-celebration, #352223);
   background-image: var(--theme-art-celebration-dark, url('/backgrounds/celebration-dark.svg'));
 }
 

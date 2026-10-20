@@ -898,7 +898,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   {#snippet formatButton(icon: IconName, label: string, active: boolean, disabled: boolean, apply: () => void)}
     <button
       type="button"
-      class="icon-button on-surface format-button needs-caret"
+      class="icon-button format-button needs-caret"
       class:active
       title={label}
       aria-label={label}
@@ -915,7 +915,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     <!-- Greyed out while there is nothing to take back or put back. -->
     <button
       type="button"
-      class="icon-button on-surface undo"
+      class="icon-button undo"
       title={t('editor.undo')}
       aria-label={t('editor.undo')}
       disabled={!richText?.canUndo()}
@@ -925,7 +925,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     </button>
     <button
       type="button"
-      class="icon-button on-surface"
+      class="icon-button"
       title={t('editor.redo')}
       aria-label={t('editor.redo')}
       disabled={!richText?.canRedo()}
@@ -940,7 +940,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       <!-- Keep puts the reminder's bell at the note's top right, beside the title. -->
       <Popover.Root {...openFor('reminder')}>
         <Popover.Trigger
-          class="icon-button on-surface"
+          class="icon-button"
           title={currentNote?.reminderAt != null ? t('reminder.clear') : t('reminder.add')}
           aria-label={currentNote?.reminderAt != null ? t('reminder.clear') : t('reminder.add')}
         >
@@ -972,7 +972,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       <div class="editor-bar">
         <button
           type="button"
-          class="icon-button on-surface"
+          class="icon-button"
           title={t('editor.close')}
           aria-label={t('editor.back')}
           onclick={close}
@@ -984,7 +984,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
             <!-- The original's phone bar carries the pin as well, beside the bell and the archive. -->
             <button
               type="button"
-              class="icon-button on-surface"
+              class="icon-button"
               title={draft.pinned ? t('card.unpin') : t('card.pin')}
               aria-label={draft.pinned ? t('card.unpinNote') : t('card.pinNote')}
               aria-pressed={draft.pinned}
@@ -995,7 +995,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
             {@render reminderBell()}
             <button
               type="button"
-              class="icon-button on-surface"
+              class="icon-button"
               title={draft.archived ? t('card.unarchive') : t('card.archive')}
               aria-label={draft.archived ? t('card.unarchiveNote') : t('card.archiveNote')}
               onclick={toggleArchive}
@@ -1040,7 +1040,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           <!-- The original's phone puts a list's own actions on a ⋮ beside its title. -->
           <button
             type="button"
-            class="icon-button on-surface list-options"
+            class="icon-button list-options"
             title={t('list.options')}
             aria-label={t('list.options')}
             onclick={() => (sheet = 'list')}
@@ -1053,7 +1053,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                bottom bar's own actions, where the original keeps its bell. -->
           <button
             type="button"
-            class="icon-button on-surface"
+            class="icon-button"
             title={draft.pinned ? t('card.unpin') : t('card.pin')}
             aria-label={draft.pinned ? t('card.unpinNote') : t('card.pinNote')}
             aria-pressed={draft.pinned}
@@ -1175,7 +1175,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
             <span class="format-rule end" aria-hidden="true"></span>
             <button
               type="button"
-              class="icon-button on-surface format-close"
+              class="icon-button format-close"
               title={t('format.close')}
               aria-label={t('format.close')}
               onmousedown={(event) => event.preventDefault()}
@@ -1190,7 +1190,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                Undo and redo stay beside the menu. -->
           <button
             type="button"
-            class="icon-button on-surface"
+            class="icon-button"
             title={t('editor.add')}
             aria-label={t('editor.add')}
             onclick={() => (sheet = 'add')}
@@ -1199,7 +1199,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           </button>
           <button
             type="button"
-            class="icon-button on-surface"
+            class="icon-button"
             title={t('card.changeColor')}
             aria-label={t('card.changeColor')}
             onclick={() => (sheet = 'appearance')}
@@ -1208,7 +1208,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           </button>
           <button
             type="button"
-            class="icon-button on-surface needs-caret"
+            class="icon-button needs-caret"
             title={t('editor.format')}
             aria-label={t('editor.format')}
             onmousedown={(event) => event.preventDefault()}
@@ -1219,7 +1219,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           {@render undoRedo()}
           <button
             type="button"
-            class="icon-button on-surface more-options"
+            class="icon-button more-options"
             title={t('card.more')}
             aria-label={t('card.moreOptions')}
             onclick={() => (sheet = 'menu')}
@@ -1230,7 +1230,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           <div class="anchor">
             <Popover.Root {...openFor('label')}>
               <Popover.Trigger
-                class="icon-button on-surface"
+                class="icon-button"
                 title={t('card.addLabel')}
                 aria-label={t('card.addLabel')}
               >
@@ -1259,7 +1259,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           <div class="anchor">
             <Popover.Root {...openFor('appearance')}>
               <Popover.Trigger
-                class="icon-button on-surface"
+                class="icon-button"
                 title={t('card.changeColor')}
                 aria-label={t('card.changeColor')}
               >
@@ -1280,7 +1280,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           {@render reminderBell()}
           <button
             type="button"
-            class="icon-button on-surface"
+            class="icon-button"
             title={t('card.addCollaborator')}
             aria-label={t('card.addCollaborator')}
             onclick={openCollaborators}
@@ -1289,7 +1289,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           </button>
           <button
             type="button"
-            class="icon-button on-surface"
+            class="icon-button"
             title={t('images.add')}
             aria-label={t('images.add')}
             onclick={() => imageInput?.click()}
@@ -1299,7 +1299,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
           <button
             type="button"
-            class="icon-button on-surface"
+            class="icon-button"
             title={draft.archived ? t('card.unarchive') : t('card.archive')}
             aria-label={draft.archived ? t('card.unarchiveNote') : t('card.archiveNote')}
             onclick={toggleArchive}
@@ -1310,7 +1310,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           <div class="anchor">
             <DropdownMenu.Root {...openFor('menu')}>
               <DropdownMenu.Trigger
-                class="icon-button on-surface"
+                class="icon-button"
                 title={t('card.more')}
                 aria-label={t('card.moreOptions')}
               >
@@ -1488,9 +1488,6 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     right: 0;
     /* A tall note scrolls inside itself rather than off the bottom of the window. */
     bottom: 24px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
     z-index: 46;
     pointer-events: none;
   }
@@ -1539,7 +1536,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
    * keeps the editor's own lift.
    */
   .editor.from-composer {
-    border: 1px solid var(--keep-composer-border);
+    border: 1px solid var(--keep-border);
     box-shadow: var(--keep-shadow-composer);
   }
 
@@ -1552,43 +1549,6 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
   .editor.from-composer .body :global(.note-body) {
     padding-bottom: 12px;
-  }
-
-  @media (max-width: 600px) {
-    .editor-host,
-    .editor-host.floating {
-      position: fixed;
-      /* The visible part of the screen (`visualViewport.ts`): above the keyboard in every browser. */
-      inset: auto 0 auto 0;
-      top: var(--vv-top, 0px);
-      height: var(--vv-height, 100%);
-      z-index: 50;
-      display: block;
-      padding: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-
-    /* The picture is sized by the screen without the keyboard (`visualViewport.ts`), not by the box the
-       keyboard leaves: `cover` would rescale it every time the box changes height. It stays where it is
-       and the keyboard covers its lower part. The pictures are square (`docs/THEMES.md`), so one side
-       sizes them; a landscape screen falls back to covering the width. Cropped sideways, it keeps its
-       right part, as every background does (`palette.css`). */
-    .editor[data-background] {
-      background-size: max(100%, var(--vv-tallest, 100%)) auto;
-      background-position: right top;
-    }
-
-    /* A phone's editor is the whole screen, so the composer's frame has nothing to frame. */
-    .editor,
-    .editor.from-composer {
-      max-width: none;
-      min-height: 100%;
-      max-height: none;
-      border: 0;
-      border-radius: 0;
-      box-shadow: none;
-    }
   }
 
   /*
@@ -1639,8 +1599,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     overflow: hidden;
     background: transparent;
     color: inherit;
-    /* Measured off the original's editor: its title is a good deal larger than the one on a card. */
-    /* Measured from the original's DOM: 20px Google Sans on a 24px line, regular weight. */
+    /* Measured from the original's DOM: 20px Google Sans on a 24px line, regular weight — a good deal
+       larger than a card's title. */
     font-size: 1.25rem;
     font-weight: 400;
     line-height: 1.5rem;
@@ -1692,22 +1652,14 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     font-size: 0.75rem;
   }
 
-  button.people {
-    cursor: pointer;
-  }
-
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     padding: 3px 6px 3px 10px;
     border-radius: 12px;
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--keep-note-chip);
     font-size: 0.75rem;
-  }
-
-  :root[data-theme='dark'] .chip {
-    background: rgba(255, 255, 255, 0.14);
   }
 
   .toolbar {
@@ -1839,8 +1791,39 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   }
 
   @media (max-width: 600px) {
-    .editor {
-      max-height: 92vh;
+    .editor-host,
+    .editor-host.floating {
+      position: fixed;
+      /* The visible part of the screen (`visualViewport.ts`): above the keyboard in every browser. */
+      inset: auto 0 auto 0;
+      top: var(--vv-top, 0px);
+      height: var(--vv-height, 100%);
+      z-index: 50;
+      display: block;
+      padding: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* The picture is sized by the screen without the keyboard (`visualViewport.ts`), not by the box the
+       keyboard leaves: `cover` would rescale it every time the box changes height. It stays where it is
+       and the keyboard covers its lower part. The pictures are square (`docs/THEMES.md`), so one side
+       sizes them; a landscape screen falls back to covering the width. Cropped sideways, it keeps its
+       right part, as every background does (`palette.css`). */
+    .editor[data-background] {
+      background-size: max(100%, var(--vv-tallest, 100%)) auto;
+      background-position: right top;
+    }
+
+    /* A phone's editor is the whole screen, so the composer's frame has nothing to frame. */
+    .editor,
+    .editor.from-composer {
+      max-width: none;
+      min-height: 100%;
+      max-height: none;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
     }
 
     /*
@@ -1860,15 +1843,17 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
     .editor-bar-actions :global(.icon-button),
     .toolbar-actions :global(.icon-button) {
-      width: 40px;
-      height: 40px;
+      width: var(--keep-icon-button-size);
+      height: var(--keep-icon-button-size);
       background: var(--note-tonal, var(--keep-tonal-button));
     }
 
+    .editor-bar-actions :global(.icon-button) {
+      border-radius: 12px;
+    }
+
     /* The note's own ink, as the original's glyphs wear it (measured: on-surface-variant, 0.8 of the
-       text's own). The shared `on-surface` class names a rule that was never written, which left
-       these glyphs in the page's grey. */
-    .editor-bar-actions :global(.icon-button):not(:disabled),
+       text's own), not the page's grey an icon button wears elsewhere. */
     .toolbar-actions :global(.icon-button):not(:disabled),
     .editor-bar :global(.icon-button):not(:disabled) {
       color: var(--note-fg-secondary);
@@ -1877,10 +1862,6 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     .toolbar-actions :global(.more-options) {
       width: 32px;
       border-radius: 16px;
-    }
-
-    .editor-bar-actions :global(.icon-button) {
-      border-radius: 12px;
     }
 
     .toolbar {
@@ -1937,11 +1918,6 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       margin: 0 0 0 auto;
     }
 
-    /* The list's own ⋮ beside the title, centred 33px from the screen's right edge. */
-    .head {
-      padding-right: 12px;
-    }
-
     .list-options {
       flex: 0 0 auto;
       width: 43px;
@@ -1959,9 +1935,11 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       padding: 0 21px;
     }
 
+    /* The list's own ⋮ beside the title is centred 33px from the screen's right edge. */
     .head {
       margin: 0 -21px;
       padding-left: 21px;
+      padding-right: 12px;
     }
 
     .body > :global(.images) {

@@ -47,7 +47,7 @@ theme"; the original ignores the system's scheme):
 
 | | original (DOM) | was | where |
 | --- | --- | --- | --- |
-| composer | 1px `#5f6368` inside, `0 1px 2px rgba(0,0,0,.6), 0 2px 6px 2px rgba(0,0,0,.3)` outside — and in the light theme a 1px `#e0e0e0` inside as well | `.75`/`.25`, 2px 4px 1px | `--keep-shadow-composer`, `--keep-composer-border` |
+| composer | 1px `#5f6368` inside, `0 1px 2px rgba(0,0,0,.6), 0 2px 6px 2px rgba(0,0,0,.3)` outside — and in the light theme a 1px `#e0e0e0` inside as well | `.75`/`.25`, 2px 4px 1px | `--keep-shadow-composer`, `--keep-border` |
 | open note | `0 1px 3px rgba(0,0,0,.6), 0 4px 8px 3px rgba(0,0,0,.3)` | `.6`/`.35`, 2px 6px 2px | `--keep-shadow-editor` (dark) |
 | veil | `rgb(32,33,36)` at **75%** | 73% | `--keep-scrim` (dark) |
 | a coloured note | its 1px border is its own colour — no outline | outlined in `--keep-border` | `palette.css` (the outline stays on plain notes and artwork) |

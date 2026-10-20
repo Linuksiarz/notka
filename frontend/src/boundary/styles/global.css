@@ -12,6 +12,15 @@ body {
      the finger stays down, and the note only opens once it lifts — a card lit up, waited, and then
      grew. The original answers a tap with the note itself. */
   -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  background: var(--keep-bg);
+  color: var(--keep-text);
+  font-family: var(--keep-font);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
 }
 
 input,
@@ -33,16 +42,14 @@ body {
   height: 100%;
 }
 
-body {
-  margin: 0;
-  background: var(--keep-bg);
-  color: var(--keep-text);
-  font-family: var(--keep-font);
-  font-size: 0.875rem;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  overscroll-behavior-y: none;
+/*
+ * `overflow-y: scroll` on the root is the one thing we do to the scrollbar: the original's is there
+ * from the first frame, not only once the notes have been scrolled, and reserving it keeps the
+ * centred notes from shifting sideways when they grow past the window. Its *size and colour* are the
+ * browser's own — we styled a slimmer one and the owner saw it as "much smaller than Google Keep's".
+ */
+html {
+  overflow-y: scroll;
 }
 
 #app {
@@ -95,13 +102,12 @@ a {
   pointer-events: auto;
 }
 
-/* Keep's icon-button: 48px circular hit area, 40px visual, 24px glyph. */
 .icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--keep-icon-button-size);
+  height: var(--keep-icon-button-size);
   border-radius: 50%;
   color: var(--keep-text-secondary);
   transition: background-color var(--keep-duration) var(--keep-ease);
@@ -116,18 +122,6 @@ a {
   cursor: not-allowed;
 }
 
-.icon-button--on-surface {
-  color: var(--note-fg-secondary, var(--keep-text-secondary));
-}
-
-.icon-button--on-surface:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.09);
-}
-
-:root[data-theme='dark'] .icon-button--on-surface:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -138,16 +132,6 @@ a {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
-}
-
-/*
- * `overflow-y: scroll` on the root is the one thing we do to the scrollbar: the original's is there
- * from the first frame, not only once the notes have been scrolled, and reserving it keeps the
- * centred notes from shifting sideways when they grow past the window. Its *size and colour* are the
- * browser's own — we styled a slimmer one and the owner saw it as "much smaller than Google Keep's".
- */
-html {
-  overflow-y: scroll;
 }
 
 /*

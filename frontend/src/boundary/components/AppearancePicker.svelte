@@ -123,7 +123,7 @@
     width: fit-content;
     max-width: calc(100vw - 32px);
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: var(--keep-radius);
     background: var(--keep-surface);
     color: var(--keep-text);
     box-shadow: var(--keep-shadow-popover);

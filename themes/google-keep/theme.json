@@ -4,6 +4,9 @@
   "name": "Google Keep",
   "author": "Google LLC",
   "license": "The artwork of Google Keep, © Google LLC. Not openly licensed and not part of Notka's AGPL-3.0 code: import it for your own use only.",
+  "logo": "logo.png",
+  "highlight": "#feefc3",
+  "highlightDark": "#41331c",
   "backgrounds": {
     "groceries": {
       "light": "groceries-light.svg",

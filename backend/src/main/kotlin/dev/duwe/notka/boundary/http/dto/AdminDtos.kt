@@ -63,6 +63,11 @@ data class ThemeDto(
     val license: String?,
     /** Each background the theme draws, with the urls of its two pictures. */
     val backgrounds: Map<String, ThemeImagesDto>,
+    /** The url of the app's logo in this theme, or `null` for Notka's own mark. */
+    val logo: String?,
+    /** The sidebar's active entry, `#rrggbb`, for the light and the dark colour scheme. */
+    val highlight: String?,
+    val highlightDark: String?,
 )
 
 @Serializable
@@ -89,6 +94,9 @@ fun ThemeInfo.toDto(): ThemeDto = ThemeDto(
             tintDark = images.tintDark,
         )
     },
+    logo = logoFileId?.let { "/api/themes/$id/files/$it" },
+    highlight = highlight,
+    highlightDark = highlightDark,
 )
 
 fun ThemeChoice.toDto(): ThemesResponse = ThemesResponse(themes.map { it.toDto() }, defaultThemeId, selectedThemeId)
