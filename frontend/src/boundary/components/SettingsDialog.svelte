@@ -9,6 +9,7 @@
   import { backgroundThemes } from '../../control/state/backgroundThemes.svelte';
   import { serverAdmin } from '../../control/state/serverAdmin.svelte';
   import { NOTE_BACKGROUNDS } from '../../entity/api/types';
+  import { changeServer, inAndroidApp } from '../androidApp';
   import Avatar from './Avatar.svelte';
   import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
@@ -257,7 +258,7 @@
       <section>
         <h3>{t('settings.profile')}</h3>
         <div class="identity">
-          <Avatar user={session.user} size={40} />
+          <Avatar --avatar-size="var(--keep-avatar-settings)" user={session.user} />
           <span>{accountName(session.user)}</span>
         </div>
         <label>
@@ -307,6 +308,14 @@
         <button type="button" class="primary" disabled={importing} onclick={() => importInput?.click()}>
           {importing ? t('settings.importing') : t('settings.importChoose')}
         </button>
+      </section>
+    {/if}
+
+    {#if inAndroidApp}
+      <section>
+        <h3>{t('settings.server')}</h3>
+        <p class="hint">{t('settings.serverHint', { server: location.host })}</p>
+        <button type="button" class="primary" onclick={() => void changeServer()}>{t('settings.changeServer')}</button>
       </section>
     {/if}
 

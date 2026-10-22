@@ -254,7 +254,7 @@
       <span class="view-heading">{heading}</span>
     {:else}
       <span class="wordmark">
-        <span class="brand-icon"><BrandMark size={36} /></span>
+        <span class="brand-icon"><BrandMark size={46} /></span>
         <span>{t('app.name')}</span>
       </span>
     {/if}
@@ -545,7 +545,7 @@
           class="avatar-button"
           aria-label={t('topbar.accountMenu')}
         >
-          <Avatar user={session.user} size={32} />
+          <Avatar user={session.user} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content preventScroll={false} class="menu" sideOffset={8} align="end">
@@ -583,23 +583,27 @@
     margin-left: calc(var(--keep-icon-column) - var(--keep-topbar-padding) - 24px);
   }
 
+  /* Under the system's status bar where the page is drawn under it: the bar's own background reaches
+     up behind the clock, and what is in it starts below. */
   .topbar {
     display: flex;
     align-items: center;
-    height: var(--keep-topbar-height);
-    padding: 0 var(--keep-topbar-padding);
+    height: calc(var(--keep-topbar-height) + var(--keep-inset-top));
+    padding: var(--keep-inset-top) var(--keep-topbar-padding) 0;
     position: sticky;
     top: 0;
     z-index: 30;
     background: var(--keep-bg);
-    border-bottom: 1px solid var(--keep-divider);
+    /* The original draws its line as an inset shadow, not a border: the bar keeps its whole 64px, so
+       everything in it is centred on y=32 (a border left 63px and put the logo and the menu half a
+       pixel high). */
+    box-shadow: inset 0 -1px 0 var(--keep-divider);
     transition: box-shadow var(--keep-duration) var(--keep-ease);
   }
 
   /* Measured behaviour from the original: once the notes scroll, the line is gone and a shadow
      separates the bar from what slides under it. The value is Material's raised app bar. */
   .topbar[data-scrolled='true'] {
-    border-bottom-color: transparent;
     box-shadow: var(--keep-shadow-topbar);
   }
 
@@ -671,7 +675,7 @@
   }
 
   .search input::placeholder {
-    color: var(--keep-icon);
+    color: var(--keep-search-placeholder);
   }
 
   .search input::-webkit-search-cancel-button {
@@ -782,7 +786,8 @@
   }
 
   /* The original's logo is a 44×40 picture right after the menu button (x=64), and the name follows
-     it at x=108. Our mark is our own (`BrandMark`), drawn 36px tall in that 44px place. */
+     it at x=112. Our mark is our own (`BrandMark`), drawn 46px so that its ink is the original's —
+     32×38px from x=70, y=13 (read off the original's picture, 2026-10-22); at 36px it was 26×30. */
   .brand-icon {
     display: inline-flex;
     justify-content: center;
@@ -814,21 +819,24 @@
 
   /* The app's name, or the name of the view the header is showing in the place the app's own name
      stands. */
+  /* Measured off the original's DOM (2026-10-22): the name is 22px at regular weight with no extra
+     tracking, its text starting at x=112 — 4px past the logo's place — on a 48px line. (The original's
+     face is Product Sans, which is not ours to ship; Google Sans is its open sibling.) */
   .wordmark,
   .view-heading {
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
     font-size: 1.375rem;
-    font-weight: 500;
-    letter-spacing: 0.2px;
+    font-weight: 400;
+    line-height: 3rem;
     color: var(--keep-text);
   }
 
   .wordmark {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
   }
 
   .view-heading {
@@ -871,7 +879,6 @@
        and no shadow once the notes scroll under it. */
     .topbar,
     .topbar[data-scrolled='true'] {
-      border-bottom-color: transparent;
       box-shadow: none;
     }
 

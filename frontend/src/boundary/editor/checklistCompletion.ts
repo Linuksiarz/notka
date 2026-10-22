@@ -152,6 +152,14 @@ function insertItem(view: EditorView, insertAt: number): void {
   const { schema } = view.state;
   const item = schema.nodes.taskItem?.create({ checked: false }, schema.nodes.paragraph?.create());
   if (!item) return;
+  // An empty row already waiting at the end is the new row: go there instead of stacking another.
+  const last = view.state.doc.resolve(insertAt).nodeBefore;
+  if (last?.type.name === 'taskItem' && !last.attrs.checked && last.textContent === '') {
+    const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, insertAt - 2));
+    view.dispatch(tr.scrollIntoView());
+    view.focus();
+    return;
+  }
   const tr = view.state.tr.insert(insertAt, item);
   tr.setSelection(TextSelection.create(tr.doc, insertAt + 2));
   view.dispatch(tr.scrollIntoView());

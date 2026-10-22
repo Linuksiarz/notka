@@ -4,11 +4,10 @@
 
   interface Props {
     user: Pick<User, 'id' | 'displayName' | 'email'>;
-    size?: number;
     title?: string;
   }
 
-  let { user, size = 32, title }: Props = $props();
+  let { user, title }: Props = $props();
 
   const AVATAR_COLORS = [
     '#1a73e8',
@@ -34,7 +33,7 @@
 
 <span
   class="avatar"
-  style="--avatar-size: {size}px; --avatar-bg: {background}"
+  style="--avatar-bg: {background}"
   title={title ?? `${user.displayName} (${accountName(user)})`}
   aria-hidden="true">{initials}</span
 >
@@ -44,12 +43,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--avatar-size);
-    height: var(--avatar-size);
+    /* The size is the caller's token (`--avatar-size`), so it is a dp the platform scales, never a number here. */
+    width: var(--avatar-size, var(--keep-avatar-account));
+    height: var(--avatar-size, var(--keep-avatar-account));
     border-radius: 50%;
     background: var(--avatar-bg);
     color: #fff;
-    font-size: calc(var(--avatar-size) * 0.42);
+    /* The initials are part of the circle, so they scale with it rather than with the reader's text size. */
+    font-size: calc(var(--avatar-size, var(--keep-avatar-account)) * 0.42);
     font-weight: 500;
     letter-spacing: 0.4px;
     flex: 0 0 auto;

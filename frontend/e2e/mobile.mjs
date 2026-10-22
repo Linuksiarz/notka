@@ -123,8 +123,8 @@ check(
   JSON.stringify(layout)
 );
 check(
-  "a phone card carries the original's smaller type",
-  layout.title === '16px/20px' && layout.content === '12px/15px',
+  "a phone card carries the Android app's type (16sp title, Body2 text)",
+  layout.title === '16px/24px' && layout.content === '14px/20.8px',
   `title ${layout.title}, content ${layout.content}`
 );
 check(
@@ -286,6 +286,23 @@ const drawer = await page.evaluate(() => ({
 }));
 check("the drawer is the original's: the app's name, the settings, the window's full height",
   drawer.name === 'Notka' && drawer.settings && drawer.fullHeight, JSON.stringify(drawer));
+// The Android app's drawer at 412dp (`drawer_width` and the emulator, docs/METRICS.md): 320dp wide,
+// 55dp rows, the pill 12dp in from either side, the icon 28dp in and the label at 68dp.
+const drawerGeometry = await page.evaluate(() => {
+  const item = document.querySelector('.sidebar .item');
+  const rect = (element) => element?.getBoundingClientRect();
+  return {
+    width: Math.round(rect(document.querySelector('.sidebar'))?.width ?? 0),
+    row: Math.round(rect(item)?.height ?? 0),
+    pill: [Math.round(rect(item)?.left ?? 0), Math.round(rect(item)?.right ?? 0)],
+    icon: Math.round(rect(item?.querySelector('svg'))?.left ?? 0),
+    label: Math.round(rect(item?.querySelector('.text'))?.left ?? 0)
+  };
+});
+check("the drawer's geometry is the Android app's",
+  drawerGeometry.width === 320 && drawerGeometry.row === 55 && drawerGeometry.pill[0] === 12 &&
+    drawerGeometry.pill[1] === 308 && drawerGeometry.icon === 28 && drawerGeometry.label === 68,
+  JSON.stringify(drawerGeometry));
 // The Android app's own surfaces, measured on an emulator in the light theme (docs/METRICS.md), not
 // the web original's white and greys: the drawer and a plain card are the lighter surface on a
 // lavender-grey page, and the drawer veils the page with 60% black.
@@ -329,7 +346,7 @@ await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('.card');
 await page.waitForTimeout(500);
 await page.evaluate(() => {
-  const record = { colors: [], properties: new Set() };
+  const record = { colors: [], properties: new Set(), corners: [] };
   window.__opening = record;
   // Every colour the bar is given, with where the note's top edge is at that moment.
   window.__barColors = record.colors;
@@ -346,6 +363,7 @@ await page.evaluate(() => {
   Element.prototype.animate = function (keyframes, options) {
     for (const frame of Array.isArray(keyframes) ? keyframes : [keyframes]) {
       for (const property of Object.keys(frame)) record.properties.add(property);
+      if (frame.clipPath) record.corners.push(Number(/round ([\d.]+)px/.exec(frame.clipPath)?.[1]));
     }
     return animate.call(this, keyframes, options);
   };
@@ -357,6 +375,7 @@ await page.waitForTimeout(500);
 const opening = await page.evaluate(() => ({
   colors: window.__opening.colors,
   properties: [...window.__opening.properties],
+  corners: window.__opening.corners,
   note: getComputedStyle(document.querySelector('.editor')).backgroundColor
 }));
 const noteColor = `#${(opening.note.match(/\d+/g) ?? []).map((channel) => Number(channel).toString(16).padStart(2, '0')).join('')}`;
@@ -401,11 +420,17 @@ await page.waitForSelector('.editor', { timeout: 10_000 });
 await page.waitForTimeout(500);
 // Only what the compositor runs by itself: a clip-path or a width ran on the main thread and stuttered
 // whenever the page was busy — and opening a note is when it is busiest.
-const composited = new Set(['offset', 'transform', 'transformOrigin', 'opacity', 'visibility', 'easing', 'composite']);
+// The clip-path only rounds the container's corners on the way (`editorFlight.ts`); no edge depends on it.
+const composited = new Set(['offset', 'transform', 'transformOrigin', 'opacity', 'visibility', 'clipPath', 'easing', 'composite']);
 check(
-  'a note grows out of its card on transforms and opacity alone',
-  opening.properties.length > 0 && opening.properties.every((property) => composited.has(property)),
-  JSON.stringify(opening.properties)
+  'a note grows out of its card on transforms and opacity alone, its corners squaring off as it goes',
+  opening.properties.length > 0 &&
+    opening.properties.every((property) => composited.has(property)) &&
+    // the card's own rounding at the start, square at the screen's edges at the end, never growing
+    opening.corners[0] > 0 &&
+    opening.corners.at(-1) === 0 &&
+    opening.corners.every((radius, index) => index === 0 || radius <= opening.corners[index - 1]),
+  JSON.stringify({ properties: opening.properties, corners: opening.corners })
 );
 const bar = await page.evaluate(() => {
   const barElement = document.querySelector('.editor-bar');
@@ -428,7 +453,7 @@ const bar = await page.evaluate(() => {
   };
 });
 // Measured off the original's Android app: the pin, the bell and the archive on 40px buttons in the
-// bar, 8px above and below them — none of them in the title's row.
+// middle of a 64dp bar (`editor_toolbar` on the emulator) — none of them in the title's row.
 check(
   "the editor has the original's own bar: back, pin, reminder and archive",
   bar.back &&
@@ -438,7 +463,7 @@ check(
     bar.headBell === 0 &&
     bar.headPin === 0 &&
     bar.button === 40 &&
-    bar.height === 56,
+    bar.height === 64,
   JSON.stringify(bar)
 );
 // Loading the note is not the reader's edit: an Undo enabled here took the note back to empty, and
@@ -524,8 +549,9 @@ await page.waitForTimeout(600);
 
 console.log('\nthe checklist on a phone');
 
-// Measured off the owner's screenshots of the Android app: the checkbox 66px in, its handle centred
-// at 32px, the text at 101px, one level 40px.
+// Keep on iOS (docs/METRICS.md), in em of the 16px text: the checkbox 2.1875em past the note's text
+// (21 + 35 = 56px), its handle centred 1.3125em left of it, the text 1.375em after the 1.125em box, one
+// level 2.375em.
 await page.getByRole('button', { name: 'New note', exact: true }).click();
 await page.getByRole('button', { name: 'List', exact: true }).click();
 await page.waitForSelector('.editor li[data-checked] p');
@@ -550,7 +576,7 @@ const geometry = await page.evaluate(() => {
 });
 check(
   "the phone's checklist stands where the Android app's does",
-  geometry.checkbox[0] === 66 && geometry.checkbox[1] === 106 && geometry.text === 101 && geometry.handles[0] === 32,
+  geometry.checkbox[0] === 56 && geometry.checkbox[1] === 94 && geometry.text === 96 && geometry.handles[0] === 35,
   JSON.stringify(geometry)
 );
 

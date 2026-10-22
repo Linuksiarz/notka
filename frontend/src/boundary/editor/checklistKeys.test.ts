@@ -105,12 +105,25 @@ describe('an empty checklist row', () => {
     expect(result.state.selection.$from.parent.textContent).toBe('Chleb');
   });
 
-  it('is left to the editor when it is the only row', () => {
+  it('stays when it is the only row, so the caret never leaves the list', () => {
     // given / when
     const result = apply(checklist([['', false]], 0), removeEmptyRow);
 
+    // then: the key is consumed and the document is as it was
+    expect(result.handled).toBe(true);
+    expect(rows(result.state)).toEqual(['o:']);
+  });
+
+  it('makes the row below a removed first row a top-level row', () => {
+    // given: an empty first row with a nested row under it
+    const state = checklist([['', false], ['child', false, 1]], 0);
+
+    // when
+    const result = apply(state, removeEmptyRow);
+
     // then
-    expect(result.handled).toBe(false);
+    expect(result.state.doc.child(0).child(0).attrs.depth).toBe(0);
+    expect(rows(result.state)).toEqual(['o:child']);
   });
 
   it('is not removed while it holds text', () => {

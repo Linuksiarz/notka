@@ -69,12 +69,13 @@
     max-height: 85vh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px));
+    padding: 0 0 calc(16px + var(--keep-inset-bottom));
     border-radius: 28px 28px 0 0;
     background: var(--keep-sheet);
     color: var(--keep-text);
     outline: none;
-    animation: ok-sheet-rise var(--keep-duration-long) var(--keep-ease-standard);
+    /* The Android app's `bottom_sheet_slide_duration`: 150ms. */
+    animation: ok-sheet-rise var(--keep-duration) var(--keep-ease-standard);
   }
 
   /* Opened from a note: the note's own colour and ink; a picture's tint, never its artwork. */

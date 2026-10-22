@@ -53,7 +53,14 @@ fun AccountUsage.toDto(): AccountUsageDto = AccountUsageDto(
 )
 
 @Serializable
-data class ThemeImagesDto(val light: String, val dark: String, val tint: String?, val tintDark: String?)
+data class ThemeImagesDto(
+    val light: String,
+    val dark: String,
+    val tint: String?,
+    val tintDark: String?,
+    val tonal: String?,
+    val tonalDark: String?,
+)
 
 @Serializable
 data class ThemeDto(
@@ -92,6 +99,8 @@ fun ThemeInfo.toDto(): ThemeDto = ThemeDto(
             dark = "/api/themes/$id/files/${images.darkFileId}",
             tint = images.tint,
             tintDark = images.tintDark,
+            tonal = images.tonal,
+            tonalDark = images.tonalDark,
         )
     },
     logo = logoFileId?.let { "/api/themes/$id/files/$it" },

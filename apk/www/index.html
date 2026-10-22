@@ -1,0 +1,253 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Notka</title>
+    <!--
+      The app's own page (`Instance.kt`), in two roles.
+
+      Until a server is chosen it is the app itself, so Capacitor's bridge is here and the page asks
+      for the server's address.
+
+      Afterwards it is Capacitor's `errorPath`: the server did not answer and its service worker had
+      no copy of the app to show. It is then served from the app's own origin, which is not the
+      server's: there is no bridge (its two actions are addresses `InstancePlugin.shouldOverrideLoad`
+      takes over), and only this one file is served — a stylesheet or a script beside it would be
+      asked of the network. Hence everything inline.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --text: #202124;
+        --muted: #5f6368;
+        --field: #f1f3f4;
+        --accent: #12a594;
+        --on-accent: #ffffff;
+        --error: #c5221f;
+        font-family: 'Google Sans', Roboto, system-ui, sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #202124;
+          --text: #e8eaed;
+          --muted: #9aa0a6;
+          --field: #303134;
+          --error: #f28b82;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      /* The page is drawn under the status bar and the gesture bar (`viewport-fit=cover`). */
+      main {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        max-width: 440px;
+        margin: 0 auto;
+        padding: calc(48px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 24px
+          calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+      }
+
+      section {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      section[hidden] {
+        display: none;
+      }
+
+      .mark {
+        width: 64px;
+        height: 64px;
+      }
+
+      h1 {
+        margin: 8px 0 0;
+        font-size: 1.5rem;
+        font-weight: 400;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9375rem;
+        line-height: 1.375rem;
+      }
+
+      label {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+
+      input {
+        width: 100%;
+        margin-top: 4px;
+        padding: 14px 16px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--field);
+        color: var(--text);
+        font: inherit;
+        font-size: 1rem;
+      }
+
+      button,
+      .button {
+        padding: 12px 24px;
+        border: 0;
+        border-radius: 20px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-decoration: none;
+      }
+
+      .secondary {
+        background: transparent;
+        color: var(--accent);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+      }
+
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .error {
+        color: var(--error);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="mark" viewBox="0 0 512 512" aria-hidden="true">
+        <rect width="512" height="512" rx="112" fill="#12a594"/>
+          <g transform="translate(68.5 76) scale(7.5)">
+            <path d="M12 4H30L42 16V40A4 4 0 0 1 38 44H12A4 4 0 0 1 8 40V8A4 4 0 0 1 12 4Z" fill="#ffffff"/>
+            <path d="M30 4V13A3 3 0 0 0 33 16H42Z" fill="#a3ddd5"/>
+            <polyline points="17,35 17,22 31,35 31,22" fill="none" stroke="#12a594" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+      </svg>
+      <section id="choose" hidden>
+        <h1 data-t="choose.title"></h1>
+        <p data-t="choose.lead"></p>
+        <form id="choose-form" novalidate>
+          <label for="server" data-t="choose.address"></label>
+          <!-- `type="url"` brings the keyboard with `.` and `/`; the address is checked by the native
+               side, which also takes a bare host name. -->
+          <input id="server" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" data-t-placeholder="choose.placeholder" />
+        </form>
+        <p id="error" class="error" role="alert" hidden></p>
+        <div class="actions">
+          <button id="connect" form="choose-form" type="submit" data-t="choose.connect"></button>
+        </div>
+      </section>
+      <section id="unreachable" hidden>
+        <h1 data-t="unreachable.title"></h1>
+        <p data-t="unreachable.lead"></p>
+        <div class="actions">
+          <a class="button secondary" href="/instance/change" data-t="unreachable.change"></a>
+          <a class="button" href="/instance/retry" data-t="unreachable.retry"></a>
+        </div>
+      </section>
+    </main>
+    <script>
+      /**
+       * The app's own two pages (`index.html`, `unreachable.html`) are written before any Notka server is known, so they cannot use the
+       * frontend's catalogues; they carry the same three locales here. `en-US` is the source of truth.
+       */
+      const MESSAGES = {
+        'en-US': {
+          'choose.title': 'Connect to your Notka',
+          'choose.lead': 'Notka is self-hosted. Enter the address of the server your notes are on.',
+          'choose.address': 'Server address',
+          'choose.placeholder': 'notes.example.com',
+          'choose.connect': 'Connect',
+          'choose.connecting': 'Connecting…',
+          'choose.invalid': 'That is not an address the app can open. It has to be an https:// address.',
+          'choose.unreachable': 'No Notka server answered at that address.',
+          'unreachable.title': 'Can’t reach your server',
+          'unreachable.lead': 'Notka could not load your notes from your server. Check your connection, or connect to another server.',
+          'unreachable.retry': 'Try again',
+          'unreachable.change': 'Change server'
+        },
+        'en-GB': {},
+        pl: {
+          'choose.title': 'Połącz się ze swoją Notką',
+          'choose.lead': 'Notka działa na Twoim własnym serwerze. Podaj adres serwera, na którym są Twoje notatki.',
+          'choose.address': 'Adres serwera',
+          'choose.placeholder': 'notatki.example.com',
+          'choose.connect': 'Połącz',
+          'choose.connecting': 'Łączenie…',
+          'choose.invalid': 'Aplikacja nie może otworzyć tego adresu. Musi to być adres https://.',
+          'choose.unreachable': 'Pod tym adresem nie odpowiada żaden serwer Notki.',
+          'unreachable.title': 'Nie można połączyć się z serwerem',
+          'unreachable.lead': 'Nie udało się wczytać notatek z Twojego serwera. Sprawdź połączenie albo połącz się z innym serwerem.',
+          'unreachable.retry': 'Spróbuj ponownie',
+          'unreachable.change': 'Zmień serwer'
+        }
+      };
+
+      const locale = navigator.languages
+        .map((tag) => (tag in MESSAGES ? tag : tag.split('-')[0] === 'pl' ? 'pl' : tag === 'en-GB' ? 'en-GB' : null))
+        .find(Boolean) ?? 'en-US';
+      document.documentElement.lang = locale;
+
+      function t(key, params = {}) {
+        const text = MESSAGES[locale][key] ?? MESSAGES['en-US'][key];
+        return text.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? '');
+      }
+
+      /** Fills every `[data-t]` element's text and every `[data-t-placeholder]` field's placeholder. */
+      function translatePage() {
+        for (const element of document.querySelectorAll('[data-t]')) element.textContent = t(element.dataset.t);
+        for (const element of document.querySelectorAll('[data-t-placeholder]')) element.placeholder = t(element.dataset.tPlaceholder);
+      }
+
+      translatePage();
+      const bridge = window.Capacitor;
+      document.getElementById(bridge ? 'choose' : 'unreachable').hidden = false;
+
+      const field = document.getElementById('server');
+      const error = document.getElementById('error');
+      const connect = document.getElementById('connect');
+      document.getElementById('choose-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        error.hidden = true;
+        connect.disabled = true;
+        connect.textContent = t('choose.connecting');
+        try {
+          // On success the app restarts on the chosen server.
+          await bridge.nativePromise('Instance', 'open', { server: field.value });
+        } catch (failure) {
+          error.textContent = t(failure.code === 'invalid' ? 'choose.invalid' : 'choose.unreachable');
+          error.hidden = false;
+          connect.disabled = false;
+          connect.textContent = t('choose.connect');
+        }
+      });
+    </script>
+  </body>
+</html>

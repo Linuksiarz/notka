@@ -12,7 +12,8 @@
   import RichText from './RichText.svelte';
   import LinkCards from './LinkCards.svelte';
   import type { ReminderRepeat } from '../../entity/api/types';
-  import Avatar from './Avatar.svelte';
+  import NoteAvatars from './NoteAvatars.svelte';
+  import { otherPeople } from '../../entity/account';
   import ReminderChip from './ReminderChip.svelte';
   import ReminderPicker from './ReminderPicker.svelte';
   import NoteImages from './NoteImages.svelte';
@@ -835,8 +836,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   /** The other people this note is shared with — or, for a collaborator, the owner and the rest of them. */
   const sharedWith = $derived.by(() => {
     if (!currentNote) return [];
-    const people = [currentNote.owner, ...(currentNote.shares ?? []).map((share) => share.user)];
-    return people.filter((person) => person.id !== account.user?.id);
+    return otherPeople(currentNote, account.user?.id);
   });
 
   const selectedLabels = $derived(labelsState.labels.filter((label) => draft.labelIds.includes(label.id)));
@@ -1022,6 +1022,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           images={currentNote.images}
           onOpen={(index) => (viewerIndex = index)}
           onRemove={draft.canEdit ? (image) => void removeImage(image) : undefined}
+          inset
         />
       {/if}
       <div class="head">
@@ -1098,14 +1099,6 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       </ul>
     {/if}
 
-    <!-- Who the note is shared with: the avatars open the collaborators, as the original's do. -->
-    {#snippet people()}
-      {#each sharedWith.slice(0, 5) as person (person.id)}
-        <Avatar user={person} size={24} />
-      {/each}
-      {#if sharedWith.length > 5}<span class="more-people">+{sharedWith.length - 5}</span>{/if}
-    {/snippet}
-
     <!-- The original writes "Edited …" right-aligned on the line the collaborators' avatars start, and
          the note's link previews come under it — then the bar's icons (measured off the owner's
          screenshots). A phone shows it as the heading of the ⋮ sheet instead, where the original's app
@@ -1114,7 +1107,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       <div class="edited-row">
         {#if sharedWith.length > 0}
           <button type="button" class="people shared-with" aria-label={t('card.collaborator')} title={t('card.collaborator')} onclick={openCollaborators}>
-            {@render people()}
+            <NoteAvatars people={sharedWith} place="editor" />
           </button>
         {/if}
         {#if showStatus}
@@ -1647,6 +1640,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
     padding: 0;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
     font-size: 0.75rem;
@@ -1831,10 +1825,15 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
      * `docs/METRICS.md`): every action sits on a 40px tonal button — rounded squares (12px radius) in
      * the top bar, circles in the bottom one — 8px apart, its glyph 24px, the top bar's last button
      * 24px from the edge and the bottom bar's first 20px from it, the ⋮ a 32px-wide pill. The tone is
-     * the note's own `--note-tonal` (`palette.css`); the ink is the app's (`--keep-phone-ink`).
+     * the note's own `--note-tonal`, or its background's `--note-background-tonal` (`palette.css`); the ink is the app's (`--keep-phone-ink`).
      */
+    /* The note's own colour and picture reach up behind the status bar; its bar starts below it. */
+    /* 64dp tall with the 40dp buttons in its middle, as the app's `editor_toolbar` is on the emulator. */
     .editor-bar {
-      padding: 8px 24px 8px 8px;
+      padding: calc(12px + var(--keep-inset-top)) 24px 12px 8px;
+      /* Lies straight on the note, picture and all, like the bottom bar: the opaque fill hid the
+         artwork behind the buttons. */
+      background: transparent;
     }
 
     .editor-bar-actions {
@@ -1845,7 +1844,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     .toolbar-actions :global(.icon-button) {
       width: var(--keep-icon-button-size);
       height: var(--keep-icon-button-size);
-      background: var(--note-tonal, var(--keep-tonal-button));
+      background: var(--note-background-tonal, var(--note-tonal, var(--keep-tonal-button)));
     }
 
     .editor-bar-actions :global(.icon-button) {
@@ -1865,7 +1864,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     }
 
     .toolbar {
-      padding: 8px 24px 16px 20px;
+      padding: 8px 24px calc(16px + var(--keep-inset-bottom)) 20px;
       /* The buttons lie straight on the note, picture and all, as the original's do: the opaque strip
          that keeps the desktop's icons off the picture cut the artwork in two here. */
       background: transparent;
@@ -1942,14 +1941,16 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       padding-right: 12px;
     }
 
+    /* The pictures stand 20dp in from the note's sides (`editor_images_view_horizontal_padding`). */
     .body > :global(.images) {
-      margin: 0 -21px;
+      margin: 0 -1px;
     }
 
-    /* The phone's title is larger: its capitals measure 15.6px, a 22px face. */
+    /* The phone's title is the app's `editor_title_text_size`, 24sp on Headline5's 32sp line; its
+       capitals measure 17.5dp on the emulator (docs/METRICS.md). */
     .title {
-      font-size: 1.375rem;
-      line-height: 1.75rem;
+      font-size: 1.5rem;
+      line-height: 2rem;
     }
   }
 </style>

@@ -203,7 +203,7 @@
         <ul class="rows">
           {#each accounts.accounts as account (account.user.id)}
             <li class="row account">
-              <Avatar user={account.user} size={36} />
+              <Avatar --avatar-size="var(--keep-avatar-admin)" user={account.user} />
               <span class="row-text">
                 <span class="row-name">
                   {account.user.displayName}

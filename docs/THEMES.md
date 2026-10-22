@@ -64,6 +64,7 @@ archive or in one folder.
 | `light` | the picture for the light theme: SVG, PNG, JPEG or WebP |
 | `dark` | the picture for the dark theme; the light one when absent |
 | `tint`, `tintDark` | `#rrggbb`: the colour under the picture — what shows before it loads, in the swatch, and under the editor's bottom bar |
+| `tonal`, `tonalDark` | optional `#rrggbb`: the fill of the phone editor's round buttons on the picture (the Android app's `keep_editor_button_background_<id>`). Without it the buttons are the plain note's translucent fill. |
 
 A picture covers the whole note and is cropped to its shape (`background-size: cover`, centred):
 draw it square, keep the subject in the lower middle, and leave the upper left quiet, because that

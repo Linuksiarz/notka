@@ -13,6 +13,7 @@ endorsed by, or connected to Google in any way. Only the look and feel is intent
 | --- | --- |
 | Backend | Kotlin (JVM 21) + Ktor 3 + Exposed + SQLite |
 | Frontend | Svelte 5 (runes) + TypeScript + Vite, installable PWA |
+| Android app | Capacitor 8 WebView on the reader's own server (`apk/`), Android 12+ |
 | Build | Gradle (Kotlin DSL) multi-project, version catalog |
 | Deployment | Single container (API + SPA) via `docker-compose.yml` |
 | License | AGPL-3.0 |
@@ -31,6 +32,7 @@ notka/
 ├── AGENTS.md            <- you are here
 ├── backend/             <- Kotlin/Ktor service, SQLite persistence, owns :backend Gradle project
 ├── frontend/            <- Svelte + TypeScript PWA
+├── apk/                 <- Android app: Capacitor shell that opens the reader's server (apk/README.md)
 ├── docs/                <- architecture, HTTP API contract, data model, i18n
 ├── deploy/              <- reverse proxy examples, systemd units
 ├── Dockerfile
@@ -38,7 +40,8 @@ notka/
 ```
 
 `backend/` and `frontend/` are **independent modules**. They only communicate over the HTTP API
-documented in `docs/API.md`. Do not introduce cross-module coupling (shared source sets, generated
+documented in `docs/API.md`. `apk/` is a third: it only loads the server's pages, and the frontend
+reaches it only through Capacitor's bridge (`boundary/androidApp.ts`, `boundary/systemBar.ts`). Do not introduce cross-module coupling (shared source sets, generated
 code consumed by both, or Gradle projects that depend on each other's internals).
 
 ---
@@ -69,11 +72,19 @@ pnpm run e2e:concurrency  # two people typing into one note at once
 pnpm run e2e:editor       # editor interactions, stubbed API + pnpm preview
 pnpm run e2e:mobile      # the phone layout, Chromium and Firefox
 pnpm run screenshots      # regenerate docs/images
+
+# Android app (JDK 21 + Android SDK)
+cd apk
+pnpm install
+pnpm run build            # debug APK -> apk/android/app/build/outputs/apk/debug
+pnpm run build:release    # signed when NOTKA_KEYSTORE* are set (apk/README.md)
 ```
 
 **The version** is `version` in `backend/build.gradle.kts` (written into the jar, reported by
-`GET /api/health`) and `version` in `frontend/package.json` (written into the bundle, shown in the
-sidebar's footer). The two modules are independent, so a release bumps **both**, to the same value.
+`GET /api/health`), `version` in `frontend/package.json` (written into the bundle, shown in the
+sidebar's footer) and `version` in `apk/package.json` (the APK's `versionName`). The modules are
+independent, so a release bumps **all three**, to the same value — and raises the APK's `versionCode`
+(`apk/android/app/build.gradle.kts`) by one, because Android installs an update only over a lower one.
 
 The browser suites are the only automated check for the live channel, the conflict warning, the
 editor's DOM behaviour, and the sharing appearance rule end to end. A change to any of those is not
@@ -876,6 +887,10 @@ thrown away.
    note's colour, the veil of a sheet or a menu — from `boundary/systemBar.ts`, which samples the top
    edge (a surface on its way counts by how much of the status bar's band it covers, so the bar fades
    to the open note's colour as the note slides in under it) rather than listing states; an installed web app cannot
-   draw under the status bar, but `theme-color` makes the bar part of the screen. Its "A" opens a formatting bar (H1, H2, plain text, bold, italic, underline) and a list
+   draw under the status bar, but `theme-color` makes the bar part of the screen. **Android's app
+   (`apk/`) does draw under both bars**: an open note's colour and picture reach behind the clock, the
+   bar only takes icons that suit what is under it (`StatusBar.setStyle`, from the same sampling), and
+   everything at the screen's top or bottom edge keeps clear of the bars by `--keep-inset-top` /
+   `--keep-inset-bottom` — zero in a browser. A new full-screen surface needs them too. Its "A" opens a formatting bar (H1, H2, plain text, bold, italic, underline) and a list
    note's title carries a ⋮ with the list's own actions. Desktop keeps the web original's widgets. Branch on `ui.phone` in markup, and keep a
-   phone number that the script also needs (the checklist's `PHONE_LIST`) in one place.
+   phone number that the script also needs (the checklist's `PHONE_LIST_EM`) in one place.

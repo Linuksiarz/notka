@@ -18,6 +18,11 @@ One process serves both the API and the compiled Svelte bundle. There is no ngin
 configuration: the browser always talks to the same origin. In development Vite runs on `:5173`
 and proxies `/api` to `:8080`, so the same same-origin assumption holds.
 
+The Android app (`apk/`, see its README) keeps that assumption too: it is a WebView that loads the
+reader's own server, so the page, its cookie and its service worker are the server's exactly as in a
+browser. What it adds is native — the page drawn under the system bars, the status bar's icons, Back —
+and the frontend reaches it only through Capacitor's bridge.
+
 ## Backend layers (Entity – Control – Boundary)
 
 ```

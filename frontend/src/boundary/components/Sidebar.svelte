@@ -8,7 +8,7 @@
   import Icon from './Icon.svelte';
 
   /** 24px like the desktop's; 26px in a phone's drawer, as the original's Android app draws them. */
-  const navIcon = $derived(ui.phone ? 26 : 24);
+  const navIcon = 24;
 
   interface Props {
     route: Route;
@@ -314,10 +314,22 @@
     transition: background-color var(--keep-duration) var(--keep-ease);
   }
 
+  /* Measured off the original's DOM (2026-10-22): a resting entry's glyph is the secondary grey
+     (`#5f6368`), the active one's the text's ink, and the labels are Google Sans 500 with 0.25px of
+     tracking. */
+  .item :global(svg) {
+    color: var(--keep-icon);
+  }
+
+  .item.active :global(svg) {
+    color: inherit;
+  }
+
   .item .text {
     flex: 1 1 auto;
     font-size: 0.875rem;
     font-weight: 500;
+    letter-spacing: 0.25px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -355,6 +367,7 @@
       top: 0;
       left: 0;
       height: 100dvh;
+      padding: var(--keep-inset-top) 0 var(--keep-inset-bottom);
       z-index: 70;
       transform: translateX(-100%);
       /* The original's drawer, measured: 150ms on the standard curve, in and out alike. */
@@ -380,62 +393,72 @@
   }
 
   /*
-   * A phone's drawer, measured off the original's Android app at 412px (2026-10-14): 326px wide,
-   * 59px rows, the active row a full pill from 13px to 313px, the icon (26px) centred 43px in and the
-   * label starting at 73px.
+   * A phone's drawer, read off the Android app's resources and measured on the emulator at 412dp
+   * (2026-10-22, docs/METRICS.md): `drawer_width` is 304dp below 400dp of screen and 320dp from there,
+   * rows 55dp, the active row a pill 12dp in from either side, the 24dp icon 28dp in and the label at
+   * 68dp. The 326/59/26/73 it replaced came off a phone whose display was scaled up.
    */
   @media (max-width: 600px) {
     /* The Android app's drawer is its card surface, not the page (measured, both themes). */
     .sidebar {
-      width: 326px;
+      width: var(--keep-drawer-width);
       background: var(--keep-surface);
     }
 
-    /* The name stands where the search pill stands beside it: centred in the 64px bar, 21px in, in
-       the 28px face the original's capitals measure (20.5px). */
+    /* The name stands where the search pill stands beside it: centred in the 64px bar, 20dp in, its
+       capitals 14.5dp tall on the emulator — a 20px face. */
     .drawer-name {
       display: flex;
       align-items: center;
       flex: 0 0 auto;
       height: var(--keep-topbar-height);
       margin: 0;
-      padding-left: 21px;
-      font-size: 1.75rem;
+      padding-left: 20px;
+      font-size: 1.25rem;
       color: var(--keep-text);
     }
 
-    /* The first row's pill starts 36px under the name's centre. */
+    /* The first row's pill starts right under the name's bar. */
     .nav {
-      padding-top: 4px;
+      padding-top: 1px;
     }
 
-    /* The rules run from 30px to 296px, 8px under the row above them and 17px over the next. */
+    /* A rule is a 16dp band with the line in its middle, `drawer_side_padding` (28dp) in from either side. */
     .drawer-rule {
-      width: calc(100% - 60px);
-      margin: 8px 30px 17px;
+      width: calc(100% - 2 * var(--keep-drawer-side));
+      margin: 7.5px var(--keep-drawer-side);
       border: 0;
       border-top: 1px solid var(--keep-divider);
     }
 
-    /* "Labels" and its "Edit", 30px in from either side of the drawer, over the labels themselves. */
+    /* "Labels" and its "Edit": a 48dp header, the heading 28dp in and the button 24dp from the end. */
     .drawer-labels {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 34px;
-      margin-bottom: 4px;
-      padding: 0 43px 0 30px;
+      height: 48px;
+      padding: 0 24px 0 var(--keep-drawer-side);
       font-size: 0.875rem;
       font-weight: 500;
-      color: var(--keep-text);
+      color: var(--keep-phone-glyph);
+    }
+
+    .drawer-labels button {
+      height: 100%;
+      padding: 0 12px;
+    }
+
+    /* The Android app's drawer draws its glyphs in the text's own ink (`drawer_unselected_color`). */
+    .item :global(svg) {
+      color: inherit;
     }
 
     .item {
-      height: 59px;
-      width: calc(100% - 26px);
-      margin: 0 13px;
-      padding: 0 12px 0 calc(43px - 13px - 13px);
-      gap: calc(73px - 43px - 13px);
+      height: var(--keep-drawer-row);
+      width: calc(100% - 2 * var(--keep-drawer-pill-inset));
+      margin: 0 var(--keep-drawer-pill-inset);
+      padding: 0 12px 0 calc(var(--keep-drawer-side) - var(--keep-drawer-pill-inset));
+      gap: 16px;
       border-radius: var(--keep-radius-pill);
     }
 

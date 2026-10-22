@@ -337,34 +337,54 @@
   }
 
   @media (max-width: 600px) {
-    /* On a phone the original's card text is smaller, measured from the owner's own screenshots of
-       both apps on the same device: the text's line pitch is 15.1px there against our 20.6px, and the
-       same text in the same card, so the ratio is the measurement — 12px on a 15px line. */
+    /* On a phone the card's text is the Android app's Body2, 14sp, with its rows 20.7dp apart
+       (`IndexNoteDescriptionStyle`, measured on the emulator at font scale 1.0, 2026-10-22). The 12px
+       on a 15px line it replaced was read off a phone with its system text set smaller — that scale
+       is the device's to apply (rem, and `textZoom` in the APK), not ours to bake in. */
     .note-content {
-      font-size: 0.75rem;
-      line-height: 0.9375rem;
+      gap: 0;
+      font-size: 0.875rem;
+      line-height: 1.3rem;
     }
 
-    /* The card's headings take the text's own 0.75 ratio, which rem-based sizes cannot follow:
-       20/18/16px and 24/22/20px become 15/13.5/12px and 18/16.5/15px. */
+    /* A row's checkbox stands 4sp from its text (`index_list_item_checkbox_margin`) and a level is
+       16dp (`browse_list_item_indent_width`), both measured on the emulator as well. */
+    .line {
+      gap: 0.25rem;
+    }
+
+    .line[data-type='bulleted'],
+    .line[data-type='numbered'],
+    .line[data-type='checklist'] {
+      padding-left: calc(var(--depth, 0) * 16px);
+    }
+
+    /* The app draws a card's text at 71% of the note's ink in the light theme and at full ink in the
+       dark one (`index_note_description_alpha`); the checkboxes keep theirs. */
+    :global(:root[data-theme='light']) .text {
+      color: color-mix(in srgb, currentColor 71%, transparent);
+    }
+
+    /* The card's headings keep the desktop's sizes in the text's own 0.875 ratio:
+       20/18/16px and 24/22/20px become 17.5/15.75/14px and 21/19.25/17.5px. */
     .line[data-type='heading1'] .text {
-      font-size: 0.9375rem;
-      line-height: 1.125rem;
+      font-size: 1.0938rem;
+      line-height: 1.3125rem;
     }
 
     .line[data-type='heading2'] .text {
-      font-size: 0.8438rem;
-      line-height: 1.0312rem;
+      font-size: 0.9844rem;
+      line-height: 1.2031rem;
     }
 
     .line[data-type='heading3'] .text {
-      font-size: 0.75rem;
-      line-height: 0.9375rem;
+      font-size: 0.875rem;
+      line-height: 1.0938rem;
     }
 
     /* The checkbox is sized by the text and centred on its first line: measured off the Android app on
        an emulator, the box is 11dp beside 14sp text (0.78 of the font) and its centre is the capitals'
-       own, to 0.4dp. A fixed 18px box was taller than the phone's 15px line, so the text sat above it. */
+       own, to 0.4dp. A fixed 18px box was taller than the phone's line, so the text sat above it. */
     .checkbox {
       width: 0.78em;
       height: 0.78em;

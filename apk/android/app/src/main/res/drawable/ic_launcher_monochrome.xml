@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The themed icon (Android 13+): the mark's outline, which the launcher tints. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="22.75"
+        android:translateY="24"
+        android:scaleX="1.25"
+        android:scaleY="1.25">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M12,4H30L42,16V40A4,4 0,0 1,38 44H12A4,4 0,0 1,8 40V8A4,4 0,0 1,12 4Z M15,22L15,35A2,2 0,0 0,19 35L19,26.6L29.6,36.4A2,2 0,0 0,33 35L33,22A2,2 0,0 0,29 22L29,30.4L18.4,20.6A2,2 0,0 0,15 22Z" />
+    </group>
+</vector>

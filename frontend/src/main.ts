@@ -1,5 +1,6 @@
 import { mount } from 'svelte';
 import App from './boundary/App.svelte';
+import { followSystemTextSize } from './boundary/textScale';
 import './boundary/styles/global.css';
 /*
  * Keep's two faces, both shipped rather than linked from Google's CDN: this is a self-hosted,
@@ -24,6 +25,7 @@ import '@fontsource/roboto/latin-ext-700.css';
 const target = document.getElementById('app');
 if (!target) throw new Error('#app mount point is missing from index.html');
 
+followSystemTextSize();
 const app = mount(App, { target });
 
 // The development server does not need a service worker, and a stale cache there is confusing.

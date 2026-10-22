@@ -277,7 +277,27 @@ pnpm run e2e:mobile       # the phone layout and the share target; Firefox: -- <
 ```bash
 GRADLE_USER_HOME=$PWD/.gradle-home ./gradlew :backend:shadowJar   # backend/build/libs/notka-backend-all.jar
 cd frontend && pnpm run build                                     # frontend/dist
+cd apk && pnpm run build                                          # Android app (see apk/README.md)
 ```
+
+### Rebuilding the Android app
+
+The app is a WebView on your own server, so a change to the frontend or the backend reaches it by
+deploying the server — rebuild the APK only after changing `apk/` itself (its pages in `apk/www/`,
+`capacitor.config.json`, the Kotlin in `apk/android/`) or its Capacitor version. It needs JDK 21 and
+the Android SDK (`ANDROID_HOME`, or `sdk.dir` in `apk/android/local.properties`).
+
+```bash
+cd apk
+pnpm install
+pnpm run build            # copies www/ into the project, then apk/android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+For a release, set `NOTKA_KEYSTORE`, `NOTKA_KEYSTORE_PASSWORD`, `NOTKA_KEY_ALIAS` and
+`NOTKA_KEY_PASSWORD` and run `pnpm run build:release` (`apk/android/app/build/outputs/apk/release/`);
+without them the release APK is left unsigned. Bump `version` in `apk/package.json` with the other two
+modules, and `versionCode` in `apk/android/app/build.gradle.kts` by one. More in [`apk/README.md`](apk/README.md).
 
 ---
 

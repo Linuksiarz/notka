@@ -140,9 +140,10 @@
     align-items: center;
     flex: 1 1 auto;
     align-self: flex-start;
-    height: 72px;
-    margin: 0 calc(-1 * var(--keep-topbar-padding));
-    padding: 0 6px 0 4px;
+    /* …and up over the status bar's room, so that the bar is the selection's colour as well. */
+    height: calc(72px + var(--keep-inset-top));
+    margin: calc(-1 * var(--keep-inset-top)) calc(-1 * var(--keep-topbar-padding)) 0;
+    padding: var(--keep-inset-top) 6px 0 4px;
     background: var(--keep-selection-bar);
     color: var(--keep-phone-ink);
     box-shadow: var(--keep-selection-edge);

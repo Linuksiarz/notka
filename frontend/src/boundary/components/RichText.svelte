@@ -281,14 +281,34 @@
    * - `handleOffset` — how far left of the row's checkbox the handle's centre sits;
    * - `inset` — the list's own padding, which with the note's puts the checkbox where the original's is;
    * - `indent` — one nesting level.
-   * The desktop's are the web original's (rule 21); the phone's were measured off the owner's
-   * screenshots of the Android app at 412px (2026-10-15): checkbox 66px from the screen's edge, the
-   * handle centred at 32px and a 24px glyph, one level 40px. The stylesheet takes `inset` and
-   * `indent` from here (as custom properties on the wrapper), so the drag and the rows cannot drift.
+   * The desktop's are the web original's (rule 21), in px. **The phone's are in em of the note's own
+   * text**, taken from the owner's screenshot of Keep on iOS (16pt text, 2026-10-22, `docs/METRICS.md`):
+   * the checkbox 35pt in from the note's text, the handle centred 21pt left of it with a 24pt glyph; one
+   * level keeps the Android app's 38dp. In em the list grows and shrinks with the reader's text size
+   * (Dynamic Type, the APK's `textZoom`), so the checkbox stays level with the text it belongs to. The
+   * stylesheet takes `inset`, `indent` and `handleOffset` from here (as custom properties on the
+   * wrapper), and the script converts them with the text's measured size, so the drag and the rows
+   * cannot drift.
    */
   const DESKTOP_LIST = { handle: 18, handleOffset: 16, inset: 10, indent: 25 };
-  const PHONE_LIST = { handle: 24, handleOffset: 34, inset: 45, indent: 40 };
-  const list = $derived(ui.phone ? PHONE_LIST : DESKTOP_LIST);
+  const PHONE_LIST_EM = { handle: 1.5, handleOffset: 1.3125, inset: 2.1875, indent: 2.375 };
+  /** The note's text size in px, read off the editor so the phone's em geometry can be placed in px. */
+  let bodyFontPx = $state(16);
+  const list = $derived(
+    ui.phone
+      ? {
+          handle: PHONE_LIST_EM.handle * bodyFontPx,
+          handleOffset: PHONE_LIST_EM.handleOffset * bodyFontPx,
+          inset: PHONE_LIST_EM.inset * bodyFontPx,
+          indent: PHONE_LIST_EM.indent * bodyFontPx
+        }
+      : DESKTOP_LIST
+  );
+  const listStyle = $derived(
+    ui.phone
+      ? `--list-inset: ${PHONE_LIST_EM.inset}em; --list-indent: ${PHONE_LIST_EM.indent}em; --list-handle-offset: ${PHONE_LIST_EM.handleOffset}em`
+      : `--list-inset: ${list.inset}px; --list-indent: ${list.indent}px; --list-handle-offset: ${list.handleOffset}px`
+  );
   /** The row's own ✕: the button's size, and how far its edge stays inside the row's. */
   const ROW_DELETE_SIZE = 32;
   const ROW_DELETE_INSET = 4;
@@ -473,6 +493,9 @@
       handles = [];
       return;
     }
+    const body = host.querySelector('.note-body');
+    const fontPx = body ? Number.parseFloat(getComputedStyle(body).fontSize) : NaN;
+    if (Number.isFinite(fontPx) && fontPx !== bodyFontPx) bodyFontPx = fontPx;
     // **Not while a row is being carried.** The carried row is positioned so its band can cover the
     // rows that give way to it, and that makes it the offset parent of its own label — so measuring
     // now would place its handle from the row instead of from the note, which is the owner's "the
@@ -1189,7 +1212,7 @@
   class:readonly={!editable}
   class:dragging
   bind:this={wrapper}
-  style="--list-inset: {list.inset}px; --list-indent: {list.indent}px; --list-handle-offset: {list.handleOffset}px"
+  style={listStyle}
 >
   <!-- The wrapper takes a class so it can be made to fill the note body; without it the editable
        stops at the last line and a click below it lands on the container instead. -->
@@ -1351,7 +1374,7 @@
   }
 
   /*
-   * **A level is 25px (40px on a phone, `PHONE_LIST`), and it is the row's own.** Measured off the original: a nested row's checkbox
+   * **A level is 25px (2.375em on a phone, `PHONE_LIST_EM`), and it is the row's own.** Measured off the original: a nested row's checkbox
    * sits at x=51 where the row above it sits at x=26. The line carries the indent, so nothing about it
    * depends on a list inside a list — and there is no list inside a list to depend on.
    */
@@ -1657,27 +1680,53 @@
   }
 
   /*
-   * A phone's checklist, measured off the original's Android app at 412px (2026-10-14): its text is
-   * 16px, its rows stand **52px** apart (a 24px line with 14px above and below), and its checkbox is
-   * **19px** with a 2px outline, 16px before the text. The desktop's 14px box and 38px rows are the
-   * web original's.
+   * A phone's checklist, from the owner's screenshot of Keep on iOS (2026-10-22, `docs/METRICS.md`),
+   * **in em of the note's text** so that it follows the reader's text size: the text 16pt on a 1.5em
+   * line, the rows **2.25em** apart (36pt — the line with 0.375em above and below), the checkbox
+   * **1.125em** (18pt) with a 0.125em outline and **1.375em** (22pt) before the text, and the box centred
+   * on the line, which is where the text's capitals are centred too. In px, a phone whose text is
+   * scaled (Dynamic Type, the APK's `textZoom`) scaled the words but not the box or the line they share,
+   * and the checkbox stood off the text. The desktop's 14px box and 38px rows are the web original's.
    */
   @media (max-width: 600px) {
     :global(.note-body) {
       font-size: 1rem;
+      line-height: 1.5em;
+    }
+
+    :global(.note-body p) {
+      min-height: 1.5em;
     }
 
     :global(.note-body li[data-checked]),
     :global(.note-body li.completed-ghost) {
-      padding: 14px 0;
-      gap: 16px;
+      min-height: 2.25em;
+      padding: 0.375em 0;
+      gap: 1.375em;
+    }
+
+    :global(.note-body li[data-checked] > label),
+    :global(.note-body li.completed-ghost > label) {
+      height: 1.5em;
     }
 
     :global(.note-body li[data-checked] > label > input),
     :global(.note-body li.completed-ghost > label > input) {
-      width: 19px;
-      height: 19px;
-      border-width: 2px;
+      width: 1.125em;
+      height: 1.125em;
+      border-width: 0.125em;
+      border-radius: 0.1875em;
+    }
+
+    /* "+ List item" is a row like the others: the same pitch, its 20px plus centred on the checkboxes'
+       column and its words where a row's text starts (checkbox 1.125em + 1.375em). */
+    :global(.note-body .add-item-row button) {
+      height: 2.25em;
+      gap: calc(1.9375em - 10px);
+    }
+
+    :global(.note-body .add-item-row svg) {
+      margin-left: calc((1.125em - 20px) / 2);
     }
   }
 

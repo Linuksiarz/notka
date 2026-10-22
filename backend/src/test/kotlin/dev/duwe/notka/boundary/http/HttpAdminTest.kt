@@ -67,7 +67,7 @@ class HttpAdminTest {
     private val manifest = """
         {"format":1,"name":"Watercolour","author":"Ada","license":"CC0",
          "logo":"logo.png","highlight":"#FDE3CF",
-         "backgrounds":{"food":{"light":"food.png","tint":"#FBE4D8"},"music":{"light":"m.svg","dark":"m-dark.svg"}}}
+         "backgrounds":{"food":{"light":"food.png","tint":"#FBE4D8","tonal":"#FFEDE7"},"music":{"light":"m.svg","dark":"m-dark.svg"}}}
     """.trimIndent().toByteArray()
     private val svg = """<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>""".toByteArray()
 
@@ -168,6 +168,8 @@ class HttpAdminTest {
         assertEquals("watercolour", theme.stringField("id"))
         val food = theme.getValue("backgrounds").jsonObject.getValue("food").jsonObject
         assertEquals("#fbe4d8", food.stringField("tint"))
+        assertEquals("#ffede7", food.stringField("tonal"))
+        assertEquals(JsonNull, food.getValue("tonalDark"))
         assertEquals("watercolour", defaulted.stringField("defaultThemeId"))
         assertEquals("notka", picked.stringField("selectedThemeId"))
         assertEquals("#fde3cf", theme.stringField("highlight"))

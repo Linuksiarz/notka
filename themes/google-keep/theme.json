@@ -12,55 +12,73 @@
       "light": "groceries-light.svg",
       "dark": "groceries-dark.svg",
       "tint": "#eee7d6",
-      "tintDark": "#284d87"
+      "tintDark": "#284d87",
+      "tonal": "#eae0b9",
+      "tonalDark": "#425f91"
     },
     "food": {
       "light": "food-light.svg",
       "dark": "food-dark.svg",
       "tint": "#f7d4c7",
-      "tintDark": "#2e454a"
+      "tintDark": "#2e454a",
+      "tonal": "#ffede7",
+      "tonalDark": "#4b636b"
     },
     "music": {
       "light": "music-light.svg",
       "dark": "music-dark.svg",
       "tint": "#bdcfd6",
-      "tintDark": "#445051"
+      "tintDark": "#445051",
+      "tonal": "#cee3f1",
+      "tonalDark": "#4a6366"
     },
     "recipes": {
       "light": "recipes-light.svg",
       "dark": "recipes-dark.svg",
       "tint": "#feb28a",
-      "tintDark": "#6c2c2a"
+      "tintDark": "#6c2c2a",
+      "tonal": "#fed4c0",
+      "tonalDark": "#914b47"
     },
     "notes": {
       "light": "notes-light.svg",
       "dark": "notes-dark.svg",
       "tint": "#bdbfce",
-      "tintDark": "#585faa"
+      "tintDark": "#585faa",
+      "tonal": "#fce186",
+      "tonalDark": "#304578"
     },
     "places": {
       "light": "places-light.svg",
       "dark": "places-dark.svg",
       "tint": "#f1e4de",
-      "tintDark": "#834d5a"
+      "tintDark": "#834d5a",
+      "tonal": "#ffede5",
+      "tonalDark": "#713344"
     },
     "travel": {
       "light": "travel-light.svg",
       "dark": "travel-dark.svg",
       "tint": "#96d0ef",
-      "tintDark": "#0b4575"
+      "tintDark": "#0b4575",
+      "tonal": "#c1e8ff",
+      "tonalDark": "#3b608f"
     },
     "video": {
       "light": "video-light.svg",
       "dark": "video-dark.svg",
       "tint": "#ffce96",
-      "tintDark": "#50536c"
+      "tintDark": "#50536c",
+      "tonal": "#ffddba",
+      "tonalDark": "#525a92"
     },
     "celebration": {
       "light": "celebration-light.svg",
       "dark": "celebration-dark.svg",
       "tint": "#fa6e64",
-      "tintDark": "#292445"
+      "tintDark": "#292445",
+      "tonal": "#fda49c",
+      "tonalDark": "#473f77"
     }
   }
 }

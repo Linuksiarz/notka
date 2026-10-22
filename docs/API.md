@@ -472,7 +472,7 @@ Response `200`:
 ```json
 {
   "status": "ok",
-  "version": "1.0.0-rc1",
+  "version": "1.0.0-rc2",
   "demo": false,
   "registrationOpen": true,
   "trashRetentionDays": 30,
@@ -509,7 +509,7 @@ Response `200`:
       "author": "Ada",
       "license": "CC0",
       "backgrounds": {
-        "food": { "light": "/api/themes/watercolour/files/3", "dark": "/api/themes/watercolour/files/3", "tint": "#fbe4d8", "tintDark": null }
+        "food": { "light": "/api/themes/watercolour/files/3", "dark": "/api/themes/watercolour/files/3", "tint": "#fbe4d8", "tintDark": null, "tonal": null, "tonalDark": null }
       },
       "logo": "/api/themes/watercolour/files/4",
       "highlight": "#fde3cf",

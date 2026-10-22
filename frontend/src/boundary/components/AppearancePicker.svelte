@@ -51,7 +51,7 @@
       disabled={!canChange}
       onclick={() => onSelect('default', background)}
     >
-      <Icon name="no-color" size={20} />
+      {#if !(plainColor && layout === 'sheet')}<Icon name="no-color" size={20} />{/if}
       {#if plainColor}<span class="badge"><Icon name="check" size={12} /></span>{/if}
     </button>
 
@@ -199,16 +199,20 @@
   }
 
   /*
-   * The phone's sheet, measured off the owner's screenshots of the original's Android app at 412px
-   * (2026-10-15): each row under its own heading 26px in, the colours 51px circles 23px apart and the
-   * backgrounds 68px ones 14px apart, both rows scrolling sideways past the screen's edge. A picked
-   * swatch is ringed in the blue of the app's accent; the "none" colour is a dark disc.
+   * The phone's sheet, the Android app's own (measured on the emulator at 412dp, both themes,
+   * 2026-10-22, docs/METRICS.md): each row under a 24dp heading 24dp in; the colours 48dp circles
+   * (`color_swatch_small`) 14dp apart, the backgrounds 64dp circles 12dp apart starting 30dp in; a
+   * resting swatch has a 1dp outline and a picked one a 2dp ring in the scheme's primary — the colour
+   * with a tick in its middle, a background with a 24dp badge on its top right. The "none" colour is
+   * the plain note's own surface. The 51/68px and 23/14px gaps this replaced came off a phone with
+   * its display scaled up.
    */
   .appearance-picker.sheet {
     gap: 0;
     width: auto;
     max-width: none;
-    padding: 0 0 21px;
+    /* With the sheet's own 16px, the tiles end 34dp above the sheet's edge, as the app's do. */
+    padding: 0 0 18px;
     border-radius: 0;
     background: transparent;
     color: inherit;
@@ -216,7 +220,7 @@
   }
 
   .sheet .heading {
-    margin: 20px 26px 13px;
+    margin: 12px 24px 12px;
     font-size: 1rem;
     font-weight: 500;
     line-height: 1.5rem;
@@ -224,8 +228,8 @@
 
   .sheet .row {
     flex-wrap: nowrap;
-    gap: 23px;
-    padding: 0 26px;
+    gap: 14px;
+    padding: 0 24px;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -234,47 +238,59 @@
     display: none;
   }
 
+  /* The badge hangs 2dp over a tile's top and 4dp past its side, inside the scrolling row's box. */
   .sheet .row.backgrounds {
-    gap: 14px;
-    padding-top: 0;
+    gap: 12px;
+    padding: 4px 24px 0 30px;
     border-top: 0;
   }
 
   .sheet .row + .heading {
-    margin-top: 23px;
+    margin-top: 24px;
+    margin-bottom: 6px;
   }
 
   .sheet .swatch {
     flex: 0 0 auto;
-    width: 51px;
-    height: 51px;
+    width: 48px;
+    height: 48px;
+    border-color: var(--keep-phone-outline);
   }
 
   .sheet .swatch.background,
   .sheet .swatch.background-none {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
   }
 
-  .sheet .swatch.none:not(.background-none) {
-    background-color: rgba(0, 0, 0, 0.85);
-    color: #ffffff;
+  .sheet .swatch.none {
+    background-color: var(--keep-surface);
+    color: var(--keep-phone-glyph);
   }
 
   .sheet .swatch.selected {
-    box-shadow: inset 0 0 0 3px var(--keep-fab-close);
-    border-color: var(--keep-fab-close);
+    box-shadow: none;
+    border: 2px solid var(--keep-phone-primary);
+  }
+
+  .sheet .badge {
+    top: -2px;
+    right: -4px;
+    width: 24px;
+    height: 24px;
+    background: var(--keep-phone-primary);
+    color: var(--keep-surface);
   }
 
   /* The colour row marks its pick with a tick in the middle of the ring; the backgrounds keep the
-     corner badge, as the original's do. */
+     corner badge, as the original's do. A picked "none" shows the tick alone (the markup drops its glyph). */
   .sheet .row:not(.backgrounds) .badge {
     top: 50%;
     left: 50%;
     right: auto;
     background: transparent;
-    color: var(--keep-fab-close);
-    transform: translate(-50%, -50%) scale(2.4);
+    color: var(--keep-phone-primary);
+    transform: translate(-50%, -50%) scale(2);
   }
 
   .sheet .swatch:hover:not(:disabled) {

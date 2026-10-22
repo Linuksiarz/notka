@@ -19,8 +19,18 @@ private const val AUTHOR_MAX_LENGTH = 120
 private const val LICENSE_MAX_LENGTH = 400
 private const val ID_MAX_LENGTH = 40
 
-/** The pictures one note background is drawn with in a theme, by file name inside the theme. */
-data class ThemeBackground(val light: String, val dark: String, val tint: String?, val tintDark: String?)
+/**
+ * The pictures one note background is drawn with in a theme, by file name inside the theme, with the
+ * colour under them ([tint]) and the fill of the phone editor's buttons on them ([tonal]).
+ */
+data class ThemeBackground(
+    val light: String,
+    val dark: String,
+    val tint: String?,
+    val tintDark: String?,
+    val tonal: String? = null,
+    val tonalDark: String? = null,
+)
 
 /**
  * A `theme.json`, checked. Besides the backgrounds a theme may carry the app's [logo] (a file name
@@ -78,7 +88,14 @@ object ThemeManifests {
             val light = entry.string("light").orEmpty()
             val dark = entry.string("dark")?.takeIf { it.isNotEmpty() } ?: light
             for (file in listOf(light, dark)) requireImage(file, files, key)
-            ThemeBackground(light, dark, entry.colour("tint", "$key."), entry.colour("tintDark", "$key."))
+            ThemeBackground(
+                light,
+                dark,
+                entry.colour("tint", "$key."),
+                entry.colour("tintDark", "$key."),
+                entry.colour("tonal", "$key."),
+                entry.colour("tonalDark", "$key."),
+            )
         }
         val logo = data.string("logo")?.also { requireImage(it, files, "logo") }
         val highlight = data.colour("highlight")
@@ -113,6 +130,8 @@ object ThemeManifests {
                         put("dark", background.dark)
                         background.tint?.let { put("tint", it) }
                         background.tintDark?.let { put("tintDark", it) }
+                        background.tonal?.let { put("tonal", it) }
+                        background.tonalDark?.let { put("tonalDark", it) }
                     }
                 },
             ),

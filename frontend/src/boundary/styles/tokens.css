@@ -108,6 +108,11 @@
   /* Measured off the original: the bar's bottom edge, where its divider sits. */
   --keep-topbar-height: 64px;
   --keep-topbar-padding: 8px;
+  /* The system bars a page drawn edge to edge lies under — Android's app (`apk/`) draws under its
+     status bar and gesture bar. Capacitor's own variables where its WebView cannot report `env()`
+     yet; zero in a browser, which keeps its bars to itself. */
+  --keep-inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --keep-inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   /* Measured off the original: the search field begins 253px from the window's left, wherever the
      wordmark beside it happens to end. */
   --keep-search-left: 250px;
@@ -138,6 +143,18 @@
   --keep-select-fill: #202124;
   --keep-select-tick: #ffffff;
   --keep-select-border: #202124;
+  /* A card's "+N" collaborator circle: the Android app's `sharee_overflow_background_color`. */
+  --keep-avatar-overflow-bg: rgba(0, 0, 0, 0.5);
+  /* Avatars, in dp (a CSS px is one): the account's, the dialogs', and a shared note's collaborators —
+     the Android app's card and editor numbers are in docs/METRICS.md, "Collaborators". */
+  --keep-avatar-account: 32px;
+  --keep-avatar-share: 32px;
+  --keep-avatar-settings: 40px;
+  --keep-avatar-admin: 36px;
+  --keep-avatar-card: 24px;
+  --keep-avatar-card-gap: 4px;
+  --keep-avatar-editor: 24px;
+  --keep-avatar-editor-gap: 4px;
   /* A card's pin over a picture, the same in both themes (the original's own sprite, 2026-10-19):
      dark ink on a white silhouette, the whole glyph at 71%. */
   --keep-pin-on-picture: #202124;
@@ -155,6 +172,8 @@
      colour in the original's dark theme (188-196 on a 33 background), where ours used the secondary
      grey (154). */
   --keep-icon: #5f6368;
+  /* The search field's hint, off the original's DOM (2026-10-22). */
+  --keep-search-placeholder: #444746;
 
   --keep-card-min-width: 240px;
   /* The list layout's column: one column, this wide, centred. */
@@ -230,9 +249,11 @@
   --keep-bg: #202124;
   --keep-scrim: rgba(32, 33, 36, 0.75);
   --keep-icon: rgba(232, 234, 237, 0.8);
+  --keep-search-placeholder: var(--keep-icon);
   --keep-select-fill: #ffffff;
   --keep-select-tick: #202124;
   --keep-select-border: #e8eaed;
+  --keep-avatar-overflow-bg: #9aa0a6;
 
   --keep-surface: #202124;
   /* Measured off the original, where the search field is *darker* than the surface variant. */
@@ -300,6 +321,16 @@
  */
 @media (max-width: 600px) {
   :root {
+    /* The Android app's drawer (`drawer_width`, docs/METRICS.md): 304dp on a screen narrower than
+       400dp and 320dp from there — a step, which the clamp turns the screen's width into without a
+       third breakpoint. */
+    --keep-drawer-width: calc(304px + clamp(0px, (100vw - 399.99px) * 1000, 16px));
+    --keep-drawer-side: 28px;
+    --keep-drawer-pill-inset: 12px;
+    --keep-drawer-row: 55px;
+    /* The Android app's editor: 40dp circles 8dp apart, every collaborator, wrapping. */
+    --keep-avatar-editor: 40px;
+    --keep-avatar-editor-gap: 8px;
     /*
      * The cards are smaller and the gutters tighter, measured from the owner's own screenshots of the
      * original at 412 CSS px wide (1391 device px at 3.375x): two cards of **192px** with a **10px**
@@ -323,6 +354,11 @@
     --keep-active-fg: #314578;
     --keep-fab-container: #dae2ff;
     --keep-fab-on-container: #314578;
+    /* The same scheme's surface-container-low, primary and outline (the emulator, 2026-10-22): a
+       plain note's bottom sheets, and the picker's picked ring and resting outline. */
+    --keep-sheet: #f4f3fa;
+    --keep-phone-primary: #495d92;
+    --keep-phone-outline: #757780;
   }
 
   :root[data-theme='dark'] {
@@ -335,5 +371,8 @@
     --keep-active-fg: #dae2ff;
     --keep-fab-container: #314578;
     --keep-fab-on-container: #dae2ff;
+    --keep-sheet: #1a1b21;
+    --keep-phone-primary: #b2c5ff;
+    --keep-phone-outline: #8f909a;
   }
 }

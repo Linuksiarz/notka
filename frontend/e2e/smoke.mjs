@@ -318,12 +318,88 @@ await page.waitForTimeout(50);
 const after = await page.locator('.editor .note-body > *').count();
 const rowsLeft = await page.locator('.editor .note-body li[data-checked]').count();
 
-// then: the empty styled line becomes a plain line instead of yet another list item
+// then: the empty row stays one row of the list — the caret never ends up under it
 check(
-  'Enter on an empty list item leaves a plain line',
-  after === before + 1 && rowsLeft === 1,
+  'Enter on an empty list item stays in the list',
+  after === before && rowsLeft === 2,
   `${before} -> ${after}, rows left ${rowsLeft}`
 );
+
+// when: the "+ List item" row is clicked while the empty row waits at the end
+await page.locator('.editor .add-item-row button').click();
+await page.waitForTimeout(50);
+
+// then: the caret goes to that row instead of a second empty one being stacked
+check(
+  '"+ List item" on an empty last row adds no second empty row',
+  (await page.locator('.editor .note-body li[data-checked]').count()) === 2,
+  `rows ${await page.locator('.editor .note-body li[data-checked]').count()}`
+);
+
+// when: Backspace removes the empty row, then the only remaining row is emptied and Backspace pressed
+await page.keyboard.press('Backspace');
+await page.keyboard.press('Backspace');
+await page.keyboard.press('Backspace');
+await page.keyboard.press('Backspace');
+await page.keyboard.press('Backspace');
+await page.waitForTimeout(50);
+
+// then: the last row is never lifted out of the list
+check(
+  'Backspace in the only, empty row keeps it in the list',
+  (await page.locator('.editor .note-body li[data-checked]').count()) === 1 &&
+    (await page.locator('.editor .note-body > p').count()) === 0,
+  `rows ${await page.locator('.editor .note-body li[data-checked]').count()}`
+);
+
+// given: Chleb with a nested, ticked Mleko under it
+await page.keyboard.type('Chleb');
+await page.keyboard.press('Enter');
+await page.keyboard.type('Mleko');
+await page.keyboard.press('Tab');
+await page.locator('.editor .note-body li:has(p:text-is("Mleko")) input').click();
+await page.waitForTimeout(100);
+
+// when: Enter is pressed at the end of Chleb and a row is typed
+await page.locator('.editor .note-body li[data-checked]:has(p:text-is("Chleb")) p').click();
+await page.waitForTimeout(150);
+await page.keyboard.press('End');
+await page.keyboard.press('Enter');
+await page.keyboard.type('Masło');
+await page.waitForTimeout(100);
+
+// then: Mleko is still Chleb's — the new row goes after it, at the top level
+const levels = await page.$$eval('.editor .note-body li[data-checked]', (list) =>
+  list.map((li) => `${li.querySelector('p').innerText}:${li.dataset.depth}`)
+);
+check(
+  'Enter at the end of a row leaves the rows nested under it with it',
+  levels.join() === 'Chleb:0,Mleko:1,Masło:0',
+  levels.join()
+);
+
+// when: Enter is pressed at the end of the ticked Mleko
+await page.locator('.editor .note-body li[data-checked]:has(p:text-is("Mleko")) p').first().click();
+await page.waitForTimeout(150);
+await page.keyboard.press('End');
+await page.keyboard.press('Enter');
+await page.waitForTimeout(100);
+const ticked = await page.$$eval('.editor .note-body li[data-checked]', (list) =>
+  list.map((li) => li.dataset.checked)
+);
+
+// then: the new row is ticked too, so the caret stays where it was
+check('Enter in a ticked row makes a ticked row', ticked.join() === 'false,true,true,false', ticked.join());
+
+// when: the first row is emptied and removed while a nested row stands under it
+await page.locator('.editor .note-body li[data-checked]:has(p:text-is("Chleb")) p').click();
+await page.keyboard.press('End');
+for (let i = 0; i < 6; i += 1) await page.keyboard.press('Backspace');
+await page.waitForTimeout(100);
+const topRowDepth = await page.locator('.editor .note-body li[data-checked]').first().getAttribute('data-depth');
+
+// then: the first row of the list is at level 0
+check('the first row of a list is at level 0 after the row above it went', topRowDepth === '0', `depth ${topRowDepth}`);
 
 console.log('\ncompleted items and reordering');
 

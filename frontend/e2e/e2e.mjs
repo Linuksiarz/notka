@@ -756,7 +756,6 @@ const headerScrolled = await alice.page.evaluate(() => {
   const style = getComputedStyle(bar);
   return {
     flagged: bar.dataset.scrolled,
-    border: style.borderBottomColor,
     shadow: style.boxShadow,
     scrollY: Math.round(window.scrollY),
     scrollHeight: document.documentElement.scrollHeight,
@@ -765,12 +764,12 @@ const headerScrolled = await alice.page.evaluate(() => {
   };
 });
 
-// then: the header's line has given way to a shadow, the way the original lifts it — and the page
-// reserves its scrollbar from the start rather than growing one when it overflows
+// then: the header's line (an inset shadow, as the original draws it) has given way to a lifting
+// shadow — and the page reserves its scrollbar from the start rather than growing one when it overflows
 check(
   'the scrolled header trades its line for a shadow',
   headerScrolled.flagged === 'true' &&
-    headerScrolled.border.includes('0, 0, 0, 0') &&
+    !headerScrolled.shadow.includes('inset') &&
     headerScrolled.shadow !== 'none' &&
     headerScrolled.scrollY > 0,
   JSON.stringify(headerScrolled)
@@ -787,11 +786,11 @@ await alice.page.waitForTimeout(300);
 const headerTop = await alice.page.evaluate(() => {
   const bar = document.querySelector('.topbar');
   const style = getComputedStyle(bar);
-  return { flagged: bar.dataset.scrolled, border: style.borderBottomColor, shadow: style.boxShadow };
+  return { flagged: bar.dataset.scrolled, shadow: style.boxShadow };
 });
 check(
   'an unscrolled header draws its line again',
-  headerTop.flagged === 'false' && headerTop.shadow === 'none' && !headerTop.border.includes('0, 0, 0, 0'),
+  headerTop.flagged === 'false' && headerTop.shadow.includes('inset') && headerTop.shadow.includes('-1px'),
   JSON.stringify(headerTop)
 );
 await alice.page.setViewportSize({ width: 1440, height: 900 });
@@ -2109,7 +2108,7 @@ await eve.page.evaluate(async (ids) => {
 await eve.page.waitForTimeout(800);
 check(
   'the header is separated from the notes by a line',
-  (await eve.page.evaluate(() => getComputedStyle(document.querySelector('.topbar')).borderBottomWidth)) === '1px'
+  (await eve.page.evaluate(() => getComputedStyle(document.querySelector('.topbar')).boxShadow)).includes('inset')
 );
 
 // when: the rail is open on a wide screen and a nav item is used

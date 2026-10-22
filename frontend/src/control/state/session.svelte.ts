@@ -23,6 +23,19 @@ class SessionState {
   }
 
   async restore(): Promise<void> {
+    // The account this device last saw opens at once; the server confirms it behind the scenes, and
+    // an expired session ends in the sign-in screen the way it does anywhere else.
+    const known = await localStore.get<User>(USER_KEY);
+    if (known) {
+      this.user = known;
+      this.status = 'authenticated';
+      void this.confirm().catch(() => undefined);
+      return;
+    }
+    await this.confirm();
+  }
+
+  private async confirm(): Promise<void> {
     try {
       const { user } = await authApi.me();
       await this.signedIn(user);
@@ -30,12 +43,7 @@ class SessionState {
       if (!(error instanceof ApiError)) throw error;
       // Not knowing who is signed in is not being signed out: without a connection the account this
       // device last saw opens with what it last saw.
-      const known = error.transient ? await localStore.get<User>(USER_KEY) : undefined;
-      if (known) {
-        this.user = known;
-        this.status = 'authenticated';
-        return;
-      }
+      if (error.transient && this.user) return;
       this.clear(PENDING_WRITES_KEY);
     }
   }

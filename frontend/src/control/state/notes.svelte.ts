@@ -176,6 +176,17 @@ class NotesState {
     this.error = null;
     try {
       await pendingWrites.ready();
+      // The view's last copy is on screen while the server's answer is on its way, so opening the
+      // app does not wait for the network; the answer replaces it.
+      if (!this.loaded) {
+        const stale = await localStore.get<ViewCopy>(key);
+        if (stale && token === this.requestToken) {
+          this.notes = this.ordered(stale.notes.map(withNormalizedContent));
+          this.archivedNotes = this.ordered(stale.archived.map(withNormalizedContent));
+          for (const write of pendingWrites.writes) this.replace(write.note);
+          this.loaded = true;
+        }
+      }
       let copy: ViewCopy;
       try {
         copy = await fetch();

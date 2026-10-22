@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core';
 import ListItem from '@tiptap/extension-list-item';
 import TaskItem from '@tiptap/extension-task-item';
+import { TextSelection } from '@tiptap/pm/state';
 import { MAX_BLOCK_DEPTH } from '../../entity/api/types';
 
 /**
@@ -67,10 +68,58 @@ export function changeRowDepth(editor: Editor, direction: 1 | -1): boolean {
   return false;
 }
 
+/**
+ * Enter in a checklist row. Tiptap's own split is not enough here, for three reasons:
+ *
+ * - on an empty row it lifts the row out of the list, leaving the caret in a paragraph under it — an
+ *   empty row stays a row (Backspace removes it);
+ * - it gives the new row the *default* tick, so Enter in a ticked row sent the caret to a row drawn
+ *   at the end of the active section;
+ * - the new row goes straight under the old one, which takes the rows nested under the old one for
+ *   its own — a nested row's only link to its parent is the row above it (rule 4). At the end of a
+ *   row the new row therefore goes after the rows nested under it.
+ *
+ * Both halves keep the row's tick and level.
+ */
+function splitChecklistRow(editor: Editor): boolean {
+  if (!editor.state.selection.empty) editor.commands.deleteSelection();
+  const { state } = editor;
+  const { $from } = state.selection;
+
+  let level = $from.depth;
+  while (level > 0 && $from.node(level).type.name !== 'taskItem') level -= 1;
+  if (level === 0) return false;
+
+  const row = $from.node(level);
+  if (row.childCount !== 1) return editor.commands.splitListItem('taskItem');
+  if (row.textContent === '') return true;
+
+  const tr = state.tr;
+  if ($from.parentOffset < $from.parent.content.size) {
+    tr.split($from.pos, 2);
+    tr.setSelection(TextSelection.create(tr.doc, $from.pos + 4));
+  } else {
+    const list = $from.node(level - 1);
+    let at = $from.after(level);
+    for (let next = $from.index(level - 1) + 1; next < list.childCount; next += 1) {
+      const sibling = list.child(next);
+      if (levelOf(sibling.attrs.depth) <= levelOf(row.attrs.depth)) break;
+      at += sibling.nodeSize;
+    }
+    const { taskItem, paragraph } = state.schema.nodes;
+    if (!taskItem || !paragraph) return false;
+    tr.insert(at, taskItem.create(row.attrs, paragraph.create()));
+    tr.setSelection(TextSelection.create(tr.doc, at + 2));
+  }
+  editor.view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
 /** The keys a list row answers: Enter splits it, Tab and Shift-Tab move its own level. */
 function rowKeyboardShortcuts(name: 'taskItem' | 'listItem') {
   return {
-    Enter: ({ editor }: { editor: Editor }) => editor.commands.splitListItem(name),
+    Enter: ({ editor }: { editor: Editor }) =>
+      name === 'taskItem' ? splitChecklistRow(editor) : editor.commands.splitListItem(name),
     Tab: ({ editor }: { editor: Editor }) => changeRowDepth(editor, 1),
     'Shift-Tab': ({ editor }: { editor: Editor }) => changeRowDepth(editor, -1),
     // The original's own shortcut, which its editor advertises ("Cmd + ]"); Mod is Cmd on a Mac and

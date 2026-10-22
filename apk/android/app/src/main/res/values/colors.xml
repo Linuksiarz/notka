@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The PWA's own icon colour (`frontend/public/icons/icon-maskable-source.svg`). -->
+    <color name="notka_teal">#12A594</color>
+</resources>

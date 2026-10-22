@@ -303,6 +303,9 @@ export const enUS = {
   'settings.importDone': { one: 'Imported {count} note.', other: 'Imported {count} notes.' },
   'settings.importSkipped': 'Skipped (not Markdown or too large): {names}.',
   'settings.importFailed': { one: '{count} file could not be imported.', other: '{count} files could not be imported.' },
+  'settings.server': 'Server',
+  'settings.serverHint': 'This app opens your notes on {server}.',
+  'settings.changeServer': 'Change server',
   'settings.about': 'About',
   'settings.aboutText':
     'Notka is a free, open-source, self-hosted notes app. It is an independent project and is not affiliated with, endorsed by, or connected to Google. Licensed under AGPL-3.0.',

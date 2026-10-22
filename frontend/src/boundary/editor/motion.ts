@@ -22,6 +22,8 @@ export const MOTION = {
    * (measured off keep.google.com, 2026-10-14). Not a Material token.
    */
   regrid: 218,
+  /** The Android app's speed dial: each kind of note follows the one below it this much later. */
+  speedDialStagger: 35,
   /** Material curve for something that changes size or moves across the screen. */
   standard: 'cubic-bezier(0.4, 0, 0.2, 1)',
   /** Something appearing decelerates into place. */

@@ -321,6 +321,9 @@ export const pl: Messages = {
   'settings.importDone': { one: 'Zaimportowano {count} notatkę.', few: 'Zaimportowano {count} notatki.', many: 'Zaimportowano {count} notatek.', other: 'Zaimportowano {count} notatki.' },
   'settings.importSkipped': 'Pominięto (nie Markdown lub za duże): {names}.',
   'settings.importFailed': { one: 'Nie udało się zaimportować {count} pliku.', few: 'Nie udało się zaimportować {count} plików.', many: 'Nie udało się zaimportować {count} plików.', other: 'Nie udało się zaimportować {count} pliku.' },
+  'settings.server': 'Serwer',
+  'settings.serverHint': 'Ta aplikacja otwiera Twoje notatki na {server}.',
+  'settings.changeServer': 'Zmień serwer',
   'settings.about': 'O aplikacji',
   'settings.aboutText':
     'Notka to darmowa aplikacja do notatek typu open source, hostowana samodzielnie. Jest niezależnym projektem i nie jest powiązana z firmą Google ani przez nią wspierana. Licencja AGPL-3.0.',

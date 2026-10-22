@@ -147,7 +147,7 @@
       <ul class="list">
         {#if note}
           <li>
-            <Avatar user={note.owner} size={32} />
+            <Avatar --avatar-size="var(--keep-avatar-share)" user={note.owner} />
             <span class="who">
               <strong>{note.owner.displayName} <em>({t('share.owner')})</em></strong>
               <span>{accountName(note.owner)}</span>
@@ -156,7 +156,7 @@
         {/if}
         {#each shares as share (share.user.id)}
           <li>
-            <Avatar user={share.user} size={32} />
+            <Avatar --avatar-size="var(--keep-avatar-share)" user={share.user} />
             <span class="who">
               <strong>{share.user.displayName}</strong>
               <span>{accountName(share.user)}</span>

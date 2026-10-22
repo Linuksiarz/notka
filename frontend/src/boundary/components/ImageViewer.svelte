@@ -107,7 +107,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 8px 12px;
+    padding: calc(8px + var(--keep-inset-top)) 12px 8px;
   }
 
   .spacer {

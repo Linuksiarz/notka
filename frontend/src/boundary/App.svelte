@@ -38,7 +38,12 @@
    * wait for it, and the service worker keeps it for offline use like the rest of the app.
    */
   let NoteEditor = $state<Component | null>(null);
-  void import('./components/NoteEditor.svelte').then((module) => (NoteEditor = module.default));
+  void import('./components/NoteEditor.svelte').then((module) => {
+    NoteEditor = module.default;
+    // Once the notes are on screen and the main thread is free, not in the way of the first paint.
+    const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 200));
+    idle(() => void import('./editor/warmUp').then((warm) => warm.warmUpEditor()));
+  });
 
   const route = $derived(router.route);
   /** The label a route points at, for the header's own title. */
@@ -280,11 +285,16 @@
     min-width: 0;
   }
 
+  /* Measured off the original's DOM (keep.google.com, 1400x900, 2026-10-22): the first card stands
+     **32px** under the composer's box, and a first section heading 16px further down, at 48px — so
+     the gap lives here and the heading's extra room is the grid's (`--keep-first-heading-offset`). */
   .composer-zone {
     position: relative;
-    /* Measured off the original: 48px between the composer's box and the first section heading,
-       measured with the box below it, so the gap lives here rather than on the heading. */
-    margin-bottom: 48px;
+    margin-bottom: 32px;
+  }
+
+  .composer-zone ~ :global(*) {
+    --keep-first-heading-offset: 16px;
   }
 
   /* No maximum width: folding the rail has to hand the notes the room it frees, the way Keep's
@@ -305,13 +315,18 @@
   @media (max-width: 600px) {
     /* Measured off the original's Android app: the first card is 21px under the search pill. */
     .content {
-      padding: 20px 8px 0;
+      /* The last notes scroll clear of a gesture bar drawn over the page (`--keep-inset-bottom`). */
+      padding: 20px 8px var(--keep-inset-bottom);
     }
 
     /* A phone has no composer box (the button in the corner stands in for it), so the room the box
        leaves under itself goes with it. */
     .composer-zone {
       margin-bottom: 0;
+    }
+
+    .composer-zone ~ :global(*) {
+      --keep-first-heading-offset: 0px;
     }
   }
 

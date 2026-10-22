@@ -85,6 +85,27 @@ four to a row with 4px between them — "type" tiles `rgb(26,115,232)` with whit
 has no counterpart here. The dark theme could not be measured: the original does not follow the
 system's scheme, only an account setting.
 
+### Re-measured from the original's DOM (2026-10-22)
+
+keep.google.com, signed in, light theme, 1400×900, Polish locale:
+
+- **The header's line is an inset shadow** (`inset 0 -1px 0 #dadce0`), not a border, so the bar keeps
+  its whole 64px and everything in it is centred on y=32. Ours was a border, which put the menu and
+  the logo half a pixel high.
+- **The name** is 22px at **regular** weight (ours was 500 with 0.2px tracking), no tracking, on a 48px
+  line, its text starting at **x=112**. The original's face is Product Sans, which is not ours to ship;
+  Google Sans is its open sibling (49.5 against 51.2px for "Keep").
+- **The logo** is a 48px picture drawn 44×40 at (64, 12); its ink is **32×38px** from (70, 13). Our own
+  mark is drawn 46px so that its ink is the same size and place.
+- **The sidebar's glyphs** are `#5f6368` at rest and `#202124` on the active entry (ours were all
+  `#202124`); its labels are Google Sans 14px/500 with **0.25px** tracking.
+- **The search field's hint** is `#444746`.
+- **No font smoothing of its own**: the original leaves `-webkit-font-smoothing` at `auto`. Ours set
+  `antialiased`, which draws every face thinner on a Mac — the same Google Sans file (identical advance
+  widths, checked on both pages) looked like another face in the search field and the sidebar.
+- **The first card stands 32px under the composer's box**; a first section heading stands at 48px,
+  16px further down (`--keep-first-heading-offset`). Ours put the cards at 48px when nothing was pinned.
+
 ## Where the numbers come from
 
 Keep's look is a number measured from a screenshot — pixels, not opinions — and written down here.
@@ -133,7 +154,7 @@ owner's own 412×893 screenshots of both apps.
   scale, the headings appearing and going at once (measured frame by frame on keep.google.com,
   2026-10-14). Ours used to fade the card out of one section — keeping its room for the fade — and
   scale a new one into the other, which the owner called chaotic. `MOTION.regrid` is that 218ms.
-- **Sections**: the composer's box leaves **48px** before the first heading, the heading **8px**
+- **Sections**: the composer's box leaves **48px** before the first heading (and **32px** before the first card when there is no heading — see 2026-10-22 below), the heading **8px**
   before its cards (its *ink* 13px above the card's top), one section's cards **97px** before the
   next, and the heading's ink starts **16px right of the cards' left edge** — which is a plain
   `padding-left: 16px`, because the headings live in the same block as the cards (see the grid
@@ -233,7 +254,8 @@ owner's own 412×893 screenshots of both apps.
     was our own `@media (max-width: 600px) { .grid { columns: 1 } }`, and the list is a view the
     reader picks, not the one they are given for having a small screen — the grid is the default
     on every width.
-  - **Smaller card type**: the title's ink is 13.3px there against our 15.7px, and the text's line
+  - **Smaller card type** *(superseded 2026-10-22, see "The Android app's own resources" below: that phone
+    had its system text set to about 0.73, which is the device's to apply, not ours)*: the title's ink is 13.3px there against our 15.7px, and the text's line
     pitch 15.1px against our 20.6px — the same text in the same card, so the ratio is the
     measurement. Ours becomes **16px/20px** for a card title and **12px/15px** for its text, with
     the headings taking the same 0.75 (20/18/16px → 15/13.5/12px). A card only: the editor keeps
@@ -257,7 +279,9 @@ owner's own 412×893 screenshots of both apps.
     the actions at the right. Reserving 253px for a wordmark *and* letting the search keep its
     input's intrinsic ~191px pushed the actions **183px** off a 412px screen, which is what "widok
     się rozjeżdża na boki" was; the bar's own overflow is now 0.
-  - **Re-measured 2026-10-14 off the owner's screenshots of the Android app** (923 px for 412 CSS px,
+  - **Re-measured 2026-10-14 off the owner's screenshots of the Android app** *(that phone's display
+    size is scaled up by about 7%; the drawer, the checklist and the colour sheet below are superseded
+    by the emulator's numbers in "The Android app's own resources")* (923 px for 412 CSS px,
     2.24 px each): the app draws its glyphs at **26px** (the menu, layout and back glyphs' ink is
     ~19.6px), the search is a full **60px** pill with no line under the bar, the first card stands
     **21px** under it, the drawer is **326px** wide with **59px** rows (the active one a full pill from
@@ -499,6 +523,84 @@ measured one (pin, reminder, colour — `PhoneSelectionBar.svelte`), then archiv
 label* and *Make a copy* in the ⋮ the way a card's own menu has them. The buttons are the bar's own,
 measured 24px glyphs; the pickers are the card's own panels. Replace this with a measurement when one
 is taken.
+
+### Collaborators
+
+Read off the Android app's own resources (Keep 5.26.391.03.90, `aapt2 dump resources` and
+`dump xmltree` of the installed APK, 2026-10-22) — exact, where a screenshot is an estimate. A card and
+the editor show the same people: the note's owner and its collaborators, the reader left out.
+
+| Where | Number | Resource |
+| --- | --- | --- |
+| Card: circle | 24dp | `browse_meta_data_circle_chip_size` |
+| Card: spacing (across / between lines) | 4dp / 8dp | `browse_meta_data_item_spacing` / `browse_meta_data_line_spacing` |
+| Card: how many | 3 circles, then a "+N" circle | `browse_sharee_0..2`, `browse_sharee_more` |
+| Card: "+N" fill | `#80000000` light, Google Grey 500 dark | `sharee_overflow_background_color` |
+| Editor: circle | 40dp | `editor_meta_data_chip_height` |
+| Editor: spacing | 8dp, wrapping | `editor_meta_data_flex_layout_spacing` |
+| Editor: how many | all | (no overflow view) |
+
+A dp is one CSS px under `width=device-width`, so the tokens (`--keep-avatar-*` in `tokens.css`) scale
+with the device's density by themselves. The editor's 40dp is the phone's; the desktop's editor keeps
+24px until the web original is measured.
+
+**The editor's title on a phone is 24sp** (`editor_title_text_size`, on `textAppearanceHeadline5`), and
+the emulator agrees: the capital Z of "Zakupy" is 59 device px = **17.5dp** tall at 3.375px/dp, which is
+a 24px Google Sans face. The 22px it was came from a capital measured at 15.6px off a screenshot.
+
+### The Android app's own resources
+
+Read off the installed APK (`.reference/keep-apk/keep-dimens.txt`, kept locally and never committed —
+it is Google's) and checked on the emulator at 412dp, font scale 1.0, both themes (2026-10-22). These
+replace numbers that came off the owner's phone, whose display is scaled up by about 7% and whose
+system text is set to about 0.73: a device's own scale is the device's to apply — type in `rem`, boxes
+in `px`, the APK's `textZoom` from the system's font scale, and on iOS the root's size from Dynamic
+Type (`textScale.ts`) — never a number to bake in.
+
+| What | The app's | Where ours is |
+| --- | --- | --- |
+| Drawer | `drawer_width` 304dp below 400dp of screen, 320dp from there; rows 55dp; the pill 12dp in from either side; a 24dp icon 28dp in, the label at 68dp; rules a 16dp band 28dp in; the `Labels` header 48dp, its heading 28dp in in the glyph colour, `Edit` 24dp from the end; the name 20dp in, capitals 14.5dp | `Sidebar.svelte`, `--keep-drawer-*` |
+| Card text | Body2, **14sp** on 20.7dp rows; `colorOnSurface` at **71%** in the light theme, full in the dark (`index_note_description_alpha`); the checkbox 4sp from the text, a level **16dp** | `NoteContent.svelte` |
+| Card title | 16sp Google Sans **Medium**, a 24.6dp box | `NoteCard.svelte` |
+| Card label chip | 12sp text, 4dp/8dp padding, 8dp corners (`chipShapeRadius`) — 26.7dp tall; `#ebebeb`, 8% white in the dark | `NoteCard.svelte`, `--keep-note-chip` |
+| Card metadata | chips and collaborators in one wrapping row, 4dp across, 8dp between lines | `NoteCard.svelte` |
+| Editor checklist | *(superseded by the owner's iOS screenshot below)* rows 48dp; the checkbox's ink 60.7dp from the edge and 18dp; the handle centred at 29.9dp; text 16dp after the box; a level **38dp** (`list_item_indent_width`) | `RichText.svelte` |
+| Colour and background sheet | headings 24dp in, 20dp under the sheet's top; colours **48dp** circles 14dp apart; backgrounds **64dp** circles 12dp apart from 30dp in; a 1dp outline at rest, a 2dp primary ring when picked (a tick inside for a colour, a 24dp badge on a background's top right); "none" is the plain note's surface; tiles end 34dp above the sheet's edge | `AppearancePicker.svelte` |
+| A plain note's sheet | surface-container-low: `#f4f3fa`, `#1a1b21` in the dark; primary `#495d92`/`#b2c5ff`, outline `#757780`/`#8f909a` | `--keep-sheet`, `--keep-phone-primary`, `--keep-phone-outline` |
+| Tonal buttons on a background | `keep_editor_button_background_<id>`, both themes | the Google Keep theme's `tonal`/`tonalDark` (`docs/THEMES.md`) |
+| Bottom sheet | slides in over **150ms** (`bottom_sheet_slide_duration`) | `Sheet.svelte` |
+| The "+" menu | each kind rises 16dp and fades in over 200ms, 35ms after the one below it; fades out over 200ms (`speed_dial_*`) | `ComposeFab.svelte`, `MOTION.speedDialStagger` |
+| Card padding / hairline / picked ring | 16dp / 1dp / 3dp | already ours ✓ |
+| Note colours' tonal buttons | the eleven `keep_editor_button_background_<colour>` | already ours, to the digit ✓ |
+
+**Pictures**, measured on the emulator with one and then two pictures on a note (2026-10-22): a card's
+run edge to edge, **4dp** apart (`images_layout_margin_between_images`); the editor's stand **20dp** in
+from the note's sides (`editor_images_view_horizontal_padding`), 4dp apart, right under the 64dp bar,
+with the title 12dp below them, and with corners of their own — **24dp** for a picture alone, **8dp**
+for each of several, the inner corners too. Ours land on the same pixels (`NoteImages.svelte`, `inset`).
+
+**The editor's bar is 64dp**, its 40dp buttons in its middle (`editor_toolbar`); the 59px it was came
+off the scaled-up phone.
+
+### The phone's checklist, from Keep on iOS (2026-10-22)
+
+The owner chose Keep's **iOS** checklist for the phone, from a screenshot of an iPhone (739×1600, i.e.
+393pt at 1.88px/pt; the text is 16pt — its capitals 22px tall). Every distance is kept **in em of the
+note's text**, so the list follows the reader's text size with the words (Dynamic Type, the APK's
+`textZoom`) rather than standing still while they grow:
+
+| What | iOS | em of the text |
+| --- | --- | --- |
+| Row pitch | 68px = 36pt | **2.25em**: the 1.5em line with 0.375em above and below |
+| Checkbox | 34–35px = 18pt | **1.125em**, a 0.125em outline |
+| Checkbox to text | 42px = 22pt | **1.375em** |
+| Checkbox past the note's text | 66px = 35pt | **2.1875em** (`PHONE_LIST_EM.inset`) |
+| Handle | centred 21pt left of the checkbox | **1.3125em**, the glyph 1.5em |
+| Vertical alignment | the box's middle is the capitals' middle, to 0.5px | the box centred on the line |
+| "+ List item" | the same pitch; the plus centred on the checkboxes' column | 2.25em |
+
+A level keeps the Android app's 38dp (2.375em); the screenshot has no nested row. In px the box and the
+line stood still while a scaled text grew or shrank, which is what put the checkbox off its text.
 
 ## How these numbers are guarded
 

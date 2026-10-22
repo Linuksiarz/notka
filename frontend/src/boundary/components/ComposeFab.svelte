@@ -36,6 +36,8 @@
   ];
 
   const duration = (ms: number) => (ui.animationsAllowed ? ms : 0);
+  /** How far a pill rises as it fades in: the app's `speed_dial_item_translation_y`. */
+  const SPEED_DIAL_RISE = 16;
 
   function pick(kind: Kind): void {
     open = false;
@@ -79,15 +81,17 @@
   {#if open}
     <ul class="fab-menu">
       {#each kinds as kind, index (kind.key)}
-        <!-- The pill nearest the button comes first, and the others follow it up. -->
+        <!-- The pill nearest the button comes first, and the others follow it up: the Android app's
+             speed dial rises 16dp and fades in over 200ms, each pill 35ms after the one below it, and
+             fades out over 200ms (`speed_dial_*` in its resources, docs/METRICS.md). -->
         <li
           in:fly={{
-            y: 24,
-            duration: duration(MOTION.long),
-            delay: duration((kinds.length - 1 - index) * 30),
+            y: SPEED_DIAL_RISE,
+            duration: duration(MOTION.medium),
+            delay: duration((kinds.length - 1 - index) * MOTION.speedDialStagger),
             easing: ENTER_EASING
           }}
-          out:fade={{ duration: duration(MOTION.short), easing: EXIT_EASING }}
+          out:fade={{ duration: duration(MOTION.medium), easing: EXIT_EASING }}
         >
           <button type="button" class="fab-kind" onclick={() => pick(kind)}>
             <Icon name={kind.icon} size={26} />
@@ -138,7 +142,7 @@
       display: block;
       position: fixed;
       right: 17px;
-      bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      bottom: calc(24px + var(--keep-inset-bottom));
       z-index: 40;
       width: 86px;
       height: 86px;

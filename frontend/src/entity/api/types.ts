@@ -340,6 +340,9 @@ export interface ThemeImages {
   /** The colour under the picture: what shows before it loads, in a swatch, under the editor's bar. */
   tint: string | null;
   tintDark: string | null;
+  /** The fill of the phone editor's buttons on the picture; the plain note's when absent. */
+  tonal: string | null;
+  tonalDark: string | null;
 }
 
 /** A background theme the administrator uploaded (`docs/THEMES.md`). */

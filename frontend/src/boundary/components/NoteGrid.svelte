@@ -106,7 +106,8 @@
 
   /** A design token as a number of pixels (`tokens.css` registers the ones that are expressions). */
   function metric(name: string): number {
-    const declared = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+    // Read where the grid stands, so a page around it can set a token for its own grid.
+    const declared = Number.parseFloat(getComputedStyle(gridElement ?? document.documentElement).getPropertyValue(name));
     return Number.isFinite(declared) ? declared : 0;
   }
 
@@ -342,6 +343,7 @@
     const headingHeight = metric('--keep-heading-height');
     const headingGap = metric('--keep-heading-gap');
     const sectionGap = metric('--keep-section-gap');
+    const firstHeadingOffset = metric('--keep-first-heading-offset');
     const elements = new Map<string, HTMLElement>();
     for (const element of grid.querySelectorAll<HTMLElement>(':scope > [data-place]')) {
       elements.set(element.dataset.place ?? '', element);
@@ -353,7 +355,7 @@
     for (const section of sections) {
       if (section.heading !== null) {
         // The measured gap is between one section's cards and the next one's; the heading sits in it.
-        if (!first) y += sectionGap - headingHeight - headingGap;
+        y += first ? firstHeadingOffset : sectionGap - headingHeight - headingGap;
         next.set(`heading-${section.key}`, { x: 0, y });
         y += headingHeight + headingGap;
       } else if (!first) {

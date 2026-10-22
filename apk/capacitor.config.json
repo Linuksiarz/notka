@@ -1,0 +1,16 @@
+{
+  "appId": "dev.duwe.notka",
+  "appName": "Notka",
+  "webDir": "www",
+  "server": {
+    "errorPath": "index.html"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true
+    },
+    "SystemBars": {
+      "insetsHandling": "disable"
+    }
+  }
+}

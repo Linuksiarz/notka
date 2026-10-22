@@ -16,15 +16,17 @@
     onOpen?: (index: number) => void;
     /** When given, hovering a picture offers to take it off the note. */
     onRemove?: (image: NoteImage) => void;
+    /** The editor's pictures: on a phone they stand inside the note's margins with corners of their own. */
+    inset?: boolean;
   }
 
-  let { noteId, images, onOpen, onRemove }: Props = $props();
+  let { noteId, images, onOpen, onRemove, inset = false }: Props = $props();
 
   const rows = $derived(imageRows(images.map((image, index) => ({ image, index }))));
 </script>
 
 {#if images.length > 0}
-  <div class="images">
+  <div class="images" class:inset class:single={images.length === 1}>
     {#each rows as row, rowIndex (rowIndex)}
       <div class="row">
         {#each row as { image, index } (image.id)}
@@ -120,6 +122,27 @@
   @media (hover: none) {
     .remove {
       opacity: 1;
+    }
+  }
+
+  /*
+   * The Android app's pictures (measured on the emulator, 2026-10-22, docs/METRICS.md): 4dp apart on a
+   * card and in the editor (`images_layout_margin_between_images`); a card's run edge to edge, while
+   * the editor's stand 20dp in from the note's sides with corners of their own — 24dp for a picture
+   * alone, 8dp for each of several (`images_layout_*_corner_radius`).
+   */
+  @media (max-width: 600px) {
+    .images,
+    .row {
+      gap: 4px;
+    }
+
+    .inset .cell {
+      border-radius: 8px;
+    }
+
+    .inset.single .cell {
+      border-radius: 24px;
     }
   }
 </style>

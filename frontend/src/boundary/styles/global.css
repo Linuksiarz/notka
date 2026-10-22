@@ -18,8 +18,8 @@ body {
   font-family: var(--keep-font);
   font-size: 0.875rem;
   line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  /* No font smoothing of our own: the original leaves it to the platform (`auto`, read off its DOM),
+     and `antialiased` drew every face thinner on a Mac — the same Google Sans looked like another. */
   overscroll-behavior-y: none;
 }
 
@@ -50,6 +50,10 @@ body {
  */
 html {
   overflow-y: scroll;
+  /* iOS enlarges text on its own when the phone turns sideways; the reader's text size is applied
+     deliberately instead (`textScale.ts`), so the same setting gives the same type either way. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 #app {

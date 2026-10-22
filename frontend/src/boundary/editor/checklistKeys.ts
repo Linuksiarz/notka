@@ -66,8 +66,9 @@ function rowAtCaret(state: EditorState): RowAtCaret | null {
  */
 export function removeEmptyRow(state: EditorState, dispatch?: Dispatch, view?: EditorView): boolean {
   const at = rowAtCaret(state);
-  if (!at || at.list.childCount < 2 || at.row.textContent !== '' || at.row.childCount !== 1) return false;
-  if (!dispatch) return true;
+  if (!at || at.row.textContent !== '' || at.row.childCount !== 1) return false;
+  // The only row of the list stays: removing it would lift the caret out of the list.
+  if (!dispatch || at.list.childCount < 2) return true;
 
   const listPos = at.start - positionInList(at.list, at.index);
   const shapes: ChecklistRowShape[] = [];
@@ -80,6 +81,11 @@ export function removeEmptyRow(state: EditorState, dispatch?: Dispatch, view?: E
   const neighbour = above ?? below;
 
   const tr = state.tr.delete(at.start, at.start + at.row.nodeSize);
+  // The row below a removed first row has nothing left above it to sit under, so it is a top-level row.
+  const next = at.list.maybeChild(at.index + 1);
+  if (at.index === 0 && next && Number(next.attrs.depth ?? 0) > 0) {
+    tr.setNodeMarkup(at.start, undefined, { ...next.attrs, depth: 0 });
+  }
   if (neighbour !== undefined) {
     const rowPos = listPos + positionInList(at.list, neighbour);
     const node = at.list.child(neighbour);

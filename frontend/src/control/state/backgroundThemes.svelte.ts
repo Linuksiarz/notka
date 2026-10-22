@@ -11,7 +11,7 @@ import { activeThemeId, BUILT_IN_THEME_ID } from '../../entity/backgroundTheme';
  * for itself or follows the default, and the server keeps that choice, so it follows the account to
  * every browser. A note only names its background, so two people with different themes see the same
  * note in their own pictures. Applying a theme is setting `--theme-art-<id>-<light|dark>` and
- * `--theme-tint(-dark)-<id>` on the root (`palette.css`), and `--theme-highlight(-dark)` for the
+ * `--theme-tint(-dark)-<id>` and `--theme-tonal(-dark)-<id>` on the root (`palette.css`), and `--theme-highlight(-dark)` for the
  * sidebar (`tokens.css`); the built-in theme sets none of them. A theme's logo is {@link logo}.
  */
 
@@ -98,7 +98,7 @@ class BackgroundThemesState {
     root.removeProperty('--theme-highlight');
     root.removeProperty('--theme-highlight-dark');
     for (const id of NOTE_BACKGROUNDS) {
-      for (const name of [`--theme-art-${id}-light`, `--theme-art-${id}-dark`, `--theme-tint-${id}`, `--theme-tint-dark-${id}`]) {
+      for (const name of [`--theme-art-${id}-light`, `--theme-art-${id}-dark`, `--theme-tint-${id}`, `--theme-tint-dark-${id}`, `--theme-tonal-${id}`, `--theme-tonal-dark-${id}`]) {
         root.removeProperty(name);
       }
     }
@@ -112,6 +112,8 @@ class BackgroundThemesState {
       root.setProperty(`--theme-art-${id}-dark`, `url("${images.dark}")`);
       if (images.tint) root.setProperty(`--theme-tint-${id}`, images.tint);
       if (images.tintDark) root.setProperty(`--theme-tint-dark-${id}`, images.tintDark);
+      if (images.tonal) root.setProperty(`--theme-tonal-${id}`, images.tonal);
+      if (images.tonalDark) root.setProperty(`--theme-tonal-dark-${id}`, images.tonalDark);
     }
   }
 }

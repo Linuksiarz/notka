@@ -33,7 +33,14 @@ data class ThemeInfo(
     val highlightDark: String?,
 )
 
-data class ThemeImages(val lightFileId: Int, val darkFileId: Int, val tint: String?, val tintDark: String?)
+data class ThemeImages(
+    val lightFileId: Int,
+    val darkFileId: Int,
+    val tint: String?,
+    val tintDark: String?,
+    val tonal: String? = null,
+    val tonalDark: String? = null,
+)
 
 /** What an account sees of the themes: all of them, the instance's default, and its own pick. */
 data class ThemeChoice(val themes: List<ThemeInfo>, val defaultThemeId: String, val selectedThemeId: String?)
@@ -114,7 +121,7 @@ class ThemeService(
     }
 
     private fun ThemeBackground.images(files: Map<String, Int>) =
-        ThemeImages(files.getValue(light), files.getValue(dark), tint, tintDark)
+        ThemeImages(files.getValue(light), files.getValue(dark), tint, tintDark, tonal, tonalDark)
 
     /**
      * Unpacks the archive into memory, counting what it unpacks rather than trusting the sizes its

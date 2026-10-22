@@ -20,7 +20,9 @@
   import { saveMarkdownFile } from '../download';
   import type { ReminderRepeat } from '../../entity/api/types';
   import AppearancePicker from './AppearancePicker.svelte';
-  import Avatar from './Avatar.svelte';
+  import NoteAvatars from './NoteAvatars.svelte';
+  import { otherPeople } from '../../entity/account';
+  import { session } from '../../control/state/session.svelte';
   import Icon from './Icon.svelte';
   import LabelPicker from './LabelPicker.svelte';
   import LinkCards from './LinkCards.svelte';
@@ -93,7 +95,7 @@
     }
   });
 
-  const collaborators = $derived(note.shares?.map((share) => share.user) ?? []);
+  const collaborators = $derived(otherPeople(note, session.user?.id));
 
   function openEditor(): void {
     ui.openEditor(note.id, note.kind);
@@ -346,14 +348,7 @@
       </ul>
     {/if}
     {#if collaborators.length > 0}
-      <div class="collaborators">
-        {#each collaborators.slice(0, 3) as collaborator (collaborator.id)}
-          <Avatar user={collaborator} size={24} />
-        {/each}
-        {#if collaborators.length > 3}
-          <span class="more-collaborators">+{collaborators.length - 3}</span>
-        {/if}
-      </div>
+      <div class="collaborators"><NoteAvatars people={collaborators} place="card" limit={3} /></div>
     {/if}
   </div>
 
@@ -755,15 +750,6 @@
     flex: 0 0 auto;
   }
 
-  .collaborators :global(.avatar) + :global(.avatar) {
-    margin-left: -8px;
-  }
-
-  .more-collaborators {
-    margin-left: 4px;
-    font-size: 0.6875rem;
-    color: var(--note-fg-secondary, var(--keep-text-secondary));
-  }
 
   .actions {
     display: flex;
@@ -864,9 +850,15 @@
        time, faint, after the container had already landed. */
     .card,
     .card.being-edited {
-      transition:
-        box-shadow var(--keep-duration) var(--keep-ease),
-        border-color var(--keep-duration) var(--keep-ease);
+      transition: border-color var(--keep-duration) var(--keep-ease);
+    }
+
+    /* The Android app's cards never lift. A finger leaves the tapped card hovered and focused, so the
+       desktop's deeper shadow animated under the note growing out of it, repainting the card on the
+       main thread for the whole flight, and stayed on it after the note had closed. */
+    .card:hover,
+    .card:focus-within {
+      box-shadow: var(--keep-shadow-card);
     }
 
     /* The Android app marks a held card with a 3dp ring of its own (measured on an emulator, in both
@@ -888,13 +880,33 @@
       pointer-events: none;
     }
 
-    /* The original's card type is smaller, measured from the owner's own screenshots of both apps on
-       the same device (412 CSS px at 3.375x): the title's ink is 13.3px against our 15.7px, and the
-       body's line pitch 15.1px against our 20.6px — the same text, so the ratio is the measurement:
-       the title goes to 16px on a 20px line and the body to 12px on 15px. */
+    /* The card's title is the Android app's `SubtitleGs1TextAppearance`: 16sp Google Sans Medium,
+       its box 24.6dp tall on the emulator. */
     .title {
       font-size: 1rem;
-      line-height: 1.25rem;
+      line-height: 1.5rem;
+      font-weight: 500;
+    }
+
+    /* A label's chip is the app's `browse_label_chip`: 12sp text, 4dp above and below it, 8dp at the
+       sides, 8dp corners — 26.7dp tall at font scale 1.0. */
+    .chip {
+      max-width: none;
+      border-radius: 8px;
+    }
+
+    .chip button {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      line-height: 1.15rem;
+    }
+
+    /* The app keeps a card's chips and collaborators in one wrapping row, 4dp apart across and 8dp
+       between lines (`browse_note_metadata`). */
+    .meta {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 8px 4px;
     }
   }
 </style>

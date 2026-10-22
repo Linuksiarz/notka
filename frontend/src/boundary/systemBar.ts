@@ -1,17 +1,20 @@
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
+
 /**
  * The system's own bar — the status bar of an installed app on a phone, the browser's toolbar in a tab,
  * the title bar of an installed app on a desktop — wears the colour of whatever is on screen right under
  * it, the way a native app's does.
  *
- * An installed web app cannot draw under the status bar (only a fullscreen one can, and that hides the
- * bar altogether), but the bar takes `theme-color`. The original's Android app colours it with the page,
- * with the open note's own colour, and dims it with a sheet or the drawer's veil; following what is
- * actually painted at the top edge gives all of those — and any screen added later — with one rule,
- * rather than a list of states that has to be kept in step with the components.
+ * The original's Android app colours it with the page, with the open note's own colour, and dims it
+ * with a sheet or the drawer's veil; following what is actually painted at the top edge gives all of
+ * those — and any screen added later — with one rule, rather than a list of states that has to be kept
+ * in step with the components. How the bar is given that colour depends on what the app runs in
+ * (`paintBar`).
  */
 export function followSystemBar(): () => void {
-  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (!meta) return () => undefined;
+  const paint = paintBar();
+  if (!paint) return () => undefined;
 
   let frame = 0;
   const schedule = () => {
@@ -20,8 +23,7 @@ export function followSystemBar(): () => void {
   const sync = () => {
     frame = 0;
     const moving = movingElements();
-    const color = colorAtTopEdge(moving);
-    if (meta && meta.content !== color) meta = recolor(meta, color);
+    paint(colorAtTopEdge(moving));
     // Something is on its way: the bar follows it frame by frame, and is read once more when it is there.
     if (moving.size > 0) schedule();
   };
@@ -46,6 +48,45 @@ export function followSystemBar(): () => void {
     events.forEach((name) => window.removeEventListener(name, schedule, true));
     cancelAnimationFrame(frame);
   };
+}
+
+/**
+ * Android's app (`apk/`) draws the page under a transparent status bar, as the original does: the bar
+ * shows what is under it — a note's picture included — and all it needs from us is icons that can be
+ * read on it, light on a dark top edge and dark on a light one.
+ *
+ * An installed web app cannot draw under the status bar (only a fullscreen one can, and that hides the
+ * bar altogether), but the bar takes `theme-color`, so there it is given the colour itself.
+ */
+function paintBar(): ((color: Rgb) => void) | null {
+  if (Capacitor.isNativePlatform()) {
+    let dark: boolean | null = null;
+    return (color) => {
+      // Until the app has published the bar's inset (`PageInsets.kt`) the page is not known to be
+      // under it, and the system's default icons stay.
+      if (!(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--keep-inset-top')) > 0)) return;
+      const isDark = luminance(color) < 0.5;
+      if (isDark === dark) return;
+      dark = isDark;
+      // `Dark` is the style for a dark background: light icons.
+      void StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+    };
+  }
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) return null;
+  return (color) => {
+    const content = hex(color);
+    if (meta && meta.content !== content) meta = recolor(meta, content);
+  };
+}
+
+/** Relative luminance, as the status bar plugin itself judges a colour (`ColorUtils.calculateLuminance`). */
+function luminance([red, green, blue]: Rgb): number {
+  const linear = (channel: number) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
 }
 
 /**
@@ -118,7 +159,7 @@ function recolor(old: HTMLMetaElement, color: string): HTMLMetaElement {
  * layer there laid over the next, and every surface on its way over that by how much of the band it
  * covers (`coverage`).
  */
-function colorAtTopEdge(moving: Set<Element>): string {
+function colorAtTopEdge(moving: Set<Element>): Rgb {
   // Top-most first; the page's own background is under all of them.
   const stack = document.elementsFromPoint(window.innerWidth / 2, 0).reverse();
   let painted: Rgb = [255, 255, 255];
@@ -136,7 +177,7 @@ function colorAtTopEdge(moving: Set<Element>): string {
     const color = surface ? parseColor(getComputedStyle(surface).backgroundColor) : null;
     if (surface && color) painted = over([color[0], color[1], color[2], color[3] * coverage(surface)], painted);
   }
-  return hex(painted);
+  return painted;
 }
 
 type Rgb = [number, number, number];

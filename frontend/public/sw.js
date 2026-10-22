@@ -10,8 +10,9 @@
  *     they are stale.
  *   - The shell — the page, every chunk of its script and stylesheet, and the fonts — is cached when
  *     the worker installs, so the installed app opens without a connection from the first time on.
- *   - Navigations are network-first so a redeployed build is picked up immediately, with the
- *     cached shell as the offline fallback (this is also what makes client-side routes work).
+ *   - Navigations are answered from the cached shell at once and refreshed in the background, so
+ *     the installed app opens without waiting for the network; a redeployed build is picked up on
+ *     the next open. Without a cached shell (the first visit) the network answers.
  *   - Everything else same-origin is stale-while-revalidate.
  *   - A share from another app (the manifest's `share_target`) is a `POST /share` no server
  *     answers: the worker keeps what was shared in the share inbox and sends the app to `/share`,
@@ -109,14 +110,16 @@ async function receiveShare(request) {
 
 async function networkFirstNavigation(request) {
   const cache = await caches.open(SHELL_CACHE);
-  try {
-    const response = await fetch(request);
+  const cached = await cache.match('/');
+  const network = fetch(request).then((response) => {
     if (response.ok) cache.put('/', response.clone());
     return response;
-  } catch {
-    const cached = await cache.match('/');
-    return cached ?? Response.error();
+  });
+  if (cached) {
+    network.catch(() => undefined);
+    return cached;
   }
+  return network.catch(() => Response.error());
 }
 
 async function staleWhileRevalidate(request) {
