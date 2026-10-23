@@ -76,3 +76,8 @@ Thumbs.db
 .env.local
 docker-compose.override.yml
 .claude
+
+# Signing keys never belong in the repository: a release is signed from the CI's secrets
+# (`.github/workflows/release-apk.yml`) or a keystore kept outside the checkout.
+*.jks
+*.keystore

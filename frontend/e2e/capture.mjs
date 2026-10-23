@@ -246,6 +246,19 @@ async function newPage(browser, { locale, viewport, theme }) {
   return { context, page };
 }
 
+/**
+ * Waits until nothing on the page is still moving: a note opened from the grid grows out of its card,
+ * and a picture taken by a fixed delay caught it half way (the Polish one did). An animation that never
+ * ends, such as a spinner, is not waited for.
+ */
+async function settled(page) {
+  await page.waitForFunction(() =>
+    document.getAnimations().every(
+      (animation) => animation.playState !== 'running' || animation.effect?.getComputedTiming().endTime === Infinity
+    )
+  );
+}
+
 async function shot(page, name) {
   writeLosslessJxl(await page.screenshot({ fullPage: false }), `${outDir}/${name}.jxl`);
   console.log(`captured ${name}`);
@@ -311,6 +324,7 @@ await mkdir(outDir, { recursive: true });
   // The title, not the card's middle: that can be a list's "completed items" toggle.
   await page.locator('.card').nth(1).locator('.title').click();
   await page.waitForSelector('.editor');
+  await settled(page);
   await shot(page, 'polish');
   await context.close();
 }
@@ -326,7 +340,7 @@ await mkdir(outDir, { recursive: true });
   await page.waitForSelector('.card');
   await page.locator('.card').first().click();
   await page.waitForSelector('.editor');
-  await page.waitForTimeout(700);
+  await settled(page);
   await shot(page, 'editing');
   await context.close();
 }
@@ -344,7 +358,7 @@ await mkdir(outDir, { recursive: true });
 
   await page.locator('.card').first().click();
   await page.waitForSelector('.editor');
-  await page.waitForTimeout(700);
+  await settled(page);
   await shot(page, 'mobile-editor');
   await context.close();
 }

@@ -16,7 +16,9 @@
   const hidden = $derived(people.length - shown.length);
 </script>
 
-<span class="note-avatars {place}">
+<!-- The place is an attribute, not a class: `.card` and `.editor` are the note card's and the editor's
+     own classes, and a row of avatars wearing them was taken for one (the screenshots picked it as a card). -->
+<span class="note-avatars" data-place={place}>
   {#each shown as person (person.id)}
     <Avatar user={person} />
   {/each}
@@ -33,12 +35,12 @@
     min-width: 0;
   }
 
-  .card {
+  [data-place='card'] {
     --avatar-size: var(--keep-avatar-card);
     --note-avatar-gap: var(--keep-avatar-card-gap);
   }
 
-  .editor {
+  [data-place='editor'] {
     --avatar-size: var(--keep-avatar-editor);
     --note-avatar-gap: var(--keep-avatar-editor-gap);
   }

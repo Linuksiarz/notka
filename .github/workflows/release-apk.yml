@@ -1,0 +1,98 @@
+# Builds the signed Android app (`apk/`) for a version tag and attaches it to that tag's GitHub release.
+#
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# The tag has to name the version in `apk/package.json` (the APK's `versionName`), so a release cannot
+# carry an APK of another version. A tag with a pre-release part (`v1.0.0-rc3`) makes a pre-release.
+#
+# Signing needs four repository secrets (`apk/README.md`, "Releasing from GitHub"):
+#   NOTKA_KEYSTORE_BASE64    the keystore file, base64-encoded
+#   NOTKA_KEYSTORE_PASSWORD  the keystore's password
+#   NOTKA_KEY_ALIAS          the key's alias in it
+#   NOTKA_KEY_PASSWORD       the key's password
+# Without them the build would be unsigned, which no phone installs, so the job stops instead.
+name: Release APK
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag against the app's version
+        run: |
+          version="$(jq -r .version apk/package.json)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match apk/package.json version $version"
+            exit 1
+          fi
+
+      - name: Check the signing secrets
+        env:
+          KEYSTORE: ${{ secrets.NOTKA_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NOTKA_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.NOTKA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NOTKA_KEY_PASSWORD }}
+        run: |
+          for name in KEYSTORE STORE_PASSWORD ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::A signing secret is missing (see .github/workflows/release-apk.yml)"
+              exit 1
+            fi
+          done
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apk/pnpm-lock.yaml
+
+      - name: Restore the keystore
+        env:
+          KEYSTORE: ${{ secrets.NOTKA_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/notka.jks"
+
+      - name: Build the signed APK
+        working-directory: apk
+        env:
+          NOTKA_KEYSTORE: ${{ runner.temp }}/notka.jks
+          NOTKA_KEYSTORE_PASSWORD: ${{ secrets.NOTKA_KEYSTORE_PASSWORD }}
+          NOTKA_KEY_ALIAS: ${{ secrets.NOTKA_KEY_ALIAS }}
+          NOTKA_KEY_PASSWORD: ${{ secrets.NOTKA_KEY_PASSWORD }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build:release
+          cp android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/notka-$GITHUB_REF_NAME.apk"
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/notka.jks"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/notka-$GITHUB_REF_NAME.apk" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/notka-$GITHUB_REF_NAME.apk" \
+              --title "Notka $GITHUB_REF_NAME" --generate-notes $prerelease
+          fi

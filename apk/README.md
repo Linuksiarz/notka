@@ -56,6 +56,31 @@ In this environment, prefix Gradle with `GRADLE_USER_HOME=<repo>/.gradle-home` a
 project and regenerates `capacitor.settings.gradle` and `app/capacitor.build.gradle`. Those two are
 Capacitor's and stay Groovy; everything of ours in `android/` is Kotlin.
 
+## Releasing from GitHub
+
+Pushing a tag `v<version>` — the `version` in `package.json` — builds the signed APK and attaches it to
+that tag's release (`.github/workflows/release-apk.yml`); a tag with a pre-release part (`v1.0.0-rc3`)
+makes a pre-release. The tag and the version have to agree, or the job stops.
+
+The key is made once and kept for good: Android installs an update only over an app signed with the
+same key, so a lost keystore means every phone has to uninstall Notka to get the next version. Keep
+the file and its passwords somewhere safe outside the repository (`*.jks` is ignored for that reason).
+
+```bash
+keytool -genkeypair -v -keystore ~/notka-release.jks -alias notka \
+  -keyalg RSA -keysize 4096 -validity 10000 -storetype PKCS12
+```
+
+`keytool` comes with the JDK. A PKCS12 store has one password, so the key's password is the store's.
+Then, in the repository's Settings → Secrets and variables → Actions, add:
+
+| Secret | Value |
+| --- | --- |
+| `NOTKA_KEYSTORE_BASE64` | `base64 -i ~/notka-release.jks` (on Linux: `base64 -w0 ~/notka-release.jks`) |
+| `NOTKA_KEYSTORE_PASSWORD` | the password `keytool` asked for |
+| `NOTKA_KEY_ALIAS` | `notka` |
+| `NOTKA_KEY_PASSWORD` | the same password |
+
 ## Trying it against a local server
 
 ```bash
