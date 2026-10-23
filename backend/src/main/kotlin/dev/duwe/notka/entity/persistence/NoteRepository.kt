@@ -1,6 +1,7 @@
 package dev.duwe.notka.entity.persistence
 
 import dev.duwe.notka.entity.model.BackgroundChange
+import dev.duwe.notka.entity.model.Filing
 import dev.duwe.notka.entity.model.Note
 import dev.duwe.notka.entity.model.NoteDocument
 import dev.duwe.notka.entity.model.NoteFields
@@ -48,7 +49,6 @@ class NoteRepository(private val database: Database) {
                 it[Notes.title] = title
                 it[Notes.content] = NoteDocument.write(document)
                 it[Notes.archived] = false
-                it[Notes.pinned] = false
                 it[Notes.position] = top
                 it[Notes.trashedAt] = null
                 it[Notes.createdAt] = createdAt
@@ -96,7 +96,7 @@ class NoteRepository(private val database: Database) {
         }
         val filter = listOfNotNull(viewFilter, visible, labeled).reduce { all, next -> all and next }
         Notes.selectAll().where { filter }
-            .orderBy(Notes.pinned to SortOrder.DESC, Notes.position to SortOrder.DESC)
+            .orderBy(Notes.position to SortOrder.DESC)
             .map { it.toNote() }
     }
 
@@ -201,7 +201,6 @@ class NoteRepository(private val database: Database) {
                 fields.title?.let { row[Notes.title] = it }
                 fields.document?.let { row[Notes.content] = NoteDocument.write(it) }
                 fields.archived?.let { row[Notes.archived] = it }
-                fields.pinned?.let { row[Notes.pinned] = it }
                 fields.color?.let { row[Notes.color] = it }
                 when (fields.background) {
                     BackgroundChange.Unchanged -> Unit
@@ -229,6 +228,45 @@ class NoteRepository(private val database: Database) {
             }
     }
 
+    /** How [userId] filed the notes among [noteIds] that they ever pinned or unpinned. */
+    fun filingsAmong(userId: Int, noteIds: Collection<Int>): Map<Int, Filing> = transaction(database) {
+        if (noteIds.isEmpty()) return@transaction emptyMap()
+        NotePins.selectAll()
+            .where { (NotePins.userId eq userId) and (NotePins.noteId inList noteIds) }
+            .associate { it[NotePins.noteId] to Filing(it[NotePins.pinned], it[NotePins.position]) }
+    }
+
+    /**
+     * Pins or unpins [noteId] for [userId] alone, and takes it to the top of where it lands in that
+     * account's order (the original's rule) — nobody else's order, version or `updated_at` changes,
+     * because filing a note is neither editing it nor anybody else's business.
+     *
+     * @return whether anything changed.
+     */
+    fun setPinned(noteId: Int, userId: Int, pinned: Boolean): Boolean = transaction(database) {
+        val was = NotePins.select(NotePins.pinned)
+            .where { (NotePins.noteId eq noteId) and (NotePins.userId eq userId) }
+            .singleOrNull()?.get(NotePins.pinned) ?: false
+        if (was == pinned) return@transaction false
+        val top = topPosition()
+        NotePins.replace {
+            it[NotePins.noteId] = noteId
+            it[NotePins.userId] = userId
+            it[NotePins.pinned] = pinned
+            it[NotePins.position] = top
+        }
+        true
+    }
+
+    /** Puts [userId]'s own filing of [noteId], if there is one, at [position] (where a drag left it). */
+    fun placeFiling(noteId: Int, userId: Int, position: Long) {
+        transaction(database) {
+            NotePins.update({ (NotePins.noteId eq noteId) and (NotePins.userId eq userId) }) {
+                it[NotePins.position] = position
+            }
+        }
+    }
+
     fun delete(id: Int) {
         transaction(database) {
             Notes.deleteWhere { Op.build { Notes.id eq id } }
@@ -242,9 +280,12 @@ class NoteRepository(private val database: Database) {
         }
     }
 
-    /** One above every note there is; called inside the transaction that uses it. */
-    private fun topPosition(): Long =
-        (Notes.select(Notes.position.max()).single()[Notes.position.max()] ?: 0L) + 1
+    /** One above every note there is, in anyone's order; called inside the transaction that uses it. */
+    private fun topPosition(): Long {
+        val shared = Notes.select(Notes.position.max()).single()[Notes.position.max()] ?: 0L
+        val filed = NotePins.select(NotePins.position.max()).single()[NotePins.position.max()] ?: 0L
+        return maxOf(shared, filed) + 1
+    }
 
     private fun ResultRow.toNote() = Note(
         id = this[Notes.id],
@@ -253,7 +294,6 @@ class NoteRepository(private val database: Database) {
         title = this[Notes.title],
         document = NoteDocument.parse(this[Notes.content]),
         archived = this[Notes.archived],
-        pinned = this[Notes.pinned],
         position = this[Notes.position],
         trashedAt = this[Notes.trashedAt],
         createdAt = this[Notes.createdAt],
@@ -269,7 +309,7 @@ class NoteRepository(private val database: Database) {
      * The notes [userId] may see that carry a reminder, soonest first.
      *
      * The reminders view is a **time** view, not an "edited" one: its own order is the whole point of
-     * it, which is why it does not share `listVisible`'s `pinned, position` ordering. Trashed notes
+     * it, which is why it does not share `listVisible`'s `position` ordering. Trashed notes
      * are left out — a note in the trash has no reminder — and archived ones with it.
      */
     fun listWithReminders(userId: Int): List<Note> = transaction(database) {

@@ -113,6 +113,9 @@
      yet; zero in a browser, which keeps its bars to itself. */
   --keep-inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --keep-inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  /* What is left of the bottom inset above the on-screen keyboard (`visualViewport.ts`): the keyboard
+     covers the home indicator, so a bar standing on the keyboard needs no room for it. */
+  --keep-inset-bottom-visible: max(0px, var(--keep-inset-bottom) - var(--vv-covered, 0px));
   /* Measured off the original: the search field begins 253px from the window's left, wherever the
      wordmark beside it happens to end. */
   --keep-search-left: 250px;
@@ -174,6 +177,15 @@
   --keep-icon: #5f6368;
   /* The search field's hint, off the original's DOM (2026-10-22). */
   --keep-search-placeholder: #444746;
+  /* iOS's glass buttons, approximated (`NoteEditor.svelte`): a translucent fill that blurs and
+     saturates what is under it, a light rim along the top and a soft shadow. */
+  --keep-glass-fill: rgba(255, 255, 255, 0.55);
+  --keep-glass-rim: rgba(255, 255, 255, 0.8);
+  --keep-glass-rim-low: rgba(255, 255, 255, 0.35);
+  /* What the lens (`glassLens.ts`) lays over the picture it bends: clearer than the frost's fill. */
+  --keep-glass-tint: rgba(255, 255, 255, 0.25);
+  --keep-glass-edge: rgba(0, 0, 0, 0.06);
+  --keep-glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 
   --keep-card-min-width: 240px;
   /* The list layout's column: one column, this wide, centred. */
@@ -250,6 +262,12 @@
   --keep-scrim: rgba(32, 33, 36, 0.75);
   --keep-icon: rgba(232, 234, 237, 0.8);
   --keep-search-placeholder: var(--keep-icon);
+  --keep-glass-fill: rgba(60, 60, 64, 0.45);
+  --keep-glass-rim: rgba(255, 255, 255, 0.18);
+  --keep-glass-rim-low: rgba(255, 255, 255, 0.06);
+  --keep-glass-tint: rgba(40, 40, 44, 0.3);
+  --keep-glass-edge: rgba(255, 255, 255, 0.08);
+  --keep-glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   --keep-select-fill: #ffffff;
   --keep-select-tick: #202124;
   --keep-select-border: #e8eaed;

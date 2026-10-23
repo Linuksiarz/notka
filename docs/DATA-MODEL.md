@@ -110,6 +110,22 @@ This is **deliberately different from Google Keep**, where colour is personal an
 choice never changes what the owner sees. Keeping one appearance on the note is also what makes the
 model smaller: there is no resolution step and no row to create lazily on first read.
 
+### `note_pins`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `note_id` | INTEGER NOT NULL | FK `notes(id)` ON DELETE CASCADE |
+| `user_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE |
+| `pinned` | INTEGER NOT NULL | whether this account has the note pinned |
+| `position` | INTEGER NOT NULL | where this account has the note since it last pinned or unpinned it |
+| PRIMARY KEY | (`note_id`, `user_id`) | |
+
+**A pin is the reader's own**, as in Google Keep: a row says how this account filed this note. A pinned
+note leads that account's views and nobody else's, and pinning or unpinning takes it to the top of its
+section **for that account alone** — everyone else keeps the note's shared `position`, its version and
+its `updated_at`. Anyone who can see the note may pin it, a `VIEW` collaborator too. Taking a share
+away takes that account's row with it. Dragging a note sets the shared `position` and the mover's own.
+
 ### `note_shares`
 
 | Column | Type | Notes |
@@ -287,8 +303,8 @@ when it is ticked rather than re-sorting it on the way to the screen (`AGENTS.md
 
 ### Invariants
 
-- `pinned` is a **note** field, not a document field: it never appears in `content`, so it can
-  never invalidate a document. Like `archived`, it is metadata — see `AGENTS.md`.
+- `pinned` is the **reader's**, not the note's (`note_pins`): it never appears in `content`, and it is
+  worked out for the account that reads the note.
 - `position` orders a section, highest first: one above every note there is for a new note, a copy,
   and a note whose pin changes; nothing else moves it, so writing in a note leaves it in place (the
   original's order, measured: an edited note keeps its place, also after a reload).

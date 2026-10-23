@@ -286,7 +286,8 @@
 >
   <!-- The original's phone cards carry neither the pin nor the action bar: a tap opens the note,
        and a held finger picks it for the bulk actions. -->
-  {#if variant !== 'trash' && note.canEdit && !ui.phone}
+  <!-- A pin is the reader's own (rule 12), so a collaborator who can only read the note pins it too. -->
+  {#if variant !== 'trash' && !ui.phone}
 
     <!-- Keep keeps the pin in the corner of the card rather than in the action row. It stays
          visible once the note is pinned, so a pinned card is recognisable at a glance. -->

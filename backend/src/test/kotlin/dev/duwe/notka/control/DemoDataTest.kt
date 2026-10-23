@@ -132,7 +132,7 @@ class DemoDataTest {
 
         // and: the pinned welcome note carries a colour rather than a background
         val welcome = notes.single { it.note.title == "Welcome to Notka" }
-        assertTrue(welcome.note.pinned)
+        assertTrue(welcome.pinned)
         assertEquals("yellow", welcome.note.color)
         assertNull(welcome.note.background)
         assertTrue(bobNotes.any { it.note.color == "teal" }, bobNotes.map { it.note.color }.toString())

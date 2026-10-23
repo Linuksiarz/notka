@@ -43,6 +43,9 @@
   import type { Label } from '../../entity/api/types';
   import Icon from './Icon.svelte';
 
+  /** Less of the screen than this taken away is a browser's toolbar coming and going, not a keyboard. */
+  const KEYBOARD_MIN_HEIGHT = 120;
+
   /**
    * The note body, edited with Tiptap.
    *
@@ -213,7 +216,39 @@
     // The checkbox's own handler sits on the input, so this has to run before it (capture).
     const onChange = (event: Event) => tickRowWithoutKeyboard(editor.view, event);
     editor.view.dom.addEventListener('change', onChange, true);
+    // **The caret stays in sight when the keyboard comes up.** A new row is scrolled into view as it
+    // is made, while the screen is still whole; the keyboard then takes the bottom of it, the phone's
+    // editor shrinks to what is left (`visualViewport.ts`) and its scroll position stays where it was —
+    // so the row being typed into ended up under the keyboard. Android's browser happens to scroll the
+    // focused field back itself; Safari does not. Once the new size is laid out, scroll to the caret.
+    const keepCaretInSight = () => {
+      if (!editor.view.hasFocus()) return;
+      requestAnimationFrame(() => {
+        if (!editor.isDestroyed) editor.view.dispatch(editor.state.tr.scrollIntoView());
+      });
+    };
+    window.visualViewport?.addEventListener('resize', keepCaretInSight);
+    // **Putting the keyboard away ends the typing**, as it does in the original's app: no caret is
+    // left blinking in the note. Android's Back takes the keyboard down and leaves the editable
+    // focused; iOS's ✓ blurs it but leaves the selection in it, where WebKit drew a caret again — at
+    // the end of the document, under the completed rows, as if one of them were being edited. So the
+    // keyboard leaving lets go of the focus, and a phone's blur lets go of the selection too.
+    let keyboardUp = false;
+    const followKeyboard = () => {
+      const covered = parseFloat(getComputedStyle(window.document.documentElement).getPropertyValue('--vv-covered')) || 0;
+      const up = covered > KEYBOARD_MIN_HEIGHT;
+      if (keyboardUp && !up) releaseCaret();
+      keyboardUp = up;
+    };
+    const onBlur = () => {
+      if (ui.phone) releaseCaret();
+    };
+    window.visualViewport?.addEventListener('resize', followKeyboard);
+    editor.view.dom.addEventListener('blur', onBlur);
     return () => {
+      window.visualViewport?.removeEventListener('resize', keepCaretInSight);
+      window.visualViewport?.removeEventListener('resize', followKeyboard);
+      editor.view.dom.removeEventListener('blur', onBlur);
       editor.view.dom.removeEventListener('change', onChange, true);
       tearingDown = true;
       editor.destroy();
@@ -229,7 +264,7 @@
     const selection = window.getSelection();
     if (!selection?.anchorNode || !editor.view.dom.contains(selection.anchorNode)) return;
     // Focus first: while the editable has it, ProseMirror puts the selection straight back.
-    editor.view.dom.blur();
+    if (window.document.activeElement === editor.view.dom) editor.view.dom.blur();
     selection.removeAllRanges();
   }
 

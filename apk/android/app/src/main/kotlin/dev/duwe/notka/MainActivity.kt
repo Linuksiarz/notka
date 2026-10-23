@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import com.getcapacitor.BridgeActivity
-import kotlin.math.roundToInt
 
 /**
  * The app is a WebView on the reader's own Notka server. Which server is chosen at run time (it is
@@ -15,6 +14,7 @@ import kotlin.math.roundToInt
 class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(InstancePlugin::class.java)
+        registerPlugin(TextScalePlugin::class.java)
         config = Instance(this).capacitorConfig()
         super.onCreate(savedInstanceState)
         // The page is drawn under both system bars, as the original's notes are: Android 15 and newer
@@ -22,10 +22,10 @@ class MainActivity : BridgeActivity() {
         // one layout to get right. The page keeps clear of the bars by their insets (`PageInsets`).
         enableEdgeToEdge()
         PageInsets(bridge).attach()
-        // The page's type is rem and its boxes px, which are the original's sp and dp only when the text
-        // follows the system's font size: a WebView ignores it unless told (`textZoom` stays at 100),
-        // and a phone set to smaller text then showed ours larger than Keep's beside it.
-        bridge.webView.settings.textZoom = (resources.configuration.fontScale * 100).roundToInt()
+        // The system's font size reaches the page through `TextScalePlugin`, which scales the page's
+        // root size. The WebView's own default is `textZoom` = the font scale, which enlarges the text
+        // alone (see the plugin) — and on top of the page's own scaling it would count the setting twice.
+        bridge.webView.settings.textZoom = 100
         onBackPressedDispatcher.addCallback(this, backThroughThePage)
     }
 

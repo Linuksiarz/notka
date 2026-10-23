@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Dialog as BitsDialog } from 'bits-ui';
   import type { Snippet } from 'svelte';
+  import { claimBack } from '../../control/backStack';
 
   /**
    * Modal shell used by every dialog in the app.
@@ -23,6 +24,11 @@
   }
 
   let { open, onClose, title, width = '600px', closeOnOutsideClick = true, children }: Props = $props();
+
+  // The system's Back closes an open dialog, as it does on Android and with iOS's edge swipe.
+  $effect(() => {
+    if (open) return claimBack(() => onClose());
+  });
 </script>
 
 <BitsDialog.Root

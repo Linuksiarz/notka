@@ -47,7 +47,6 @@ object Migrations {
             title      TEXT    NOT NULL DEFAULT '',
             content    TEXT    NOT NULL,
             archived   INTEGER NOT NULL DEFAULT 0,
-            pinned     INTEGER NOT NULL DEFAULT 0,
             position   INTEGER NOT NULL,
             trashed_at INTEGER,
             color      TEXT    NOT NULL DEFAULT 'default',
@@ -57,6 +56,15 @@ object Migrations {
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             version    INTEGER NOT NULL DEFAULT 1
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS note_pins (
+            note_id    INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            pinned     INTEGER NOT NULL,
+            position   INTEGER NOT NULL,
+            PRIMARY KEY (note_id, user_id)
         )
         """.trimIndent(),
         """

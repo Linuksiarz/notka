@@ -50,6 +50,10 @@ class ShareRepository(private val database: Database) {
             NoteShares.deleteWhere {
                 Op.build { (NoteShares.noteId eq noteId) and (NoteShares.userId eq userId) }
             }
+            // A pin is that account's filing of a note it can no longer see.
+            NotePins.deleteWhere {
+                Op.build { (NotePins.noteId eq noteId) and (NotePins.userId eq userId) }
+            }
         }
     }
 

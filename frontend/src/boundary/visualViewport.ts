@@ -11,6 +11,8 @@
  * `--vv-tallest` is the tallest the visible part has been since it last changed width (a rotation):
  * the screen without the keyboard. A note's background picture is sized by it, so the picture keeps its
  * scale and place while the keyboard comes and goes, and the keyboard simply covers its lower part.
+ * `--vv-covered` is the difference — what the keyboard covers — which takes the home indicator's
+ * inset away from a bar standing on the keyboard (`--keep-inset-bottom-visible`).
  */
 export function followVisualViewport(): () => void {
   const viewport = window.visualViewport;
@@ -28,6 +30,7 @@ export function followVisualViewport(): () => void {
     root.style.setProperty('--vv-tallest', `${tallest}px`);
     root.style.setProperty('--vv-top', `${viewport.offsetTop}px`);
     root.style.setProperty('--vv-height', `${viewport.height}px`);
+    root.style.setProperty('--vv-covered', `${tallest - viewport.height}px`);
   };
   viewport.addEventListener('resize', sync);
   viewport.addEventListener('scroll', sync);
@@ -39,5 +42,6 @@ export function followVisualViewport(): () => void {
     root.style.removeProperty('--vv-top');
     root.style.removeProperty('--vv-height');
     root.style.removeProperty('--vv-tallest');
+    root.style.removeProperty('--vv-covered');
   };
 }

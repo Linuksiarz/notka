@@ -1,4 +1,5 @@
 import { parseSearchFilter, searchFilterPath, type SearchFilter } from '../entity/search';
+import { takeOverBackEntry } from './backStack';
 
 /**
  * Minimal history-API router.
@@ -100,7 +101,7 @@ class Router {
       this.emit();
       return;
     }
-    if (options.replace) {
+    if (options.replace || takeOverBackEntry()) {
       window.history.replaceState(null, '', path);
     } else {
       window.history.pushState(null, '', path);

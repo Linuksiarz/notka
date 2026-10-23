@@ -3,6 +3,7 @@
   import { labels } from '../../control/state/labels.svelte';
   import { session } from '../../control/state/session.svelte';
   import { ui } from '../../control/state/ui.svelte';
+  import { claimBack } from '../../control/backStack';
   import { t } from '../i18n';
   import type { IconName } from './Icon.svelte';
   import Icon from './Icon.svelte';
@@ -85,6 +86,12 @@
    * Navigating leaves the column alone on a wide screen (rule 14); only the narrow drawer dismisses
    * itself. "Edit labels" is not a route — it opens a dialog over whatever view is showing.
    */
+  // The narrow layout's drawer covers the app, so the system's Back closes it; the column beside the
+  // notes on a wide screen is not something to go back from.
+  $effect(() => {
+    if (ui.sidebarOpen && ui.narrow) return claimBack(() => ui.toggleSidebar(false));
+  });
+
   function go(path: string): void {
     onNavigate(path);
     ui.closeDrawer();

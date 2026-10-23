@@ -602,6 +602,20 @@ note's text**, so the list follows the reader's text size with the words (Dynami
 A level keeps the Android app's 38dp (2.375em); the screenshot has no nested row. In px the box and the
 line stood still while a scaled text grew or shrank, which is what put the checkbox off its text.
 
+### iOS glass and the reader's text size (2026-10-22)
+
+- **Glass on an iPhone**, from the owner's screenshot of Keep on iOS 26: the back arrow on a **44pt**
+  round glass button 16pt from the edge, the pin, the bell and the archive on one **44pt** glass
+  capsule 16pt from the other edge (156pt wide, the glyphs 54pt apart), the bottom bar's glyphs bare.
+  Ours is the blur (16px, saturated 180%), a light rim along the top and a soft shadow, only where
+  `-apple-system-body` is understood (WebKit on Apple's platforms) and only on a phone. The lensing of
+  the real Liquid Glass needs an SVG `backdrop-filter`, which WebKit does not draw.
+- **The Android app's text size**, checked on the emulator at font scale 1.0 and 1.3: the WebView's
+  default `textZoom` is the font scale, and it enlarges the text alone after the layout's lengths are
+  fixed — at 1.3 the text was 27px (16 × 1.3 × 1.3, counted twice once the page scaled itself) beside a
+  23.4px box. With `textZoom` at 100 and the root scaled by `TextScalePlugin`, the text is 20.8px and
+  the box 23.4px — both 1.3 times their size — and the box's middle is the capitals' middle to 0.8px.
+
 ## How these numbers are guarded
 
 The desktop numbers are covered by the browser suites in `frontend/e2e`. The **phone** numbers are

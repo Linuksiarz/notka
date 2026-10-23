@@ -253,7 +253,9 @@
     open={ui.settingsOpen || route.name === 'settings'}
     onClose={() => {
       ui.settingsOpen = false;
-      if (route.name === 'settings') navigate('/');
+      // `/settings` is an address of its own: closing it replaces the address rather than adding one
+      // that Back would leave for the settings again.
+      if (route.name === 'settings') router.navigate('/', { replace: true });
     }}
   />
   {#if session.user?.admin}

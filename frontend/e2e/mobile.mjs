@@ -331,8 +331,35 @@ check(
     surfaces.outline === 'rgb(197, 198, 208)',
   JSON.stringify(surfaces)
 );
-await page.keyboard.press('Escape');
+// The system's Back closes the drawer, and a panel opened from it, rather than leaving the page.
+const addressWithDrawer = page.url();
+await page.goBack();
 await page.waitForTimeout(400);
+const drawerAfterBack = { veil: await page.locator('.scrim').count(), address: page.url() };
+check("the system's Back closes the drawer and stays in the app",
+  drawerAfterBack.veil === 0 && drawerAfterBack.address === addressWithDrawer, JSON.stringify(drawerAfterBack));
+await page.getByRole('button', { name: 'Open navigation' }).click();
+await page.waitForTimeout(400);
+await page.locator('.sidebar .item').filter({ hasText: 'Settings', hasNotText: 'Server' }).click();
+await page.waitForSelector('.ok-dialog[data-state="open"]', { timeout: 5_000 });
+await page.goBack();
+await page.waitForTimeout(500);
+const settingsAfterBack = {
+  open: await page.locator('.ok-dialog[data-state="open"]').count(),
+  veil: await page.locator('.scrim').count(),
+  address: page.url()
+};
+check("the system's Back closes the settings opened from the drawer and stays in the app",
+  settingsAfterBack.open === 0 && settingsAfterBack.veil === 0 && settingsAfterBack.address === addressWithDrawer,
+  JSON.stringify(settingsAfterBack));
+// Picking a view in the drawer takes the drawer's history entry over: Back returns to the notes.
+await page.getByRole('button', { name: 'Open navigation' }).click();
+await page.waitForTimeout(400);
+await page.locator('.sidebar .item').filter({ hasText: 'Archive' }).click();
+await page.waitForTimeout(400);
+await page.goBack();
+await page.waitForTimeout(400);
+check('Back from a view picked in the drawer returns to the view before it', page.url() === addressWithDrawer, page.url());
 
 console.log('\nthe editor on a phone');
 
@@ -490,10 +517,10 @@ check(
 await page.locator('.card').first().click();
 await page.waitForSelector('.editor', { timeout: 10_000 });
 await page.waitForTimeout(500);
-const entryOpen = await page.evaluate(() => window.history.state?.notkaEditor === true);
+const entryOpen = await page.evaluate(() => window.history.state?.notkaBack === true);
 await page.locator('[aria-label="Back to notes"]').click();
 await page.waitForTimeout(900);
-const entryAfter = await page.evaluate(() => window.history.state?.notkaEditor === true);
+const entryAfter = await page.evaluate(() => window.history.state?.notkaBack === true);
 check(
   'the note owns one history entry while it is open, and closing it by its own arrow gives that entry back',
   entryOpen && !entryAfter && (await page.locator('.editor').count()) === 0 && page.url() === addressBefore,

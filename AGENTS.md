@@ -433,7 +433,9 @@ thrown away.
     **Ticking a row animates the reorder** (`checklistCompletion.ts`): the rows and the heading slide
     into the room it leaves and the ticked row fades in under the heading, as the app's does.
     **An existing note opens on a phone without the caret** — it is opened to be read, the keyboard
-    stays down — and a new note opens with it (rule 16 is the desktop's). **Ticking a row does not
+    stays down — and a new note opens with it (rule 16 is the desktop's). **Putting the keyboard away
+    ends the typing** (`RichText.svelte`): the editable lets go of the focus and the selection, so no
+    caret is left blinking in the note. **Ticking a row does not
     raise it either**: the checkbox toggles its row without focusing the editor, and only the text of
     an active row brings the caret (and the keyboard) in (`RichText.svelte`,
     `tickRowWithoutKeyboard`).
@@ -442,9 +444,13 @@ thrown away.
     the editor's own (`completedSection.ts`). **The editor shows who a note is shared with** — the
     other people's avatars above its bottom bar (the owner's, for a collaborator) — and the owner's
     avatars open the collaborators.
-12. Pinning is metadata, like the archive flag: it is a property of the note (everyone with access
-   sees the same pin), it is never version-guarded and it never creates a history entry. Pinned notes
-   lead every view, and the grid shows the **Pinned** and **Others** headings — which appear only
+12. **A pin is the reader's own** (`note_pins`), as in Google Keep and unlike the appearance (rule 6):
+   it sorts a note to the top of that account's views and nobody else's, anyone who can see the note
+   may pin it (a `VIEW` collaborator too), it is never version-guarded and it never creates a history
+   entry. Pinning or unpinning takes the note to the top for the pinner alone (`note_pins.position`);
+   nobody else's order, the version and `updated_at` stay. The owner's corrected rule: "przypięcie
+   notatki także jest shareowane a nie powinno być".
+   Pinned notes lead every view, and the grid shows the **Pinned** and **Others** headings — which appear only
    once something is pinned — in the notes and archive views but never in the trash. A label's view
    adds one more: its archived notes under an `ARCHIVE` heading, because a label's view is one view
    rather than two. The server
@@ -487,7 +493,11 @@ thrown away.
       nothing underneath may move. This is a pointer affordance: it is behind `@media (hover: hover)`
       and must not appear on touch.
     - **Navigating leaves the column alone.** Only the narrow-layout drawer dismisses itself after a
-      navigation, and Escape dismisses it too — the same overlay it is. `ui.narrow` tracks the
+      navigation, and Escape dismisses it too — the same overlay it is. So does the system's Back
+      (`control/backStack.ts`), which closes whatever covers the app innermost first — a dialog
+      (Settings and Server settings among them), the drawer, the note being edited — each owning one
+      history entry while it is open; a view picked in the drawer takes the drawer's entry over, so Back
+      from it returns to the view before. `ui.narrow` tracks the
       stylesheet's breakpoint across resizes; do not fold the rail on a wide screen because someone
       clicked a nav item.
 15. The app's own chrome is **not a document**: `user-select: none` on `body`, opted back in by
@@ -892,5 +902,15 @@ thrown away.
    bar only takes icons that suit what is under it (`StatusBar.setStyle`, from the same sampling), and
    everything at the screen's top or bottom edge keeps clear of the bars by `--keep-inset-top` /
    `--keep-inset-bottom` — zero in a browser. A new full-screen surface needs them too. Its "A" opens a formatting bar (H1, H2, plain text, bold, italic, underline) and a list
-   note's title carries a ⋮ with the list's own actions. Desktop keeps the web original's widgets. Branch on `ui.phone` in markup, and keep a
+   note's title carries a ⋮ with the list's own actions. Desktop keeps the web original's widgets.
+   **On an iPhone the editor's bars wear iOS's glass** (`:root[data-glass]`, set by `ui.glass` on an
+   iPhone by default and switched on or off from Settings' *Experimental* section; an approximation: Liquid Glass has no
+   web API, and WebKit draws no SVG `backdrop-filter`). **The lensing bends a copy, not the backdrop**:
+   under the bars there is only the note's colour and picture, so `boundary/editor/glassLens.ts` draws
+   that picture again, aligned with the note, magnified in the middle and bent at the rim, into a canvas
+   under each capsule's glyphs — the technique every working web version of the effect uses. The bottom bar is iOS
+   26's toolbar: no strip, two glass capsules, 20pt above the screen's edge and 8pt above the keyboard,
+   which covers the home indicator (`--keep-inset-bottom-visible`). **The reader's text size scales the page's root**
+   (`boundary/textScale.ts`: Dynamic Type on iOS, `TextScalePlugin` in the APK, whose WebView keeps
+   `textZoom` at 100) — never the text alone, which left a list's text off its checkboxes. Branch on `ui.phone` in markup, and keep a
    phone number that the script also needs (the checklist's `PHONE_LIST_EM`) in one place.

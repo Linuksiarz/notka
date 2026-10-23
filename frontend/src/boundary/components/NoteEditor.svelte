@@ -27,6 +27,7 @@
   import { DropdownMenu, Popover } from 'bits-ui';
   import { ENTER_EASING, EXIT_EASING, MOTION } from '../editor/motion';
 import { flyToCard, growFromCard, shrinkIntoCard } from '../editor/editorFlight';
+  import { glassLens } from '../editor/glassLens';
 import { NoteDraft } from '../editor/noteDraft.svelte';
   import AppearancePicker from './AppearancePicker.svelte';
   import Sheet from './Sheet.svelte';
@@ -976,22 +977,24 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           title={t('editor.close')}
           aria-label={t('editor.back')}
           onclick={close}
+          {@attach ui.glass && glassLens}
         >
           <Icon name="arrow-back" size={barIcon} />
         </button>
-        <div class="editor-bar-actions">
+        <div class="editor-bar-actions" {@attach ui.glass && glassLens}>
+          <!-- The original's phone bar carries the pin as well, beside the bell and the archive. A pin
+               is the reader's own (rule 12), so it is there for a collaborator who can only read. -->
+          <button
+            type="button"
+            class="icon-button"
+            title={draft.pinned ? t('card.unpin') : t('card.pin')}
+            aria-label={draft.pinned ? t('card.unpinNote') : t('card.pinNote')}
+            aria-pressed={draft.pinned}
+            onclick={togglePin}
+          >
+            <Icon name={draft.pinned ? 'pin-filled' : 'pin'} size={barIcon} />
+          </button>
           {#if draft.canEdit}
-            <!-- The original's phone bar carries the pin as well, beside the bell and the archive. -->
-            <button
-              type="button"
-              class="icon-button"
-              title={draft.pinned ? t('card.unpin') : t('card.pin')}
-              aria-label={draft.pinned ? t('card.unpinNote') : t('card.pinNote')}
-              aria-pressed={draft.pinned}
-              onclick={togglePin}
-            >
-              <Icon name={draft.pinned ? 'pin-filled' : 'pin'} size={barIcon} />
-            </button>
             {@render reminderBell()}
             <button
               type="button"
@@ -1049,8 +1052,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
             <Icon name="more-vert" size={24} />
           </button>
         {/if}
-        {#if draft.canEdit && !ui.phone}
-          <!-- The original's top right corner of a note: its **pin**. The reminder is one of the
+        {#if !ui.phone}
+          <!-- The original's top right corner of a note: its **pin**, the reader's own (rule 12). The reminder is one of the
                bottom bar's own actions, where the original keeps its bell. -->
           <button
             type="button"
@@ -1080,53 +1083,65 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           draft.autosave(() => save());
         }}
       />
+      {#if ui.phone}{@render noteMeta()}{/if}
     </div>
 
-    {#if currentNote}
-      <ReminderChip note={currentNote} />
-    {/if}
-
-    {#if draft.canEdit && selectedLabels.length > 0}
-      <ul class="selected-labels">
-        {#each selectedLabels as label (label.id)}
-          <li>
-            <button type="button" class="chip" onclick={() => toggleLabel(label.id)}>
-              <span>{label.name}</span>
-              <Icon name="close" size={14} />
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-
-    <!-- The original writes "Edited …" right-aligned on the line the collaborators' avatars start, and
-         the note's link previews come under it — then the bar's icons (measured off the owner's
-         screenshots). A phone shows it as the heading of the ⋮ sheet instead, where the original's app
-         has it. -->
-    {#if sharedWith.length > 0 || showStatus}
-      <div class="edited-row">
-        {#if sharedWith.length > 0}
-          <button type="button" class="people shared-with" aria-label={t('card.collaborator')} title={t('card.collaborator')} onclick={openCollaborators}>
-            <NoteAvatars people={sharedWith} place="editor" />
-          </button>
+    <!-- What follows the note's text: its reminder, labels, the people it is shared with and its link
+         previews. **On a phone they scroll with the text**, as the Android app's do (its metadata is a
+         row of the note's own list): standing between the text and the bottom bar they kept their room
+         when the keyboard took half the screen, and on a shared note the text had a line or two left —
+         the row being typed into ended up behind the avatars. -->
+    {#snippet noteMeta()}
+      <div class="note-meta">
+        {#if currentNote}
+          <ReminderChip note={currentNote} />
         {/if}
-        {#if showStatus}
-          {#if draft.saving}
-            <span class="status">{t('editor.saving')}</span>
-          {:else if editedLabel}
-            <span class="status">{editedLabel}</span>
-          {:else}
-            <span class="status">{t('editor.readOnly')}</span>
-          {/if}
+
+        {#if draft.canEdit && selectedLabels.length > 0}
+          <ul class="selected-labels">
+            {#each selectedLabels as label (label.id)}
+              <li>
+                <button type="button" class="chip" onclick={() => toggleLabel(label.id)}>
+                  <span>{label.name}</span>
+                  <Icon name="close" size={14} />
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+
+        <!-- The original writes "Edited …" right-aligned on the line the collaborators' avatars start, and
+             the note's link previews come under it — then the bar's icons (measured off the owner's
+             screenshots). A phone shows it as the heading of the ⋮ sheet instead, where the original's app
+             has it. -->
+        {#if sharedWith.length > 0 || showStatus}
+          <div class="edited-row">
+            {#if sharedWith.length > 0}
+              <button type="button" class="people shared-with" aria-label={t('card.collaborator')} title={t('card.collaborator')} onclick={openCollaborators}>
+                <NoteAvatars people={sharedWith} place="editor" />
+              </button>
+            {/if}
+            {#if showStatus}
+              {#if draft.saving}
+                <span class="status">{t('editor.saving')}</span>
+              {:else if editedLabel}
+                <span class="status">{editedLabel}</span>
+              {:else}
+                <span class="status">{t('editor.readOnly')}</span>
+              {/if}
+            {/if}
+          </div>
+        {/if}
+
+        {#if linkPreviews.length > 0}
+          <div class="link-previews">
+            <LinkCards previews={linkPreviews} />
+          </div>
         {/if}
       </div>
-    {/if}
+    {/snippet}
 
-    {#if linkPreviews.length > 0}
-      <div class="link-previews">
-        <LinkCards previews={linkPreviews} />
-      </div>
-    {/if}
+    {#if !ui.phone}{@render noteMeta()}{/if}
 
     <div class="toolbar">
       <div class="toolbar-actions">
@@ -1145,7 +1160,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         {#if draft.canEdit && ui.phone && formatBar}
           <!-- Every button keeps the caret where it is: a press must not take the focus off the text
                it formats. -->
-          <div class="format-bar" role="toolbar" aria-label={t('editor.format')}>
+          <div class="format-bar" role="toolbar" aria-label={t('editor.format')} {@attach ui.glass && glassLens}>
             {@render formatButton('h1', t('format.heading1'), formatting?.heading === 1, !formatting?.canHeading, () =>
               richText?.setLineKind(1)
             )}
@@ -1180,7 +1195,9 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         {:else if draft.canEdit && ui.phone}
           <!-- The original's phone bar: "add", the colours and the formatting "A" at the left, the
                overflow menu at the right end, each answering with a bottom sheet or a bar of its own.
-               Undo and redo stay beside the menu. -->
+               Undo and redo stay beside the menu. Each side is one group — on an iPhone one glass
+               capsule, as iOS groups a toolbar's related actions. -->
+          <div class="bar-group" {@attach ui.glass && glassLens}>
           <button
             type="button"
             class="icon-button"
@@ -1209,6 +1226,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           >
             <Icon name="format" size={barIcon} />
           </button>
+          </div>
+          <div class="bar-group" {@attach ui.glass && glassLens}>
           {@render undoRedo()}
           <button
             type="button"
@@ -1219,6 +1238,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           >
             <Icon name="more-vert" size={barIcon} />
           </button>
+          </div>
         {:else if draft.canEdit}
           <div class="anchor">
             <Popover.Root {...openFor('label')}>
@@ -1704,6 +1724,17 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     }
   }
 
+  /* The text never shrinks to the room the body has: the body is what scrolls. Shrunk, a long list
+     overflowed its own box, and whatever followed it in the body (a phone's avatars) was drawn over it. */
+  .body > :global(.rich-text) {
+    flex-shrink: 0;
+  }
+
+  /* On the desktop the block is laid out as it always was, between the text and the bar. */
+  .note-meta {
+    display: contents;
+  }
+
   .edited-row {
     display: flex;
     align-items: center;
@@ -1864,7 +1895,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     }
 
     .toolbar {
-      padding: 8px 24px calc(16px + var(--keep-inset-bottom)) 20px;
+      padding: 8px 24px calc(16px + var(--keep-inset-bottom-visible)) 20px;
       /* The buttons lie straight on the note, picture and all, as the original's do: the opaque strip
          that keeps the desktop's icons off the picture cut the artwork in two here. */
       background: transparent;
@@ -1873,6 +1904,17 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     .toolbar-actions {
       flex: 1 1 auto;
       gap: 9px;
+    }
+
+    /* The note's own actions at the left; undo, redo and the overflow menu at the bar's right end. */
+    .bar-group {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .bar-group:last-child {
+      margin-left: auto;
     }
 
     /*
@@ -1924,14 +1966,16 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
       color: var(--note-fg-secondary, var(--keep-text-secondary));
     }
 
-    /* Undo and redo stand at the right, and the overflow menu at the bar's very end. */
-    .toolbar-actions :global(.undo) {
-      margin-left: auto;
-    }
-
     /* The Android app's note text starts 21px from the screen's edge, the title's as well. */
     .body {
       padding: 0 21px;
+    }
+
+    /* Inside the scrolling body on a phone, reaching past its padding to the insets it was laid out with. */
+    .note-meta {
+      display: block;
+      flex: 0 0 auto;
+      margin: 0 -21px;
     }
 
     /* The list's own ⋮ beside the title is centred 33px from the screen's right edge. */
@@ -1951,6 +1995,116 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     .title {
       font-size: 1.5rem;
       line-height: 2rem;
+    }
+  }
+
+  /*
+   * **On an iPhone the bars are the iOS app's glass** (the owner's screenshot of Keep on iOS 26,
+   * 2026-10-22, docs/METRICS.md): the back arrow on a 44pt round glass button 16pt in from the edge,
+   * the pin, the bell and the archive together on one 44pt glass capsule 16pt from the other edge, and
+   * The bottom bar follows iOS 26's own toolbar (Apple's Human Interface Guidelines, "Toolbars"): no
+   * strip across the screen, the related actions grouped on floating 44pt glass capsules, and the bar
+   * low at the home indicator — the capsules end 20pt above the screen's edge, the way the system's own
+   * toolbars do, and 8pt above the keyboard while it is up. The formatting bar is one capsule.
+   * The real material (Liquid Glass) is the system's own and has no web API, and an SVG
+   * `backdrop-filter`, which would bend what is under it, is not drawn by WebKit — so the lensing is
+   * `glassLens.ts`, which bends a copy of the note's picture into a canvas under the glyphs
+   * (`data-lens`); without a picture there is nothing to bend, and the frost below stays: the blur, a
+   * lit rim on both edges and the shadow. `data-glass` is set on an iPhone unless Settings' experiments
+   * switch it off, and on any other phone they switch it on for (`ui.glass`).
+   */
+  @media (max-width: 600px) {
+    :global(:root[data-glass]) .editor-bar {
+      padding: calc(8px + var(--keep-inset-top)) 16px 8px;
+    }
+
+    :global(:root[data-glass]) .toolbar {
+      padding: 8px 16px max(8px, calc(var(--keep-inset-bottom-visible) - 14px));
+    }
+
+    :global(:root[data-glass]) .editor-bar > :global(.icon-button),
+    :global(:root[data-glass]) .editor-bar-actions,
+    :global(:root[data-glass]) .bar-group,
+    :global(:root[data-glass]) .format-bar {
+      height: 44px;
+      border: 0.5px solid var(--keep-glass-edge);
+      border-radius: 22px;
+      background: var(--keep-glass-fill);
+      box-shadow:
+      inset 0 1px 0 var(--keep-glass-rim),
+      inset 0 -1px 0 var(--keep-glass-rim-low),
+      var(--keep-glass-shadow);
+      -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.04);
+      backdrop-filter: blur(12px) saturate(180%) brightness(1.04);
+    }
+
+    /* The lens is drawn under the glyphs and replaces the frost; the tint is in the lens itself. */
+    :global(:root[data-glass]) .editor-bar > :global(.icon-button),
+    :global(:root[data-glass]) .editor-bar-actions,
+    :global(:root[data-glass]) .bar-group,
+    :global(:root[data-glass]) .format-bar {
+      position: relative;
+      isolation: isolate;
+    }
+
+    :global(:root[data-glass]) :global([data-lens]) {
+      background: transparent;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    /* A lens that is not drawn now (the picture was taken away) must not show the last one it drew. */
+    :global(:not([data-lens]) > .glass-lens) {
+      display: none;
+    }
+
+    :global(.glass-lens) {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+
+    :global(:root[data-glass]) .bar-group,
+    :global(:root[data-glass]) .format-bar {
+      gap: 4px;
+      padding: 0 6px;
+    }
+
+    :global(:root[data-glass]) .bar-group :global(.icon-button),
+    :global(:root[data-glass]) .format-bar :global(.icon-button) {
+      width: 36px;
+      height: 36px;
+    }
+
+    :global(:root[data-glass]) .toolbar-actions :global(.more-options) {
+      width: 28px;
+    }
+
+    :global(:root[data-glass]) .format-rule {
+      height: 24px;
+      margin: 0 2px;
+    }
+
+    :global(:root[data-glass]) .format-rule.end {
+      margin: 0 2px 0 auto;
+    }
+
+    :global(:root[data-glass]) .editor-bar > :global(.icon-button) {
+      width: 44px;
+    }
+
+    :global(:root[data-glass]) .editor-bar-actions {
+      gap: 10px;
+      padding: 0 8px;
+    }
+
+    :global(:root[data-glass]) .editor-bar-actions :global(.icon-button),
+    :global(:root[data-glass]) .toolbar-actions :global(.icon-button:not(.active)) {
+      background: transparent;
     }
   }
 </style>

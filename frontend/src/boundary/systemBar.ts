@@ -107,8 +107,9 @@ const STATUS_BAR = 32;
  */
 function coverage(element: Element): number {
   const box = element.getBoundingClientRect();
+  const top = box.top - screenTop();
   const across = Math.max(0, Math.min(box.right, window.innerWidth) - Math.max(box.left, 0)) / window.innerWidth;
-  const down = box.bottom <= 0 ? 0 : Math.min(1, Math.max(0, (STATUS_BAR - box.top) / STATUS_BAR));
+  const down = box.bottom <= screenTop() ? 0 : Math.min(1, Math.max(0, (STATUS_BAR - top) / STATUS_BAR));
   let opacity = 1;
   for (let node: Element | null = element; node; node = node.parentElement) opacity *= Number(getComputedStyle(node).opacity);
   return across * down * opacity;
@@ -155,13 +156,23 @@ function recolor(old: HTMLMetaElement, color: string): HTMLMetaElement {
 }
 
 /**
+ * Where the screen's top edge is in the page's coordinates. They are the same until the on-screen
+ * keyboard comes up: iOS then pans the visible part over a page that keeps its height, and the page's
+ * own top can be off the screen — the full-screen editor follows the visible part (`visualViewport.ts`),
+ * so the page's top is then the page's background above the editor, not the note.
+ */
+function screenTop(): number {
+  return window.visualViewport?.offsetTop ?? 0;
+}
+
+/**
  * The colour of the status bar's band: what stands still at the middle of the window's top edge, every
  * layer there laid over the next, and every surface on its way over that by how much of the band it
  * covers (`coverage`).
  */
 function colorAtTopEdge(moving: Set<Element>): Rgb {
   // Top-most first; the page's own background is under all of them.
-  const stack = document.elementsFromPoint(window.innerWidth / 2, 0).reverse();
+  const stack = document.elementsFromPoint(window.innerWidth / 2, screenTop()).reverse();
   let painted: Rgb = [255, 255, 255];
   const page = parseColor(getComputedStyle(document.body).backgroundColor);
   if (page) painted = over(page, painted);

@@ -6,11 +6,13 @@ export type ThemeMode = 'light' | 'dark';
 export type NotesLayout = 'grid' | 'list';
 
 import { NARROW_LAYOUT_MAX_WIDTH, PHONE_MAX_WIDTH } from './breakpoints';
+import { claimBack } from '../backStack';
 
 const THEME_STORAGE_KEY = 'notka.theme';
 const LAYOUT_STORAGE_KEY = 'notka.layout';
 const LOCALE_STORAGE_KEY = 'notka.locale';
 const MOTION_STORAGE_KEY = 'notka.motion';
+const GLASS_STORAGE_KEY = 'notka.glass';
 
 /** Chrome-level UI state: theme, language, navigation drawer, dialogs, and the snackbar. */
 class UiState {
@@ -71,6 +73,13 @@ class UiState {
    */
   motionOverride = $state<boolean | null>(null);
 
+  /**
+   * An experiment from Settings: whether the phone editor's bars wear iOS's glass. `null` follows the
+   * platform (an iPhone has it); `true`/`false` turns it on or off anywhere. Stored on this device
+   * (`notka.glass`), like the motion override.
+   */
+  glassOverride = $state<boolean | null>(null);
+
   shareNoteId = $state<number | null>(null);
   labelsDialogOpen = $state(false);
   settingsOpen = $state(false);
@@ -91,6 +100,22 @@ class UiState {
     this.motionOverride = allowed;
     writeStorage(MOTION_STORAGE_KEY, allowed ? 'on' : 'off');
     this.applyMotion();
+  }
+
+  /** `-apple-system-body` is only understood by WebKit on Apple's platforms: it tells an iPhone apart. */
+  get glass(): boolean {
+    return this.glassOverride ?? CSS.supports('font', '-apple-system-body');
+  }
+
+  setGlass(on: boolean): void {
+    this.glassOverride = on;
+    writeStorage(GLASS_STORAGE_KEY, on ? 'on' : 'off');
+    this.applyGlass();
+  }
+
+  /** The stylesheet asks `:root[data-glass]` rather than detecting the platform itself. */
+  private applyGlass(): void {
+    document.documentElement.toggleAttribute('data-glass', this.glass);
   }
 
   private applyMotion(): void {
@@ -154,12 +179,14 @@ class UiState {
     // On a wide screen the rail starts open and the header's menu button folds it away.
     this.sidebarOpen = window.innerWidth > NARROW_LAYOUT_MAX_WIDTH;
     this.watchLayout();
-    this.watchBack();
     this.locale = readStoredLocale() ?? matchLocale(navigator.language) ?? DEFAULT_LOCALE;
     this.applyTheme();
     this.applyLocale();
     this.motionOverride = readStoredMotion();
     this.applyMotion();
+    const glass = readStorage(GLASS_STORAGE_KEY);
+    this.glassOverride = glass === 'on' ? true : glass === 'off' ? false : null;
+    this.applyGlass();
   }
 
   setTheme(theme: ThemeMode): void {
@@ -219,35 +246,22 @@ class UiState {
   editorHoldsUnsaved = $state(false);
 
   /**
-   * The editor owns one entry of the browser's history while it is open, so the system's Back — a phone's
-   * gesture or button — leaves the *note*, as it does in the original, rather than the whole app. The
-   * entry is the same address: it exists only to be popped.
+   * The open editor is one of the surfaces the system's Back closes (`backStack.ts`), so Back leaves the
+   * *note*, as it does in the original, rather than the whole app.
    *
    * Back is a request to finish the note (`backRequest` counts them; the editor answers it the way it
-   * answers Escape, saving first), never a close of its own. Closing the editor by any other way pops
-   * the entry itself, and `ignoredPops` tells that pop from a Back.
+   * answers Escape, saving first), never a close of its own.
    */
   backRequest = $state(0);
-  private editorEntry = false;
-  private ignoredPops = 0;
-
-  private watchBack(): void {
-    window.addEventListener('popstate', () => {
-      if (this.ignoredPops > 0) {
-        this.ignoredPops -= 1;
-        return;
-      }
-      if (!this.editorEntry || this.editorOrigin === null) return;
-      this.editorEntry = false;
-      this.backRequest += 1;
-    });
-  }
+  private releaseEditorBack: (() => void) | null = null;
 
   /** Puts the entry back when a Back was answered by keeping the editor open (a sheet, an unsaved draft). */
   reinstateBackEntry(): void {
-    if (this.editorOrigin === null || this.editorEntry) return;
-    window.history.pushState({ notkaEditor: true }, '');
-    this.editorEntry = true;
+    if (this.editorOrigin === null || this.releaseEditorBack) return;
+    this.releaseEditorBack = claimBack(() => {
+      this.releaseEditorBack = null;
+      this.backRequest += 1;
+    });
   }
 
   openEditor(noteId: number | null, kind: NoteKind = 'TEXT'): void {
@@ -264,11 +278,8 @@ class UiState {
     this.editorNoteId = null;
     this.editorOrigin = null;
     this.editorHoldsUnsaved = false;
-    if (this.editorEntry) {
-      this.editorEntry = false;
-      this.ignoredPops += 1;
-      window.history.back();
-    }
+    this.releaseEditorBack?.();
+    this.releaseEditorBack = null;
   }
 
   openShare(noteId: number): void {

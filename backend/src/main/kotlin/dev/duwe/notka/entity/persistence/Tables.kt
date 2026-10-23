@@ -32,9 +32,6 @@ object Notes : Table("notes") {
     val title = text("title")
     val content = text("content")
     val archived = bool("archived")
-    /* Pinned notes sort to the top of a view. Like the archive flag, pinning is metadata: it never
-       guards a version and never creates a history entry. */
-    val pinned = bool("pinned")
     /* The note's place in its section, highest first — the original's own order. A new note, and a
        note being pinned or unpinned, goes to the top; an edit leaves it where it is. */
     val position = long("position")
@@ -53,6 +50,20 @@ object Notes : Table("notes") {
     val version = integer("version")
 
     override val primaryKey = PrimaryKey(id)
+}
+
+/* A pin is the reader's own, as in Google Keep: one row per (note, account) that pinned or unpinned
+   it, with whether it is pinned and where that account now has it. Pinning sorts the note to the top of
+   that account's views, and pinning or unpinning takes it to the top of its section — for that account
+   alone; everyone else keeps the note's shared `position`. Unlike the appearance (which is the note's,
+   deliberately unlike Keep), pinning is how one person files a note they share with others. */
+object NotePins : Table("note_pins") {
+    val noteId = integer("note_id")
+    val userId = integer("user_id")
+    val pinned = bool("pinned")
+    val position = long("position")
+
+    override val primaryKey = PrimaryKey(noteId, userId)
 }
 
 object NoteShares : Table("note_shares") {

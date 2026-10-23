@@ -1,7 +1,7 @@
 {
   "name": "notka-frontend",
   "private": true,
-  "version": "1.0.0-rc2",
+  "version": "1.0.0-rc3",
   "type": "module",
   "license": "AGPL-3.0-only",
   "scripts": {

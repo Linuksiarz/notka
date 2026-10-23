@@ -217,7 +217,8 @@ Query parameters:
 | `reminders` | `true` | – | the **reminders view**: the notes carrying a reminder, soonest first. Its order is by the reminder, not by when the note was last written, so it is its own view rather than another `view`; `view` and `labelId` are ignored with it |
 
 Response `200`: `{ "notes": [ Note, ... ] }`, sorted by `pinned` first and then `position`
-descending, so a pinned note leads every view. `position` is Google Keep's own order: a new note, a
+descending, so a note the caller pinned leads their views. `pinned` is the caller's own: the same note
+can be pinned for its owner and not for a collaborator. `position` is Google Keep's own order: a new note, a
 copy, and a note that is pinned or unpinned go to the top of their section; writing in a note does
 not move it. Only notes owned by or shared with the requesting
 user are ever returned.
@@ -267,7 +268,7 @@ Partial update — only the fields present are applied. Requires `canEdit`.
 | `kind` | switching kind does not rewrite `content` |
 | `content` | the body **as a whole**, guarded by `version`. Editors write the body as steps instead (`POST /api/notes/{id}/steps`); a whole body moves `docVersion` on by one and starts the step log again |
 | `trashed` | `true` sets `trashed_at = now`, `false` restores the note; `archived` is untouched |
-| `pinned` | metadata like `archived`: never version-guarded, never archived into the history, and visible to everyone with access |
+| `pinned` | **the caller's own**: pins or unpins the note for the caller alone, and anyone who can see the note may send it — a `VIEW` collaborator too, as long as nothing else is in the patch. Never version-guarded, never archived into the history. A change takes the note to the top of its section **in the caller's order alone** (the note's `position` in the caller's responses); the note's version, its `updated_at` and everybody else's order stay as they were, so nobody else is notified |
 | `color` | must be one of the 11 color ids or `default`; stored on the note, so it changes for everyone |
 | `background` | one of the 9 background ids, or `""` to clear (`null`/omitted leaves it alone); likewise shared |
 | `reminderAt` | epoch milliseconds; **`0` takes the reminder away**, `null`/omitted leaves it alone |
@@ -472,7 +473,7 @@ Response `200`:
 ```json
 {
   "status": "ok",
-  "version": "1.0.0-rc2",
+  "version": "1.0.0-rc3",
   "demo": false,
   "registrationOpen": true,
   "trashRetentionDays": 30,

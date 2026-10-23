@@ -16,11 +16,11 @@ data class Note(
     val title: String,
     val document: NoteDocument,
     val archived: Boolean,
-    /** Pinned notes come first in a view. A property of the note, like the archive flag. */
-    val pinned: Boolean,
     /**
      * Where the note stands in its section, highest first. Google Keep's own order: a new note and a
-     * note that is pinned or unpinned go to the top, and writing in a note does not move it.
+     * note that is pinned or unpinned go to the top, and writing in a note does not move it. This is
+     * the shared order; an account that pinned or unpinned the note has its own place for it
+     * ([Filing]), as it has its own pin.
      */
     val position: Long,
     val trashedAt: Long?,
@@ -43,13 +43,15 @@ data class Note(
     }
 }
 
+/** How one account filed a note: whether it pinned it, and where it has it since it last did either. */
+data class Filing(val pinned: Boolean, val position: Long)
+
 /** Fields a note update may touch. `null` means "leave as is". */
 data class NoteFields(
     val kind: NoteKind? = null,
     val title: String? = null,
     val document: NoteDocument? = null,
     val archived: Boolean? = null,
-    val pinned: Boolean? = null,
     /** Puts the note at the top of its section (see [Note.position]). */
     val toTop: Boolean = false,
     val trash: TrashAction = TrashAction.KEEP,

@@ -311,6 +311,19 @@
       </section>
     {/if}
 
+    <section>
+      <h3>{t('settings.experimental')}</h3>
+      <label class="toggle">
+        <input
+          type="checkbox"
+          checked={ui.glass}
+          onchange={(event) => ui.setGlass(event.currentTarget.checked)}
+        />
+        <span>{t('settings.glass')}</span>
+      </label>
+      <p class="hint">{t('settings.glassHint')}</p>
+    </section>
+
     {#if inAndroidApp}
       <section>
         <h3>{t('settings.server')}</h3>

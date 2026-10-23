@@ -6,6 +6,7 @@ import dev.duwe.notka.entity.model.DomainException
 import dev.duwe.notka.entity.model.ErrorKeys
 import dev.duwe.notka.entity.model.Label
 import dev.duwe.notka.entity.model.LinkPreview
+import dev.duwe.notka.entity.model.Filing
 import dev.duwe.notka.entity.model.Note
 import dev.duwe.notka.entity.model.ReminderChange
 import dev.duwe.notka.entity.model.ReminderRepeat
@@ -58,6 +59,10 @@ data class ResolvedNote(
     val images: List<NoteImage> = emptyList(),
     /** The version of the note's body in its step log (`docs/COLLABORATION.md`). */
     val docVersion: Int = 0,
+    /** Whether this reader pinned the note: a pin is each account's own (`NotePins`). */
+    val pinned: Boolean = false,
+    /** Where this reader has the note: its own place once it pinned or unpinned it, else the shared one. */
+    val position: Long = note.position,
 ) {
     val color: String get() = note.color
     val background: String? get() = note.background
@@ -134,12 +139,13 @@ class NoteService(
         requireOwnedLabels(userId, listOfNotNull(labelId))
         val records = notes.listVisible(userId, view, labelId)
         val owners = users.findSummaries(records.map { it.ownerId }.distinct())
+        val filings = notes.filingsAmong(userId, records.map { it.id })
         return records.map { note ->
             val noteAccess = checkNotNull(access.accessFor(userId, note)) {
                 "Note ${note.id} was listed but is not accessible"
             }
-            resolve(VisibleNote(note, noteAccess), userId, owners[note.ownerId] ?: ownerSummary(note))
-        }
+            resolve(VisibleNote(note, noteAccess), userId, owners[note.ownerId] ?: ownerSummary(note), filings[note.id])
+        }.sortedWith(compareByDescending<ResolvedNote> { it.pinned }.thenByDescending { it.position })
     }
 
     /**
@@ -176,6 +182,16 @@ class NoteService(
     }
 
     fun patch(userId: Int, noteId: Int, command: PatchNoteCommand): ResolvedNote {
+        // A pin is the reader's own, so anyone who can see the note may pin it — a VIEW collaborator
+        // too. Everything else in a patch changes the note for everyone and needs edit access.
+        val pin = command.pinned
+        val rest = command.copy(pinned = null)
+        if (rest == PatchNoteCommand()) {
+            access.requireVisible(userId, noteId)
+            // Nobody else is told: their view of the note did not change.
+            if (pin != null) notes.setPinned(noteId, userId, pin)
+            return get(userId, noteId)
+        }
         val previous = access.requireEditable(userId, noteId).note
         val document = command.document?.let(::validateDocument)
         val kind = command.kind?.let(Validation::noteKind)
@@ -190,9 +206,6 @@ class NoteService(
             title = command.title,
             document = document,
             archived = command.archived,
-            pinned = command.pinned,
-            // The original moves a note that is pinned or unpinned to the top of where it lands.
-            toTop = command.pinned != null && command.pinned != previous.pinned,
             trash = when (command.trashed) {
                 true -> TrashAction.TRASH
                 false -> TrashAction.RESTORE
@@ -216,6 +229,8 @@ class NoteService(
             )
         }
         labelIds?.let { labels.replaceForNote(noteId, userId, it) }
+        // After the version guard above, which a pin would otherwise have moved on.
+        if (pin != null) notes.setPinned(noteId, userId, pin)
         val resolved = get(userId, noteId)
         document?.let { linkPreviews.refresh(it) { publishChange(get(userId, noteId).note) } }
         publishChange(resolved.note)
@@ -277,10 +292,13 @@ class NoteService(
         if (anchorId == noteId) {
             throw DomainException.validation(ErrorKeys.REQUEST_INVALID_BODY, "A note cannot be moved next to itself")
         }
-        val anchor = access.requireVisible(userId, anchorId).note
+        access.requireVisible(userId, anchorId)
         // Highest first: "above" is one more than the anchor, "below" takes the anchor's own place and
-        // the anchor moves up with everything above it.
-        notes.place(noteId, if (before != null) anchor.position + 1 else anchor.position)
+        // the anchor moves up with everything above it. The anchor's place is where the mover sees it.
+        val anchorPosition = get(userId, anchorId).position
+        val target = if (before != null) anchorPosition + 1 else anchorPosition
+        notes.place(noteId, target)
+        notes.placeFiling(noteId, userId, target)
         val resolved = get(userId, noteId)
         publishChange(resolved.note)
         return resolved
@@ -435,7 +453,12 @@ class NoteService(
     }
 
 
-    private fun resolve(visible: VisibleNote, viewerId: Int, owner: UserSummary): ResolvedNote {
+    private fun resolve(
+        visible: VisibleNote,
+        viewerId: Int,
+        owner: UserSummary,
+        filing: Filing? = notes.filingsAmong(viewerId, listOf(visible.note.id))[visible.note.id],
+    ): ResolvedNote {
         val note = visible.note
         return ResolvedNote(
             note = note,
@@ -446,6 +469,8 @@ class NoteService(
             linkPreviews = linkPreviews.forDocument(note.document),
             images = images?.listForNote(note.id).orEmpty(),
             docVersion = notes.stepHead(note.id).first,
+            pinned = filing?.pinned ?: false,
+            position = filing?.position ?: note.position,
         )
     }
 
