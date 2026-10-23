@@ -94,7 +94,7 @@
               <Icon name="more-vert" size={20} />
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
-              <DropdownMenu.Content preventScroll={false} class="menu" data-overlay="menu" sideOffset={4} align="end">
+              <DropdownMenu.Content strategy="fixed" preventScroll={false} class="menu" data-overlay="menu" sideOffset={4} align="end">
                 <DropdownMenu.Item class="menu-item" onSelect={() => window.open(preview.url, '_blank', 'noopener')}>
                   <Icon name="open-in-new" size={18} />
                   <span>{t('link.open')}</span>

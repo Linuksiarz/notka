@@ -35,6 +35,11 @@ pnpm run screenshots      # writes the images used in docs/images
 
 Pass a different URL after `--`, for example `pnpm run e2e -- http://127.0.0.1:8090`.
 
+Against the Vite dev server, use `http://localhost:5173`, not `127.0.0.1`: on macOS Vite often
+listens on the IPv6 loopback only (Node resolves `localhost` to `::1` first), and a suite pointed at
+`127.0.0.1:5173` stops at once with `fetch failed` / `ECONNREFUSED`. The backend on :8080 answers on
+both.
+
 ## What each script covers
 
 | Script | Needs a server | Needs `pnpm preview` | Checks |

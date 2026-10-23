@@ -316,7 +316,7 @@
               <Icon name="add-alert" size={barIcon} />
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Content
+              <Popover.Content strategy="fixed"
                 data-overlay="selection-picker"
                 class="reminder-picker selection-picker"
                 sideOffset={8}
@@ -348,7 +348,7 @@
               <Icon name="palette" size={barIcon} />
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Content
+              <Popover.Content strategy="fixed"
                 data-overlay="selection-picker"
                 class="selection-picker"
                 sideOffset={8}
@@ -396,7 +396,7 @@
           <DropdownMenu.Portal>
             <!-- "Add label" hands the open panel to the label picker, so the menu must not hand the
                  focus back to its trigger, which is outside the picker and would close it. -->
-            <DropdownMenu.Content
+            <DropdownMenu.Content strategy="fixed"
               preventScroll={false}
               data-overlay="selection-menu"
               class="menu"
@@ -426,7 +426,7 @@
         </span>
         <Popover.Root {...panelFor('labels')}>
           <Popover.Portal>
-            <Popover.Content
+            <Popover.Content strategy="fixed"
               data-overlay="selection-picker"
               class="selection-picker"
               customAnchor={moreAnchor}
@@ -519,7 +519,7 @@
         <Icon name="settings" size={barIcon} />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content preventScroll={false} class="settings-menu" sideOffset={0} align="start">
+        <DropdownMenu.Content strategy="fixed" preventScroll={false} class="settings-menu" sideOffset={0} align="start">
           <DropdownMenu.Item class="settings-menu-item" onSelect={onOpenSettings}>
             {t('topbar.settingsItem')}
           </DropdownMenu.Item>
@@ -548,7 +548,7 @@
           <Avatar user={session.user} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content preventScroll={false} class="menu" sideOffset={8} align="end">
+          <DropdownMenu.Content strategy="fixed" preventScroll={false} class="menu" sideOffset={8} align="end">
             <div class="identity">
               <strong>{session.user.displayName}</strong>
               <span>{accountName(session.user)}</span>

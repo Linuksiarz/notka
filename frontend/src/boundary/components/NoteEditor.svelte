@@ -953,7 +953,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           />
         </Popover.Trigger>
         <Popover.Portal>
-          <Popover.Content data-overlay='editor-picker' class="reminder-picker" sideOffset={8} align="end" collisionPadding={8}>
+          <Popover.Content strategy="fixed" data-overlay='editor-picker' class="reminder-picker" sideOffset={8} align="end" collisionPadding={8}>
             <ReminderPicker
               reminderAt={currentNote?.reminderAt}
               reminderRepeat={currentNote?.reminderRepeat}
@@ -1250,7 +1250,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                 <Icon name="label" size={18} />
               </Popover.Trigger>
               <Popover.Portal>
-                <Popover.Content
+                <Popover.Content strategy="fixed"
                   data-overlay="editor-picker"
                   class="editor-picker"
                   side="top"
@@ -1279,7 +1279,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                 <Icon name="palette" size={barIcon} />
               </Popover.Trigger>
               <Popover.Portal>
-                <Popover.Content data-overlay='editor-picker' class="editor-picker" side="top" sideOffset={8} align="start" collisionPadding={8}>
+                <Popover.Content strategy="fixed" data-overlay='editor-picker' class="editor-picker" side="top" sideOffset={8} align="start" collisionPadding={8}>
                   <AppearancePicker
                     color={draft.color}
                     background={draft.background}
@@ -1330,7 +1330,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                 <Icon name="more-vert" size={barIcon} />
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content preventScroll={false} data-overlay='editor-menu' class="editor-menu" side="top" sideOffset={8} align="end" collisionPadding={8}>
+                <DropdownMenu.Content strategy="fixed" preventScroll={false} data-overlay='editor-menu' class="editor-menu" side="top" sideOffset={8} align="end" collisionPadding={8}>
                 <DropdownMenu.Item class="editor-menu-item" onSelect={deleteNote}>
                   {t('card.deleteNote')}
                 </DropdownMenu.Item>

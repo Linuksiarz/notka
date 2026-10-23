@@ -392,7 +392,7 @@
           <Popover.Portal>
             <!-- Measured from the original: the picker is centred on the card and sits 2px under its
                  bottom edge, not aligned to the button that opened it. -->
-            <Popover.Content
+            <Popover.Content strategy="fixed"
               collisionPadding={8}
               data-overlay='note-picker'
               class="note-picker"
@@ -423,7 +423,7 @@
               <Icon name={note.reminderAt != null ? 'notifications-active' : 'add-alert'} size={18} />
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Content
+              <Popover.Content strategy="fixed"
                 data-overlay="note-picker"
                 class="reminder-picker note-reminder"
                 sideOffset={8}
@@ -473,7 +473,7 @@
       </button>
       <Popover.Root {...openFor('label')}>
           <Popover.Portal>
-            <Popover.Content
+            <Popover.Content strategy="fixed"
               data-overlay="note-picker"
               class="note-picker"
               customAnchor={cardElement}
@@ -514,7 +514,7 @@
           <DropdownMenu.Portal>
             <!-- Picking "Add label" hands the open panel to the label picker: the menu must not then hand the
                  focus back to its trigger, which is outside the picker and closes it. -->
-            <DropdownMenu.Content
+            <DropdownMenu.Content strategy="fixed"
               preventScroll={false}
               data-overlay="note-menu"
               class="note-menu"
