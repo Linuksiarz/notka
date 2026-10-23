@@ -18,7 +18,7 @@ brew install jpeg-xl                    # once, for the screenshots: provides cj
 ## Running
 
 Every script takes the base URL as its first argument and defaults to `http://127.0.0.1:8080`.
-Start the app the way you would normally run it (see the repository README) — with
+Start the app the way you would normally run it (see [`CONTRIBUTING.md`](../../CONTRIBUTING.md)) — with
 `NOTKA_AUTH_ATTEMPTS_PER_MINUTE=10000`, because the suites register and sign in far more often
 than the production limit of 10 a minute allows from one address, and with the administrator the
 suites sign in as: `NOTKA_ADMIN_USERNAME=admin NOTKA_ADMIN_PASSWORD=e2e-admin-password` on an empty

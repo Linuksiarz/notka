@@ -30,6 +30,9 @@ Repository layout:
 ```
 notka/
 ├── AGENTS.md            <- you are here
+├── README.md            <- what Notka is and how to deploy it, nothing else
+├── CONTRIBUTING.md      <- running from source, tests, building, releasing, architecture
+├── ROADMAP.md           <- what is planned and what Google Keep has that Notka does not
 ├── backend/             <- Kotlin/Ktor service, SQLite persistence, owns :backend Gradle project
 ├── frontend/            <- Svelte + TypeScript PWA
 ├── apk/                 <- Android app: Capacitor shell that opens the reader's server (apk/README.md)

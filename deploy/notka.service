@@ -14,7 +14,7 @@
 
 [Unit]
 Description=Notka notes server
-Documentation=https://github.com/Linuksiarz/OpenKeep
+Documentation=https://github.com/Linuksiarz/notka
 After=network-online.target
 Wants=network-online.target
 
