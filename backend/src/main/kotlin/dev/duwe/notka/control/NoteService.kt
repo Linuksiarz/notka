@@ -40,6 +40,9 @@ const val MAX_STEPS_PER_WRITE: Int = 2000
 /** An editor names itself with a short random id; anything longer is not one. */
 const val MAX_CLIENT_ID_LENGTH: Int = 64
 
+/** Somebody else's content edit this reader has not opened the note since: who, and when. */
+data class UnseenEdit(val editor: UserSummary, val at: Long)
+
 /** A share together with the account it points at. */
 data class ShareWithUser(val user: UserSummary, val permission: String)
 
@@ -63,6 +66,8 @@ data class ResolvedNote(
     val pinned: Boolean = false,
     /** Where this reader has the note: its own place once it pinned or unpinned it, else the shared one. */
     val position: Long = note.position,
+    /** The edit a card names as "edited by", or `null` when the reader has seen the note since. */
+    val unseenEdit: UnseenEdit? = null,
 ) {
     val color: String get() = note.color
     val background: String? get() = note.background
@@ -140,11 +145,18 @@ class NoteService(
         val records = notes.listVisible(userId, view, labelId)
         val owners = users.findSummaries(records.map { it.ownerId }.distinct())
         val filings = notes.filingsAmong(userId, records.map { it.id })
+        val reads = readsAmong(userId, records)
         return records.map { note ->
             val noteAccess = checkNotNull(access.accessFor(userId, note)) {
                 "Note ${note.id} was listed but is not accessible"
             }
-            resolve(VisibleNote(note, noteAccess), userId, owners[note.ownerId] ?: ownerSummary(note), filings[note.id])
+            resolve(
+                VisibleNote(note, noteAccess),
+                userId,
+                owners[note.ownerId] ?: ownerSummary(note),
+                filings[note.id],
+                reads.unseenEdit(note),
+            )
         }.sortedWith(compareByDescending<ResolvedNote> { it.pinned }.thenByDescending { it.position })
     }
 
@@ -157,17 +169,39 @@ class NoteService(
     fun reminders(userId: Int): List<ResolvedNote> {
         val records = notes.listWithReminders(userId)
         val owners = users.findSummaries(records.map { it.ownerId }.distinct())
+        val reads = readsAmong(userId, records)
         return records.map { note ->
             val noteAccess = checkNotNull(access.accessFor(userId, note)) {
                 "Note ${note.id} was listed but is not accessible"
             }
-            resolve(VisibleNote(note, noteAccess), userId, owners[note.ownerId] ?: ownerSummary(note))
+            resolve(
+                VisibleNote(note, noteAccess),
+                userId,
+                owners[note.ownerId] ?: ownerSummary(note),
+                unseenEdit = reads.unseenEdit(note),
+            )
         }
     }
 
     fun get(userId: Int, noteId: Int): ResolvedNote {
         val visible = access.requireVisible(userId, noteId)
-        return resolve(visible, userId, ownerSummary(visible.note))
+        return resolve(
+            visible,
+            userId,
+            ownerSummary(visible.note),
+            unseenEdit = readsAmong(userId, listOf(visible.note)).unseenEdit(visible.note),
+        )
+    }
+
+    /**
+     * Records that [userId] opened the note: the "edited by" marker goes away for that reader alone,
+     * until somebody else writes the note's content again. Nobody else is told, and the note's version
+     * stays — like a pin, it is the reader's own business.
+     */
+    fun markSeen(userId: Int, noteId: Int): ResolvedNote {
+        val note = access.requireVisible(userId, noteId).note
+        notes.markSeen(noteId, userId, note.editedAt)
+        return get(userId, noteId)
     }
 
     fun create(userId: Int, command: CreateNoteCommand): ResolvedNote {
@@ -215,6 +249,7 @@ class NoteService(
             background = background,
             reminder = command.reminder,
             updatedAt = clock(),
+            editedBy = userId.takeIf { touchesContent(command) },
             expectedVersion = command.expectedVersion,
         )
         val changed = notes.update(noteId, fields)
@@ -261,16 +296,22 @@ class NoteService(
                 mapOf("noteId" to noteId.toString()),
             )
         }
-        val fields = NoteFields(kind = kind, title = command.title, document = document, updatedAt = clock())
+        val changed = command.steps.isNotEmpty() ||
+            (command.title != null && command.title != previous.title) ||
+            (kind != null && kind != previous.kind)
+        val fields = NoteFields(
+            kind = kind,
+            title = command.title,
+            document = document,
+            updatedAt = clock(),
+            editedBy = userId.takeIf { changed },
+        )
         notes.appendSteps(noteId, command.docVersion, command.clientId, command.steps, fields)
             ?: throw DomainException.conflict(
                 ErrorKeys.NOTE_STEPS_BEHIND,
                 "Note $noteId is past body version ${command.docVersion}",
                 mapOf("noteId" to noteId.toString()),
             )
-        val changed = command.steps.isNotEmpty() ||
-            (command.title != null && command.title != previous.title) ||
-            (kind != null && kind != previous.kind)
         if (changed) versions.archive(NoteVersion.of(previous, authorId = userId, createdAt = clock()))
         val resolved = get(userId, noteId)
         linkPreviews.refresh(document) { publishChange(get(userId, noteId).note) }
@@ -458,6 +499,7 @@ class NoteService(
         viewerId: Int,
         owner: UserSummary,
         filing: Filing? = notes.filingsAmong(viewerId, listOf(visible.note.id))[visible.note.id],
+        unseenEdit: UnseenEdit? = null,
     ): ResolvedNote {
         val note = visible.note
         return ResolvedNote(
@@ -471,7 +513,32 @@ class NoteService(
             docVersion = notes.stepHead(note.id).first,
             pinned = filing?.pinned ?: false,
             position = filing?.position ?: note.position,
+            unseenEdit = unseenEdit,
         )
+    }
+
+    /**
+     * What one reader last saw of a batch of notes, and who edited them, read once for the batch.
+     * A note is marked while its last content edit is somebody else's and newer than what the reader
+     * saw of it; a reader who never opened it has seen nothing yet.
+     */
+    private class Reads(
+        private val viewerId: Int,
+        private val seen: Map<Int, Long>,
+        private val editors: Map<Int, UserSummary>,
+    ) {
+        fun unseenEdit(note: Note): UnseenEdit? {
+            val editorId = note.editedBy ?: return null
+            if (editorId == viewerId) return null
+            val seenAt = seen[note.id]
+            if (seenAt != null && seenAt >= note.editedAt) return null
+            return editors[editorId]?.let { UnseenEdit(it, note.editedAt) }
+        }
+    }
+
+    private fun readsAmong(viewerId: Int, records: List<Note>): Reads {
+        val editorIds = records.mapNotNull { it.editedBy }.filter { it != viewerId }.distinct()
+        return Reads(viewerId, notes.seenAmong(viewerId, records.map { it.id }), users.findSummaries(editorIds))
     }
 
     private fun sharesWithUsers(noteId: Int): List<ShareWithUser> {

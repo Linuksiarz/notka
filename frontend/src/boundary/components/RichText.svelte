@@ -232,7 +232,14 @@
     // left blinking in the note. Android's Back takes the keyboard down and leaves the editable
     // focused; iOS's ✓ blurs it but leaves the selection in it, where WebKit drew a caret again — at
     // the end of the document, under the completed rows, as if one of them were being edited. So the
-    // keyboard leaving lets go of the focus, and a phone's blur lets go of the selection too.
+    // keyboard leaving lets go of the focus, and a blur lets go of the selection too.
+    //
+    // **An editor without the focus keeps no selection in the page**, on any device. A ⋮ menu or a
+    // picker takes the focus when it opens, and its trigger keeps the browser from moving the selection
+    // (bits-ui prevents the press's default), so a caret was left inside the note's editable text while
+    // the menu had the focus — and Firefox drew it at the start of the open menu. The original never
+    // gets there: measured on keep.google.com, its selection is out of the note once the menu is open.
+    // ProseMirror keeps its own selection, so focusing the note again (or undo) puts the caret back.
     let keyboardUp = false;
     const followKeyboard = () => {
       const covered = parseFloat(getComputedStyle(window.document.documentElement).getPropertyValue('--vv-covered')) || 0;
@@ -240,9 +247,7 @@
       if (keyboardUp && !up) releaseCaret();
       keyboardUp = up;
     };
-    const onBlur = () => {
-      if (ui.phone) releaseCaret();
-    };
+    const onBlur = () => releaseCaret();
     window.visualViewport?.addEventListener('resize', followKeyboard);
     editor.view.dom.addEventListener('blur', onBlur);
     return () => {

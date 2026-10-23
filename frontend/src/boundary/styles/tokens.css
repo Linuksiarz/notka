@@ -25,7 +25,16 @@
   /* The stack Google Keep sets. Both faces ship with the app — see `main.ts` for why they are
      bundled instead of linked, and note that Google Sans comes from Google Fonts under the OFL. */
   --keep-font: 'Google Sans', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', system-ui, sans-serif;
+  /* The original's ⋮ menus are set in Roboto alone (measured, 2026-10-23). */
+  --keep-font-menu: Roboto, 'Helvetica Neue', Arial, 'Noto Sans', system-ui, sans-serif;
   --keep-surface: #ffffff;
+  /* The ⋮ menus (`.keep-menu` in `global.css`), measured off the original's DOM (2026-10-23,
+     docs/METRICS.md): Roboto, not Google Sans, and their own ink, hover and divider. */
+  --keep-menu-text: rgb(51, 51, 51);
+  --keep-menu-hover: rgba(0, 0, 0, 0.08);
+  --keep-menu-divider: rgb(218, 220, 224);
+  /* A note's "Edited" on the desktop, read off the original's DOM (2026-10-23). */
+  --keep-edited-ink: rgba(0, 0, 0, 0.8);
   --keep-search-bg: #f1f3f4;
   /* The search page's filter panels, measured off the original (light theme): a flat white card with
      Material's elevation-1, blue "type" tiles and grey label tiles. */
@@ -158,6 +167,11 @@
   --keep-avatar-card-gap: 4px;
   --keep-avatar-editor: 24px;
   --keep-avatar-editor-gap: 4px;
+  /* A card's "edited by" marker (docs/METRICS.md, "Edited by"): the editor's avatar inside a 2px white
+     ring, over a scrim that is the same in both themes; a marked card's content is at least as tall. */
+  --keep-edited-by-avatar: 28px;
+  --keep-edited-by-scrim: rgba(0, 0, 0, 0.6);
+  --keep-edited-by-height: 128px;
   /* A card's pin over a picture, the same in both themes (the original's own sprite, 2026-10-19):
      dark ink on a white silhouette, the whole glyph at 71%. */
   --keep-pin-on-picture: #202124;
@@ -296,6 +310,12 @@
   --keep-format-active: rgb(61, 61, 61);
   --keep-divider: #5f6368;
   --keep-hover: rgba(232, 234, 237, 0.08);
+  /* Read off the owner's screenshot of the original's dark menu: rgb(68,69,71) over rgb(32,33,36). */
+  --keep-menu-text: rgb(232, 234, 237);
+  --keep-menu-hover: rgba(255, 255, 255, 0.16);
+  --keep-menu-divider: rgb(95, 99, 105);
+  /* Off the owner's screenshot of the original's dark editor: the note's ink at about 90%. */
+  --keep-edited-ink: rgba(232, 234, 237, 0.9);
   --keep-active: var(--theme-highlight-dark, #1d3b3a);
   --keep-active-fg: #e8eaed;
 

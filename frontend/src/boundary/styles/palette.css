@@ -49,6 +49,9 @@
 }
 
 [data-color='default'] {
+  /* A plain note's colour is the surface, so the desktop editor's card and bar can wear "the note's
+     colour" whether or not one was chosen (a background's tint is `--note-bg`, never the colour). */
+  --note-color: var(--keep-surface);
   --note-bg: var(--keep-surface);
   --note-border: var(--keep-border);
   --note-swatch: #ffffff;
@@ -190,8 +193,8 @@
    (`docs/THEMES.md`). The built-in theme is Notka's own CC0 artwork in `public/backgrounds`; an
    imported theme replaces it through `--theme-art-<id>-<light|dark>`, `--theme-tint-<id>` and
    `--theme-tint-dark-<id>` — and gives the phone editor's buttons a fill of their own on it through
-   `--theme-tonal(-dark)-<id>` (`--note-background-tonal`, unset for the built-in artwork, so its buttons
-   keep the note colour's fill) — which
+   `--theme-tonal(-dark)-<id>` (`--note-background-tonal`; the built-in artwork's is a lighter step of
+   its own tint) — which
    `control/state/backgroundThemes.svelte.ts` sets on the root. A background covers the whole surface
    and crops to whatever shape the card has, which is why these are `cover` — and it crops from the
    top left, keeping the **bottom right corner**, as the original's do: a wide card shows the picture's
@@ -203,110 +206,110 @@
 }
 
 [data-background='groceries'] {
-  --note-background-tonal: var(--theme-tonal-groceries);
-  --note-bg: var(--theme-tint-groceries, #ebf0dc);
+  --note-background-tonal: var(--theme-tonal-groceries, #fbf6ea);
+  --note-bg: var(--theme-tint-groceries, #f4ecdb);
   background-image: var(--theme-art-groceries-light, url('/backgrounds/groceries-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='groceries'] {
-  --note-background-tonal: var(--theme-tonal-dark-groceries);
-  --note-bg: var(--theme-tint-dark-groceries, #2a3123);
+  --note-background-tonal: var(--theme-tonal-dark-groceries, #3b5040);
+  --note-bg: var(--theme-tint-dark-groceries, #2a3a2b);
   background-image: var(--theme-art-groceries-dark, url('/backgrounds/groceries-dark.svg'));
 }
 
 [data-background='food'] {
-  --note-background-tonal: var(--theme-tonal-food);
-  --note-bg: var(--theme-tint-food, #fbe4d8);
+  --note-background-tonal: var(--theme-tonal-food, #fdeee5);
+  --note-bg: var(--theme-tint-food, #fadfd0);
   background-image: var(--theme-art-food-light, url('/backgrounds/food-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='food'] {
-  --note-background-tonal: var(--theme-tonal-dark-food);
-  --note-bg: var(--theme-tint-dark-food, #352621);
+  --note-background-tonal: var(--theme-tonal-dark-food, #523d3a);
+  --note-bg: var(--theme-tint-dark-food, #3a2b29);
   background-image: var(--theme-art-food-dark, url('/backgrounds/food-dark.svg'));
 }
 
 [data-background='music'] {
-  --note-background-tonal: var(--theme-tonal-music);
-  --note-bg: var(--theme-tint-music, #e2e5f5);
+  --note-background-tonal: var(--theme-tonal-music, #e6f5f3);
+  --note-bg: var(--theme-tint-music, #d3ebe8);
   background-image: var(--theme-art-music-light, url('/backgrounds/music-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='music'] {
-  --note-background-tonal: var(--theme-tonal-dark-music);
-  --note-bg: var(--theme-tint-dark-music, #25263a);
+  --note-background-tonal: var(--theme-tonal-dark-music, #3e4066);
+  --note-bg: var(--theme-tint-dark-music, #2a2b48);
   background-image: var(--theme-art-music-dark, url('/backgrounds/music-dark.svg'));
 }
 
 [data-background='recipes'] {
-  --note-background-tonal: var(--theme-tonal-recipes);
-  --note-bg: var(--theme-tint-recipes, #fdf0d6);
+  --note-background-tonal: var(--theme-tonal-recipes, #feeadb);
+  --note-bg: var(--theme-tint-recipes, #fcdcc0);
   background-image: var(--theme-art-recipes-light, url('/backgrounds/recipes-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='recipes'] {
-  --note-background-tonal: var(--theme-tonal-dark-recipes);
-  --note-bg: var(--theme-tint-dark-recipes, #33291c);
+  --note-background-tonal: var(--theme-tonal-dark-recipes, #653e34);
+  --note-bg: var(--theme-tint-dark-recipes, #4a2c25);
   background-image: var(--theme-art-recipes-dark, url('/backgrounds/recipes-dark.svg'));
 }
 
 [data-background='notes'] {
-  --note-background-tonal: var(--theme-tonal-notes);
-  --note-bg: var(--theme-tint-notes, #e9ecf5);
+  --note-background-tonal: var(--theme-tonal-notes, #e9f1f4);
+  --note-bg: var(--theme-tint-notes, #d8e5ea);
   background-image: var(--theme-art-notes-light, url('/backgrounds/notes-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='notes'] {
-  --note-background-tonal: var(--theme-tonal-dark-notes);
-  --note-bg: var(--theme-tint-dark-notes, #25272f);
+  --note-background-tonal: var(--theme-tonal-dark-notes, #384a72);
+  --note-bg: var(--theme-tint-dark-notes, #263452);
   background-image: var(--theme-art-notes-dark, url('/backgrounds/notes-dark.svg'));
 }
 
 [data-background='places'] {
-  --note-background-tonal: var(--theme-tonal-places);
-  --note-bg: var(--theme-tint-places, #dcefeb);
+  --note-background-tonal: var(--theme-tonal-places, #ebf7f1);
+  --note-bg: var(--theme-tint-places, #dcefe6);
   background-image: var(--theme-art-places-light, url('/backgrounds/places-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='places'] {
-  --note-background-tonal: var(--theme-tonal-dark-places);
-  --note-bg: var(--theme-tint-dark-places, #1f2e2c);
+  --note-background-tonal: var(--theme-tonal-dark-places, #2a544e);
+  --note-bg: var(--theme-tint-dark-places, #1c3a36);
   background-image: var(--theme-art-places-dark, url('/backgrounds/places-dark.svg'));
 }
 
 [data-background='travel'] {
-  --note-background-tonal: var(--theme-tonal-travel);
-  --note-bg: var(--theme-tint-travel, #dbeaf7);
+  --note-background-tonal: var(--theme-tonal-travel, #e0f4f8);
+  --note-bg: var(--theme-tint-travel, #c8e9f1);
   background-image: var(--theme-art-travel-light, url('/backgrounds/travel-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='travel'] {
-  --note-background-tonal: var(--theme-tonal-dark-travel);
-  --note-bg: var(--theme-tint-dark-travel, #1f2836);
+  --note-background-tonal: var(--theme-tonal-dark-travel, #1f4b70);
+  --note-bg: var(--theme-tint-dark-travel, #0f3350);
   background-image: var(--theme-art-travel-dark, url('/backgrounds/travel-dark.svg'));
 }
 
 [data-background='video'] {
-  --note-background-tonal: var(--theme-tonal-video);
-  --note-bg: var(--theme-tint-video, #f5e2ef);
+  --note-background-tonal: var(--theme-tonal-video, #fdf1d9);
+  --note-bg: var(--theme-tint-video, #f9e6bf);
   background-image: var(--theme-art-video-light, url('/backgrounds/video-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='video'] {
-  --note-background-tonal: var(--theme-tonal-dark-video);
-  --note-bg: var(--theme-tint-dark-video, #2f2330);
+  --note-background-tonal: var(--theme-tonal-dark-video, #543e5a);
+  --note-bg: var(--theme-tint-dark-video, #3b2b3f);
   background-image: var(--theme-art-video-dark, url('/backgrounds/video-dark.svg'));
 }
 
 [data-background='celebration'] {
-  --note-background-tonal: var(--theme-tonal-celebration);
-  --note-bg: var(--theme-tint-celebration, #fde3e1);
+  --note-background-tonal: var(--theme-tonal-celebration, #fde3da);
+  --note-bg: var(--theme-tint-celebration, #fbd0c3);
   background-image: var(--theme-art-celebration-light, url('/backgrounds/celebration-light.svg'));
 }
 
 :root[data-theme='dark'] [data-background='celebration'] {
-  --note-background-tonal: var(--theme-tonal-dark-celebration);
-  --note-bg: var(--theme-tint-dark-celebration, #352223);
+  --note-background-tonal: var(--theme-tonal-dark-celebration, #224d54);
+  --note-bg: var(--theme-tint-dark-celebration, #13353a);
   background-image: var(--theme-art-celebration-dark, url('/backgrounds/celebration-dark.svg'));
 }
 

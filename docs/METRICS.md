@@ -236,11 +236,26 @@ owner's own 412×893 screenshots of both apps.
 - **The header lifts when the page scrolls**: its 1px line becomes transparent and a shadow takes
   its place (Material's raised app bar), and it goes flat again at the top. Ours kept the line
   for ever, which the owner spotted before any tooling did.
-- **The editor's bottom bar wears the note's background**, picture included: the bar, the
-  "Edited …" line and the link previews are transparent, so a note's artwork runs under them to the
-  note's bottom edge. An earlier reading made them opaque in the note's `--note-bg`
-  (`rgb(241,228,222)` for `#f1e4de`); the owner, looking at it, overruled that (2026-10-16: "ten
-  pasek powinien mieć tło notatki a nie jednolite tło koloru notatki").
+- **The desktop editor's bottom bar is a solid strip in the note's colour, without the picture**:
+  the artwork runs behind the note's lines, the "Edited …" line and the link previews, which stay
+  transparent, and stops at the bar. **Re-measured off the original's DOM on 2026-10-23** (a note
+  with the groceries background and no colour, 1440×900): the card is the note's *colour* — white,
+  `--keep-surface` in the dark theme, never the background's tint, which a plain note has no other
+  colour than — and the picture sits on its own element covering only the lines above the bar
+  (`background-size: cover; background-position: 100% 100%`), so it is sized by those lines and the
+  artwork's bottom right meets the bar. Ours: the card wears `--note-color` (a plain note's is the
+  surface), the bar is see-through to it, and `.canvas` carries the picture and its tint. Our bar
+  had been the background's tint (blue on a plain note), and the picture was sized by the whole card,
+  bar included, which showed another part of it. The colour picker hangs from the palette button,
+  **15px** in from its left edge and **4px** over its bottom edge (494,357 under a button at
+  479,327–361), 10px corners. The "Edited" line is 12px/16px **Roboto 400**, `letter-spacing: 0.3px`,
+  `rgba(0,0,0,0.8)` (`--keep-edited-ink`; about 90% of the note's ink in the dark theme, read off the
+  owner's screenshot) — ours had been the fainter secondary grey without the tracking. Read off the
+  owner's screenshot of the original's desktop editor (2026-10-23: a dark slate note with the food
+  background, its bar the slate itself). This overrules the owner's own earlier call (2026-10-16:
+  "ten pasek powinien mieć tło notatki a nie jednolite tło koloru notatki"), which had made the bar
+  transparent; the screenshot of the original is what settled it. **The phone keeps its transparent
+  bar** and, on an iPhone, its glass capsules: the Android app's buttons lie on the picture.
 - **The scrollbar is the browser's own, and it is there from the start**: the root reserves it
   (`overflow-y: scroll`), which also keeps the centring from shifting sideways when the notes grow
   past the window. Do **not** restyle it — we once shipped a slimmer one and the owner saw it as
@@ -523,6 +538,38 @@ measured one (pin, reminder, colour — `PhoneSelectionBar.svelte`), then archiv
 label* and *Make a copy* in the ⋮ the way a card's own menu has them. The buttons are the bar's own,
 measured 24px glyphs; the pickers are the card's own panels. Replace this with a measurement when one
 is taken.
+
+### The ⋮ menu (2026-10-23)
+
+Read off the original's DOM (keep.google.com at 1440×900, light theme, the owner's account) for both
+the card's and the editor's menu, which are one component there; the dark values come off the owner's
+screenshot of the original. Ours is `.keep-menu` in `global.css`, used by both.
+
+| What | The original's |
+| --- | --- |
+| Where | Below the ⋮ button, its left edge on the button's left edge, **no gap** (menu top = button bottom); when the window has no room below, above it, its bottom edge on the button's top edge. Measured both ways: a card's menu at 353,372 under a button at 353,338–372; the editor's at 729,475.8–811.8 over a button at 729,811.8. |
+| Box | `padding: 6px 0`, 4px corners, white (`#202124` dark), no minimum width (231.6px with Polish entries), the popover shadow |
+| Rows | 32px: 14px/20px Roboto 400, `padding: 5px 10px 5px 17px`, ink `rgb(51,51,51)` (`rgb(232,234,237)` dark) |
+| Hover | `rgba(0,0,0,0.08)`; dark `rgb(68,69,71)` over `rgb(32,33,36)`, i.e. white at 16% |
+| "Delete note" | Always last, 4px further down, under a 1px rule inset 12px from either side, 2px above the row: `rgb(218,220,224)` (`rgb(95,99,105)` dark) |
+| Order, editor (list) | Add label, Add drawing, Make a copy, Uncheck all items, Delete checked items, Hide checkboxes, Grab image text, Copy to Google Docs, Version history, — Delete note |
+| Order, card | Change labels, Add drawing, Make a copy, Show checkboxes, Copy to Google Docs, Version history, — Delete note |
+
+Ours leaves out what Notka does not have (drawings, image text) and puts "Download as Markdown" where
+"Copy to Google Docs" stands. The editor's "Add label" is the first button of our desktop bar instead,
+and the card's menu has no "Version history" (it opens from the editor).
+
+### Edited by
+
+Google Keep marks a shared note's card with the collaborator who edited it since the reader last
+opened it (`unseenEdit`, `docs/API.md`). Read off the owner's screenshot of the original's desktop
+card (2026-10-23, a 240px card at 2×): the editor's avatar, **~31px across with a 2px white ring**
+(ours: 28px inside 2px, `--keep-edited-by-avatar`), its left edge **16px** in from the card's; under
+it the name in **bold white, ~14px**, and "Edited 7:27 AM" in white at **~12px** — the editor's own
+"Edited" wording (`formatEditedAt`). It sits at the bottom of the content, over the list and the
+artwork, on a gradient that darkens toward the bottom (ours: transparent to 60% black,
+`--keep-edited-by-scrim`), with the collaborators' row of 24px circles still below it. A marked
+card's content is at least `--keep-edited-by-height` tall, so the marker never covers the title.
 
 ### Collaborators
 

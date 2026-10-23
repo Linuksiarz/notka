@@ -53,6 +53,7 @@ fun ResolvedNote.toDto(): NoteDto = NoteDto(
     shares = shares.map { it.toDto() },
     linkPreviews = linkPreviews.map { it.toDto() },
     images = images.map { NoteImageDto(it.id, it.width, it.height, it.contentType) },
+    unseenEdit = unseenEdit?.let { UnseenEditDto(it.editor.toDto(), it.at) },
 )
 
 fun LinkPreview.toDto(): LinkPreviewDto = LinkPreviewDto(

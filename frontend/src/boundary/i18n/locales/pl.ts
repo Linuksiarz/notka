@@ -51,6 +51,7 @@ export const pl: Messages = {
   'composer.placeholder': 'Utwórz notatkę…',
   'composer.newList': 'Nowa lista',
 
+  'card.editedBy': 'Edytowane przez: {name}',
   'card.note': 'Notatka',
   'card.addLabel': 'Dodaj etykietę',
   /* --- podglądy linków -------------------------------------------------------------- */

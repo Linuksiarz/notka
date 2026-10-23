@@ -55,6 +55,8 @@ object Migrations {
             reminder_repeat TEXT,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
+            edited_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            edited_at  INTEGER NOT NULL,
             version    INTEGER NOT NULL DEFAULT 1
         )
         """.trimIndent(),
@@ -64,6 +66,14 @@ object Migrations {
             user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             pinned     INTEGER NOT NULL,
             position   INTEGER NOT NULL,
+            PRIMARY KEY (note_id, user_id)
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS note_reads (
+            note_id    INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            seen_at    INTEGER NOT NULL,
             PRIMARY KEY (note_id, user_id)
         )
         """.trimIndent(),

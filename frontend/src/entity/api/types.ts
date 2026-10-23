@@ -126,6 +126,15 @@ export interface NoteImage {
   contentType: string;
 }
 
+/**
+ * Somebody else's edit of a note's content that this reader has not opened the note since: the
+ * card's "edited by" marker, as in Google Keep. Opening the note takes it away, for this reader alone.
+ */
+export interface UnseenEdit {
+  user: User;
+  at: number;
+}
+
 export interface Note {
   id: number;
   kind: NoteKind;
@@ -169,6 +178,8 @@ export interface Note {
   labels: Label[];
   /** Present only when the requesting user owns the note. */
   shares?: NoteShare[];
+  /** Absent unless somebody else edited the content since this reader last opened the note. */
+  unseenEdit?: UnseenEdit;
 }
 
 export interface ApiErrorBody {

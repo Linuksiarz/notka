@@ -23,11 +23,14 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* What can be selected: the text fields, the note, and the overlays that hold text to read. A ⋮ menu
+   and a picker are chrome like the rest of the app: focused when they open, a selectable one is where
+   Safari and Firefox drew a blinking caret, at the menu's first row. */
 input,
 textarea,
 .editor,
 .note-body,
-[data-overlay] {
+[data-overlay]:not([role='menu']):not([data-overlay$='-picker']) {
   user-select: text;
 }
 
@@ -148,4 +151,51 @@ a {
 :root[data-motion='reduced'] *::after {
   animation-duration: 0.01ms !important;
   transition-duration: 0.01ms !important;
+}
+
+/*
+ * The ⋮ menus of a card and of the editor, the original's one menu (measured off its DOM on
+ * 2026-10-23, docs/METRICS.md): 6px above and below, 32px rows of 14px/20px Roboto with 5px 10px 5px
+ * 17px of padding, no minimum width, 4px corners. "Delete note" stands last, 4px further down, under a
+ * 1px rule inset 12px from either side. bits-ui renders the menu in a portal, so this is global.
+ */
+.keep-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  border-radius: 4px;
+  background: var(--keep-surface);
+  color: var(--keep-menu-text);
+  box-shadow: var(--keep-shadow-popover);
+  font-family: var(--keep-font-menu);
+}
+
+.keep-menu-item {
+  position: relative;
+  /* The original's rows carry a transparent 1px border: 20px of line, 10px of padding, 2px of it. */
+  border: 1px solid transparent;
+  padding: 5px 10px 5px 17px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.keep-menu-item[data-highlighted] {
+  background: var(--keep-menu-hover);
+}
+
+.keep-menu-item.after-rule {
+  margin-top: 4px;
+}
+
+.keep-menu-item.after-rule::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: var(--keep-menu-divider);
 }

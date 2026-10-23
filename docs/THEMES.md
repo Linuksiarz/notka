@@ -7,7 +7,7 @@ same note, each in their own pictures.
 
 | Theme | Where | Licence |
 | --- | --- | --- |
-| **Notka** (built-in) | `frontend/public/backgrounds/<id>-<light\|dark>.svg`, drawn by `tools/generate-backgrounds.py` | CC0 1.0 |
+| **Notka** (built-in) | `frontend/public/backgrounds/<id>-<light\|dark>.svg`, drawn by `tools/generate-backgrounds.py` ([below](#the-built-in-pictures)) | CC0 1.0 |
 | **Google Keep** (external) | `themes/google-keep/` — the original's own nine illustrations | © Google LLC, not openly licensed; not shipped with the app or the container |
 | your own | uploaded by the administrator | yours |
 
@@ -64,12 +64,45 @@ archive or in one folder.
 | `light` | the picture for the light theme: SVG, PNG, JPEG or WebP |
 | `dark` | the picture for the dark theme; the light one when absent |
 | `tint`, `tintDark` | `#rrggbb`: the colour under the picture — what shows before it loads, in the swatch, and under the editor's bottom bar |
-| `tonal`, `tonalDark` | optional `#rrggbb`: the fill of the phone editor's round buttons on the picture (the Android app's `keep_editor_button_background_<id>`). Without it the buttons are the plain note's translucent fill. |
+| `tonal`, `tonalDark` | optional `#rrggbb`: the fill of the phone editor's round buttons on the picture (the Android app's `keep_editor_button_background_<id>`). Without it the buttons keep the built-in picture's. |
 
-A picture covers the whole note and is cropped to its shape (`background-size: cover`, centred):
-draw it square, keep the subject in the lower middle, and leave the upper left quiet, because that
-is where the note's text sits. The ink is fixed per colour scheme (dark text in the light theme,
-light text in the dark one), so light pictures must stay light and dark ones dark.
+A picture covers the whole note and is cropped to its shape from the **bottom right**
+(`background-size: cover; background-position: right bottom`): a wide note shows the picture's lower
+band and a tall one its right part, and the desktop editor shows only what is above its bottom bar.
+The phone's full-screen editor scales the square to the screen's height and keeps its **right top**,
+so the right half is the whole screen and the keyboard covers its lower part. Draw it square and put
+what is worth looking at in the lower right, where every crop starts. Keep the **top** one flat
+colour, the same as `tint`: on a phone that is under the status bar, which can only take a colour,
+and a flat top is what makes the bar look like part of the picture. The ink is fixed per colour scheme
+(dark text in the light theme, light text in the dark one), so light pictures must stay light and dark
+ones dark.
+
+### The built-in pictures
+
+`tools/generate-backgrounds.py` draws Notka's own nine as flat-colour scenes (1000×1000, about 10–25
+KB each), with the composition the original's have: a flat sky in the upper part, the scene along the
+bottom, its subject in the lower right and something reaching up the right side for the phone. They
+are one family around Notka's sea green (`--keep-brand` `#12a594`, `--keep-brand-fold` `#0b6e63`):
+every scene carries those teals — the crate, the bowl, the record, the book's cover, the hills, the
+park's trees, the sea, the wheel, the presents — set against a sky of its own, with coral, sand and
+butter yellow as the warm accents. The dark variants are the same scenes at dusk.
+
+| Id | Scene | Tint (light / dark) | Tonal (light / dark) |
+| --- | --- | --- | --- |
+| `groceries` | a teal crate of produce, greens and a paper bag | `#f4ecdb` sand / `#2a3a2b` moss | `#fbf6ea` / `#3b5040` |
+| `food` | a teal bowl of noodles, chopsticks, steam | `#fadfd0` peach / `#3a2b29` cocoa | `#fdeee5` / `#523d3a` |
+| `music` | a record setting into the sea, notes flying | `#d3ebe8` aqua mist / `#2a2b48` violet dusk | `#e6f5f3` / `#3e4066` |
+| `recipes` | an open cookbook, ingredients tossed out of it | `#fcdcc0` apricot / `#4a2c25` terracotta | `#feeadb` / `#653e34` |
+| `notes` | misty hills, a pencil drawing the path through them | `#d8e5ea` mist / `#263452` indigo | `#e9f1f4` / `#384a72` |
+| `places` | a city park, a skyline and a map pin | `#dcefe6` mint / `#1c3a36` deep green | `#ebf7f1` / `#2a544e` |
+| `travel` | a beach with a palm, a sailboat, a plane | `#c8e9f1` sky / `#0f3350` ocean | `#e0f4f8` / `#1f4b70` |
+| `video` | a fairground: a ferris wheel and a tent | `#f9e6bf` butter / `#3b2b3f` plum | `#fdf1d9` / `#543e5a` |
+| `celebration` | balloons, presents, bunting and fireworks | `#fbd0c3` coral / `#13353a` teal night | `#fde3da` / `#224d54` |
+
+The tint is the picture's own top colour, and the tonal a lighter step of it. They are the fallbacks
+in `palette.css`, so a theme that replaces a picture without its own `tint` or `tonal` keeps these.
+After changing a scene, run `python3 tools/generate-backgrounds.py frontend/public/backgrounds` and
+copy a changed sky colour into `palette.css` and the table above.
 
 Limits: 5 MB a file, 30 MB an archive, both counted as the archive is unpacked. A PNG, JPEG or WebP
 must be one by its own bytes, and an SVG must contain an `<svg>` element; a file whose contents do

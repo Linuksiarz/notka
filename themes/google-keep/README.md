@@ -33,3 +33,9 @@ curl -o logo.png https://www.gstatic.com/images/branding/productlogos/keep_2026/
 ```
 
 Then pack them as above.
+
+## Its colours
+
+`theme.json`'s `tint`/`tintDark` are each picture's own top colour, read off the SVGs, because on a
+phone the status bar takes the tint and has to look like the top of the picture. `tonal`/`tonalDark`
+are the Android app's `keep_editor_button_background_<id>`, read off its APK (`docs/METRICS.md`).

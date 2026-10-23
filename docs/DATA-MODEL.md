@@ -95,6 +95,8 @@ database file stays the whole state.
 | `version` | INTEGER NOT NULL DEFAULT 1 | bumped on every accepted write; the optimistic-concurrency token |
 | `created_at` | INTEGER NOT NULL | |
 | `updated_at` | INTEGER NOT NULL | |
+| `edited_by` | INTEGER NULL | FK `users(id)` ON DELETE SET NULL; who last wrote the content (title, kind, body), the owner at creation |
+| `edited_at` | INTEGER NOT NULL | when they did; appearance, metadata, pictures and moves leave both alone |
 
 `title` is denormalized out of `content` because the card grid, sorting and (future) search all
 need it without parsing JSON.
@@ -125,6 +127,23 @@ note leads that account's views and nobody else's, and pinning or unpinning take
 section **for that account alone** — everyone else keeps the note's shared `position`, its version and
 its `updated_at`. Anyone who can see the note may pin it, a `VIEW` collaborator too. Taking a share
 away takes that account's row with it. Dragging a note sets the shared `position` and the mover's own.
+
+### `note_reads`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `note_id` | INTEGER NOT NULL | FK `notes(id)` ON DELETE CASCADE |
+| `user_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE |
+| `seen_at` | INTEGER NOT NULL | the note's `edited_at` when this account last opened it |
+| PRIMARY KEY | (`note_id`, `user_id`) | |
+
+**What a reader last saw of a note**, for Google Keep's "edited by" marker on a card: a note is marked
+for an account while its `edited_by` is somebody else and its `edited_at` is newer than that account's
+`seen_at` — or the account has no row, never having opened the note since it was shared with them.
+Opening the note (`POST /api/notes/{id}/seen`) writes the row, so the marker goes away for that reader
+alone and comes back with the next edit by anyone else. The reader's own edits never mark a note,
+because they make the reader its `edited_by`. Like a pin it is the reader's own business: writing it
+moves no version and tells nobody.
 
 ### `note_shares`
 

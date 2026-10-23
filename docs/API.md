@@ -134,6 +134,7 @@ one. `admin` is `true` for the instance's administrator alone.
 | `canChangeAppearance` | `true` for `OWNER` and `EDIT`, `false` for `VIEW`. A change applies to everyone |
 | `labels` | only the requesting user's own labels |
 | `shares` | everyone the note is shared with (the owner is `owner`, never a share); omitted while there is nobody |
+| `unseenEdit` | `{ "user": User, "at": 1767225600000 }`: somebody else wrote the note's content (title, kind or body) at `at` and the caller has not opened the note since — the card's "edited by" marker. Omitted otherwise, and always for the caller's own edits. `POST /api/notes/{id}/seen` takes it away |
 
 ---
 
@@ -334,6 +335,12 @@ keeps everyone's order among themselves as it was. The note's `version` moves on
 are told; `updatedAt` does not, because being moved is not being edited. Response `200`: the `Note`.
 `400 request.invalid_body` without exactly one anchor, or with the note itself as the anchor.
 
+### `POST /api/notes/{id}/seen`
+
+The caller opened the note: its `unseenEdit` goes away for the caller alone, until somebody else
+writes its content again. Anyone who can see the note may send it; no body. It is the caller's own
+business, like a pin: the note's `version` stays and nobody is notified. Response `200`: the `Note`.
+
 ### `POST /api/notes/{id}/images`
 
 Attaches a picture. The body **is** the picture (any `Content-Type`); the server recognises PNG, JPEG,
@@ -473,7 +480,7 @@ Response `200`:
 ```json
 {
   "status": "ok",
-  "version": "1.0.0-rc3",
+  "version": "1.0.0-rc4",
   "demo": false,
   "registrationOpen": true,
   "trashRetentionDays": 30,

@@ -427,4 +427,31 @@ class HttpNotesTest {
     private suspend fun createNote(client: HttpClient, body: String): Int =
         client.postJson("/api/notes", body).asJson().getValue("id").jsonPrimitive.content.toInt()
 
+
+    @Test
+    fun aCollaboratorsEditIsNamedOnTheCardUntilTheNoteIsSeen() = testApplication {
+        // given: Ada shares a note with Bob, and Bob renames it
+        application { notkaModule(fixture.services) }
+        val ada = jsonClient()
+        val bob = jsonClient()
+        ada.postJson("/api/auth/register", REGISTER_ADA)
+        bob.postJson("/api/auth/register", REGISTER_BOB)
+        val noteId = ada.postJson("/api/notes", """{"title":"Ours"}""").asJson().intField("id")
+        ada.postJson("/api/notes/$noteId/shares", """{"email":"bob@example.com","permission":"EDIT"}""")
+        bob.postJson("/api/notes/$noteId/seen", "{}")
+        fixture.now += 1000
+        bob.patchJson("/api/notes/$noteId", """{"title":"Bob's"}""")
+
+        // when: Ada lists her notes, then opens this one
+        val listed = ada.get("/api/notes").asJson().getValue("notes").jsonArray.single().jsonObject
+        val seen = ada.post("/api/notes/$noteId/seen")
+
+        // then: the card named Bob, and after opening it names nobody
+        val edit = listed.getValue("unseenEdit").jsonObject
+        assertEquals("Bob Builder", edit.getValue("user").jsonObject.stringField("displayName"))
+        assertEquals(fixture.now, edit.getValue("at").jsonPrimitive.content.toLong())
+        assertEquals(HttpStatusCode.OK, seen.status)
+        assertFalse(seen.asJson().hasField("unseenEdit"))
+        assertFalse(bob.get("/api/notes/$noteId").asJson().hasField("unseenEdit"))
+    }
 }

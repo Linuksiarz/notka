@@ -60,6 +60,9 @@ export const notesApi = {
 
   copy: (id: number) => api.post<Note>(`/notes/${id}/copy`),
 
+  /** The reader opened the note: its "edited by" marker goes away, for them alone. */
+  markSeen: (id: number) => api.post<Note>(`/notes/${id}/seen`),
+
   /** Puts a note directly above `before` or directly below `after` in the order its views show. */
   move: (id: number, anchor: NoteMoveAnchor) => api.post<Note>(`/notes/${id}/move`, anchor),
 

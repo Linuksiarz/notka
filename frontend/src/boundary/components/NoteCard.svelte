@@ -10,7 +10,7 @@
   import { ENTER_EASING, EXIT_EASING, MOTION } from '../editor/motion';
   import { withKind } from '../../entity/noteDocument';
   import { t, tError } from '../i18n';
-  import { formatDaysLeft, formatDeletedAt } from '../i18n/format';
+  import { formatDaysLeft, formatDeletedAt, formatEditedAt } from '../i18n/format';
   import { instance } from '../../control/state/instance.svelte';
   import { DropdownMenu, Popover } from 'bits-ui';
   import ReminderPicker from './ReminderPicker.svelte';
@@ -21,13 +21,35 @@
   import type { ReminderRepeat } from '../../entity/api/types';
   import AppearancePicker from './AppearancePicker.svelte';
   import NoteAvatars from './NoteAvatars.svelte';
-  import { otherPeople } from '../../entity/account';
+  import { accountName, otherPeople } from '../../entity/account';
+  import Avatar from './Avatar.svelte';
   import { session } from '../../control/state/session.svelte';
   import Icon from './Icon.svelte';
   import LabelPicker from './LabelPicker.svelte';
   import LinkCards from './LinkCards.svelte';
   import NoteContent from './NoteContent.svelte';
   import ReminderChip from './ReminderChip.svelte';
+
+  /**
+   * How the card's pickers (colour and labels) hang: **under the card, always**, as the original's
+   * do — measured, centred on the card 2px below its bottom edge, and they stay there near the bottom
+   * of the window too rather than flipping above the card. They are part of the page (`absolute`), so
+   * one that opens below the window's edge is scrolled to like the rest of the page; and opening one
+   * does not scroll the page itself: the browser would otherwise jump to the focused picker, the same
+   * jump the menus had (`floatingStrategy.test.ts`).
+   */
+  const UNDER_THE_CARD = {
+    strategy: 'absolute',
+    side: 'bottom',
+    sideOffset: 2,
+    avoidCollisions: false,
+    onOpenAutoFocus: (event: Event) => {
+      event.preventDefault();
+      openPicker?.focus({ preventScroll: true });
+    }
+  } as const;
+  /** The picker that is open (one at a time, `openPanel`), for the focus above. */
+  let openPicker = $state<HTMLElement | null>(null);
 
   interface Props {
     note: Note;
@@ -316,7 +338,7 @@
     <NoteImages noteId={note.id} images={note.images} onOpen={() => openEditor()} />
   {/if}
 
-  <div class="body">
+  <div class="body" class:marked={note.unseenEdit && variant !== 'trash'}>
     {#if note.title}
       <h3 class="title">{note.title}</h3>
     {/if}
@@ -326,6 +348,16 @@
       <p class="purge">
         {formatDeletedAt(note.trashedAt, ui.locale)} &middot; {formatDaysLeft(note.trashedAt, instance.info.trashRetentionDays)}
       </p>
+    {/if}
+    {#if note.unseenEdit && variant !== 'trash'}
+      {@const editor = note.unseenEdit.user.displayName || accountName(note.unseenEdit.user)}
+      <!-- Google Keep's own marker: who edited the note since the reader last opened it, over a dark
+           gradient across the bottom of the note's content. Opening the note takes it away. -->
+      <div class="edited-by" title={t('card.editedBy', { name: editor })}>
+        <span class="edited-by-avatar"><Avatar user={note.unseenEdit.user} title="" /></span>
+        <span class="edited-by-name">{editor}</span>
+        <span class="edited-by-time">{formatEditedAt(note.unseenEdit.at, ui.locale)}</span>
+      </div>
     {/if}
   </div>
 
@@ -392,13 +424,12 @@
           <Popover.Portal>
             <!-- Measured from the original: the picker is centred on the card and sits 2px under its
                  bottom edge, not aligned to the button that opened it. -->
-            <Popover.Content strategy="fixed"
-              collisionPadding={8}
+            <Popover.Content
+              {...UNDER_THE_CARD}
+              bind:ref={openPicker}
               data-overlay='note-picker'
               class="note-picker"
               customAnchor={cardElement}
-              side="bottom"
-              sideOffset={2}
               align="center"
             >
               <AppearancePicker
@@ -473,14 +504,13 @@
       </button>
       <Popover.Root {...openFor('label')}>
           <Popover.Portal>
-            <Popover.Content strategy="fixed"
+            <Popover.Content
+              {...UNDER_THE_CARD}
+              bind:ref={openPicker}
               data-overlay="note-picker"
               class="note-picker"
               customAnchor={cardElement}
-              side="bottom"
-              sideOffset={2}
               align="start"
-              collisionPadding={8}
             >
               <LabelPicker
                 labels={labelsState.labels}
@@ -514,33 +544,38 @@
           <DropdownMenu.Portal>
             <!-- Picking "Add label" hands the open panel to the label picker: the menu must not then hand the
                  focus back to its trigger, which is outside the picker and closes it. -->
+            <!-- Measured off the original (2026-10-23): the menu hangs from the button's bottom left
+                 corner with no gap, and from its top left corner when the window has no room below.
+                 Its order is the original's, "Download as Markdown" standing where its "Copy to
+                 Google Docs" does and "Delete note" last, under a rule (`.keep-menu`). -->
             <DropdownMenu.Content strategy="fixed"
               preventScroll={false}
               data-overlay="note-menu"
-              class="note-menu"
-              sideOffset={8}
-              align="end"
+              class="keep-menu note-menu"
+              side="bottom"
+              sideOffset={0}
+              align="start"
               collisionPadding={8}
               onCloseAutoFocus={(event) => {
                 if (openPanel === 'label') event.preventDefault();
               }}
             >
-              <!-- Keep moves a note to the trash from the card menu; permanent deletion lives in
-                   the trash view only. -->
-              <DropdownMenu.Item class="note-menu-item" onSelect={trash}>
-                {t('card.deleteNote')}
-              </DropdownMenu.Item>
-              <DropdownMenu.Item class="note-menu-item" onSelect={() => (openPanel = 'label')}>
+              <DropdownMenu.Item class="keep-menu-item" onSelect={() => (openPanel = 'label')}>
                 {t('card.addLabel')}
               </DropdownMenu.Item>
-              <DropdownMenu.Item class="note-menu-item" onSelect={copy}>
+              <DropdownMenu.Item class="keep-menu-item" onSelect={copy}>
                 {t('card.makeCopy')}
               </DropdownMenu.Item>
-              <DropdownMenu.Item class="note-menu-item" onSelect={toggleCheckboxes}>
+              <DropdownMenu.Item class="keep-menu-item" onSelect={toggleCheckboxes}>
                 {note.kind === 'LIST' ? t('card.hideCheckboxes') : t('card.showCheckboxes')}
               </DropdownMenu.Item>
-              <DropdownMenu.Item class="note-menu-item" onSelect={downloadMarkdown}>
+              <DropdownMenu.Item class="keep-menu-item" onSelect={downloadMarkdown}>
                 {t('card.downloadMarkdown')}
+              </DropdownMenu.Item>
+              <!-- Keep moves a note to the trash from the card menu; permanent deletion lives in
+                   the trash view only. -->
+              <DropdownMenu.Item class="keep-menu-item after-rule" onSelect={trash}>
+                {t('card.deleteNote')}
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
@@ -688,6 +723,53 @@
     gap: 16px;
   }
 
+  /* A marked card is at least as tall as its marker, which would otherwise cover the title. */
+  .body.marked {
+    position: relative;
+    min-height: var(--keep-edited-by-height);
+  }
+
+  /*
+   * The "edited by" marker (measured in docs/METRICS.md, "Edited by"): white ink over a gradient that
+   * darkens the bottom of the content, whatever the note's colour, background or theme — the content
+   * and the artwork run on under it.
+   */
+  .edited-by {
+    position: absolute;
+    inset: auto 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 48px 16px 8px;
+    background: linear-gradient(to bottom, transparent, var(--keep-edited-by-scrim) 60%);
+    color: #fff;
+    pointer-events: none;
+  }
+
+  .edited-by-avatar {
+    --avatar-size: var(--keep-edited-by-avatar);
+    display: inline-flex;
+    margin-bottom: 4px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  .edited-by-name {
+    max-width: 100%;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .edited-by-time {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
   .title {
     margin: 0;
     /* Measured off the original: a card's title is about half again the size of its body text, and
@@ -813,27 +895,6 @@
   :global(.note-reminder),
   :global(.note-menu) {
     z-index: 90;
-  }
-
-  :global(.note-menu) {
-    display: flex;
-    flex-direction: column;
-    min-width: 180px;
-    padding: 8px 0;
-    border-radius: var(--keep-radius);
-    background: var(--keep-surface);
-    color: var(--keep-text);
-    box-shadow: var(--keep-shadow-popover);
-  }
-
-  :global(.note-menu-item) {
-    padding: 10px 16px;
-    text-align: left;
-    white-space: nowrap;
-  }
-
-  :global(.note-menu-item[data-highlighted]) {
-    background: var(--keep-hover);
   }
 
   /* Tooltips on touch devices are useless, so the pin and the actions are simply always visible

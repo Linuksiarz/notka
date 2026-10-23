@@ -142,6 +142,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   /** Every way the editor closes goes through here, so the note takes its caret with it. */
   function closeEditor(): void {
     richText?.releaseCaret();
+    // Whatever somebody else wrote while the note was open, its reader has now seen.
+    if (draft.noteId !== null) void notesState.markSeen(draft.noteId);
     ui.closeEditor();
   }
 
@@ -300,6 +302,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   function load(requested: number | null, requestedKind: NoteKind): void {
     formatBar = false;
     discarding = false;
+    if (draft.noteId !== null && draft.noteId !== requested) void notesState.markSeen(draft.noteId);
     if (requested === null) {
       draft.startNew(requestedKind);
     } else {
@@ -309,6 +312,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         return;
       }
       draft.adopt(note);
+      // Opening a note is what takes its "edited by" marker away (for this reader alone).
+      void notesState.markSeen(requested);
     }
     initialBody = draft.content;
     // A body already on screen is replaced; one that is not is created with these, as its props.
@@ -966,6 +971,11 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     {/if}
   {/snippet}
 
+    <!-- The note's lines, everything above the bar. On the desktop the background's picture is
+         painted here rather than on the whole card: the original's covers the note's lines and stops
+         at the bar, sized by the lines alone (measured, docs/METRICS.md "The desktop editor"). On a
+         phone this box steps aside (`display: contents`) and the picture stays the screen's. -->
+    <div class="canvas note-canvas" data-background={draft.background ?? undefined}>
     {#if ui.phone}
       <!-- The original's phone editor carries its own bar: a back arrow at the left and the note's
            own actions at the right. Without it a note scrolled past its title had no way back, which
@@ -1142,6 +1152,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     {/snippet}
 
     {#if !ui.phone}{@render noteMeta()}{/if}
+    </div>
 
     <div class="toolbar">
       <div class="toolbar-actions">
@@ -1279,7 +1290,9 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                 <Icon name="palette" size={barIcon} />
               </Popover.Trigger>
               <Popover.Portal>
-                <Popover.Content strategy="fixed" data-overlay='editor-picker' class="editor-picker" side="top" sideOffset={8} align="start" collisionPadding={8}>
+                <!-- Measured off the original (2026-10-23): the picker hangs from the palette button
+                     itself, 15px in from its left edge and 4px over its bottom edge, below the bar. -->
+                <Popover.Content strategy="fixed" data-overlay='editor-picker' class="editor-picker" side="bottom" sideOffset={-4} align="start" alignOffset={15} collisionPadding={8}>
                   <AppearancePicker
                     color={draft.color}
                     background={draft.background}
@@ -1330,35 +1343,39 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
                 <Icon name="more-vert" size={barIcon} />
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content strategy="fixed" preventScroll={false} data-overlay='editor-menu' class="editor-menu" side="top" sideOffset={8} align="end" collisionPadding={8}>
-                <DropdownMenu.Item class="editor-menu-item" onSelect={deleteNote}>
-                  {t('card.deleteNote')}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item class="editor-menu-item" onSelect={downloadMarkdown}>
-                  {t('card.downloadMarkdown')}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item class="editor-menu-item" onSelect={copyNote}>
+                <!-- The card's menu, measured off the original (2026-10-23): it hangs from the button's
+                     bottom left corner with no gap, from its top left corner when the window has no
+                     room below, and lists the original's entries in the original's order, "Delete
+                     note" last under a rule (`.keep-menu`). -->
+                <DropdownMenu.Content strategy="fixed" preventScroll={false} data-overlay='editor-menu' class="keep-menu editor-menu" side="bottom" sideOffset={0} align="start" collisionPadding={8}>
+                <DropdownMenu.Item class="keep-menu-item" onSelect={copyNote}>
                   {t('card.makeCopy')}
                 </DropdownMenu.Item>
-                <DropdownMenu.Item class="editor-menu-item" onSelect={toggleCheckboxes}>
-                  {draft.kind === 'LIST' ? t('card.hideCheckboxes') : t('card.showCheckboxes')}
-                </DropdownMenu.Item>
                 {#if draft.kind === 'LIST'}
-                  <DropdownMenu.Item class="editor-menu-item" onSelect={uncheckAllItems}>
+                  <DropdownMenu.Item class="keep-menu-item" onSelect={uncheckAllItems}>
                     {t('list.uncheckAll')}
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item class="editor-menu-item" onSelect={deleteCheckedItems}>
+                  <DropdownMenu.Item class="keep-menu-item" onSelect={deleteCheckedItems}>
                     {t('list.deleteChecked')}
                   </DropdownMenu.Item>
                 {/if}
+                <DropdownMenu.Item class="keep-menu-item" onSelect={toggleCheckboxes}>
+                  {draft.kind === 'LIST' ? t('card.hideCheckboxes') : t('card.showCheckboxes')}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item class="keep-menu-item" onSelect={downloadMarkdown}>
+                  {t('card.downloadMarkdown')}
+                </DropdownMenu.Item>
                 {#if draft.noteId !== null}
                   <DropdownMenu.Item
-                    class="editor-menu-item"
+                    class="keep-menu-item"
                     onSelect={() => (historyOpen = true)}
                   >
                     {t('card.versionHistory')}
                   </DropdownMenu.Item>
                 {/if}
+                <DropdownMenu.Item class="keep-menu-item after-rule" onSelect={deleteNote}>
+                  {t('card.deleteNote')}
+                </DropdownMenu.Item>
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
@@ -1630,6 +1647,30 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     color: var(--note-fg-secondary, var(--keep-text-secondary));
   }
 
+  /*
+   * The desktop editor, measured off the original's DOM (2026-10-23): the card itself wears the note's
+   * **colour** — a plain note's surface when none is chosen, never the background's tint — and the bar
+   * shows it, solid; the picture and its tint cover only the lines above the bar (`.canvas`), `cover`
+   * and anchored at the bottom right, so the lower part of the artwork sits on the bar's edge.
+   */
+  @media not all and (max-width: 600px) {
+    :global(:root) .editor.note-surface[data-background] {
+      background-color: var(--note-color, var(--keep-surface));
+      background-image: none;
+    }
+
+    .canvas[data-background] {
+      background-color: var(--note-bg);
+    }
+  }
+
+  .canvas {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
   .body {
     display: flex;
     flex-direction: column;
@@ -1686,8 +1727,6 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     justify-content: space-between;
     gap: 0 8px;
     padding: 4px 8px 4px 9px;
-    /* Transparent, like the lines above it: the note's picture runs under the bar to the note's edge
-       (`docs/METRICS.md`). */
     border-bottom-left-radius: inherit;
     border-bottom-right-radius: inherit;
   }
@@ -1762,6 +1801,16 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     color: var(--note-fg-secondary, var(--keep-text-secondary));
   }
 
+  /* The original's "Edited" on the desktop: 12px/16px Roboto 400 with 0.3px of tracking, in the note's
+     ink at 80% (`rgba(0,0,0,0.8)`, read off its DOM) — not the secondary grey, which was fainter. The
+     phone keeps the Android app's own. */
+  @media not all and (max-width: 600px) {
+    .status {
+      letter-spacing: 0.3px;
+      color: var(--keep-edited-ink);
+    }
+  }
+
   /* The original's "Close": 100 by 36. */
   .close-button {
     min-width: 100px;
@@ -1786,33 +1835,12 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     display: inline-flex;
   }
 
-  /* bits-ui renders these in a portal and positions them above the toolbar; only the look is ours,
-     so the class names are global and distinctive enough not to collide with the card's. */
+  /* bits-ui renders these in a portal; only their place in the stack is ours here (the ⋮ menu's
+     look is `.keep-menu`, shared with the card's). */
   :global(.editor-picker),
   :global(.reminder-picker),
   :global(.editor-menu) {
     z-index: 80;
-  }
-
-  :global(.editor-menu) {
-    display: flex;
-    flex-direction: column;
-    min-width: 190px;
-    padding: 8px 0;
-    border-radius: var(--keep-radius);
-    background: var(--keep-surface);
-    color: var(--keep-text);
-    box-shadow: var(--keep-shadow-popover);
-  }
-
-  :global(.editor-menu-item) {
-    padding: 10px 16px;
-    text-align: left;
-    white-space: nowrap;
-  }
-
-  :global(.editor-menu-item[data-highlighted]) {
-    background: var(--keep-hover);
   }
 
   @media (max-width: 600px) {
@@ -1838,6 +1866,11 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     .editor[data-background] {
       background-size: max(100%, var(--vv-tallest, 100%)) auto;
       background-position: right top;
+    }
+
+    /* The screen keeps the picture whole on a phone: the box that carries it on the desktop steps aside. */
+    .canvas {
+      display: contents;
     }
 
     /* A phone's editor is the whole screen, so the composer's frame has nothing to frame. */

@@ -53,6 +53,8 @@ class NoteRepository(private val database: Database) {
                 it[Notes.trashedAt] = null
                 it[Notes.createdAt] = createdAt
                 it[Notes.updatedAt] = createdAt
+                it[Notes.editedBy] = ownerId
+                it[Notes.editedAt] = createdAt
                 it[Notes.version] = 1
                 it[Notes.color] = color
                 it[Notes.background] = background
@@ -224,6 +226,10 @@ class NoteRepository(private val database: Database) {
                     TrashAction.RESTORE -> row[Notes.trashedAt] = null
                 }
                 row[Notes.updatedAt] = fields.updatedAt
+                fields.editedBy?.let {
+                    row[Notes.editedBy] = it
+                    row[Notes.editedAt] = fields.updatedAt
+                }
                 row[Notes.version] = with(SqlExpressionBuilder) { Notes.version + 1 }
             }
     }
@@ -267,6 +273,25 @@ class NoteRepository(private val database: Database) {
         }
     }
 
+    /** The `edited_at` [userId] last saw of each note among [noteIds] it ever opened. */
+    fun seenAmong(userId: Int, noteIds: Collection<Int>): Map<Int, Long> = transaction(database) {
+        if (noteIds.isEmpty()) return@transaction emptyMap()
+        NoteReads.selectAll()
+            .where { (NoteReads.userId eq userId) and (NoteReads.noteId inList noteIds) }
+            .associate { it[NoteReads.noteId] to it[NoteReads.seenAt] }
+    }
+
+    /** Records that [userId] has seen [noteId] as of its content edit at [editedAt]. */
+    fun markSeen(noteId: Int, userId: Int, editedAt: Long) {
+        transaction(database) {
+            NoteReads.replace {
+                it[NoteReads.noteId] = noteId
+                it[NoteReads.userId] = userId
+                it[NoteReads.seenAt] = editedAt
+            }
+        }
+    }
+
     fun delete(id: Int) {
         transaction(database) {
             Notes.deleteWhere { Op.build { Notes.id eq id } }
@@ -303,6 +328,8 @@ class NoteRepository(private val database: Database) {
         background = this[Notes.background],
         reminderAt = this[Notes.reminderAt],
         reminderRepeat = ReminderRepeat.fromWire(this[Notes.reminderRepeat]),
+        editedBy = this[Notes.editedBy],
+        editedAt = this[Notes.editedAt],
     )
 
     /**

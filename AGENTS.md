@@ -69,7 +69,7 @@ pnpm run build     # production bundle -> frontend/dist
 pnpm run dev       # dev server on :5173, proxies /api to :8080
 
 # Browser suites (need a running server; see frontend/e2e/README.md)
-pnpm run e2e              # full application regression, 162 checks
+pnpm run e2e              # full application regression, 170 checks
 pnpm run e2e:live         # live collaboration between two accounts
 pnpm run e2e:concurrency  # two people typing into one note at once
 pnpm run e2e:editor       # editor interactions, stubbed API + pnpm preview
@@ -446,7 +446,16 @@ thrown away.
     the note, the heading and the line above it included (`NoteContent.svelte`). Folding the section is
     the editor's own (`completedSection.ts`). **The editor shows who a note is shared with** — the
     other people's avatars above its bottom bar (the owner's, for a collaborator) — and the owner's
-    avatars open the collaborators.
+    avatars open the collaborators. **The desktop editor's bottom bar is a solid strip in the note's
+    colour**, the picture stopping at it (the owner's screenshot of the original overruled the
+    transparent bar, `docs/METRICS.md`); the phone's bar stays transparent.
+12c. **A card names who edited a shared note since the reader last opened it**, as in Google Keep:
+    the editor's avatar, name and "Edited …" over a dark gradient at the bottom of the content
+    (`unseenEdit`, `notes.edited_by`/`edited_at` and the per-reader `note_reads`). Opening the note
+    (`POST /api/notes/{id}/seen`, from `NoteEditor`'s open and close) takes it away for that reader
+    alone — no version, nobody told, like a pin — and the next edit by anyone else brings it back.
+    Only content (title, kind, body) is an edit; appearance, metadata and pictures are not, and the
+    reader's own edits never mark a note.
 12. **A pin is the reader's own** (`note_pins`), as in Google Keep and unlike the appearance (rule 6):
    it sorts a note to the top of that account's views and nobody else's, anyone who can see the note
    may pin it (a `VIEW` collaborator too), it is never version-guarded and it never creates a history
@@ -504,7 +513,8 @@ thrown away.
       stylesheet's breakpoint across resizes; do not fold the rail on a wide screen because someone
       clicked a nav item.
 15. The app's own chrome is **not a document**: `user-select: none` on `body`, opted back in by
-    `input`, `textarea`, `.editor`, `.note-body` and `[data-overlay]`. Without it a stray drag — or a
+    `input`, `textarea`, `.editor`, `.note-body` and the overlays that hold text (`[data-overlay]`, but
+    not a `role="menu"` nor a `*-picker`: focused on opening, a selectable menu showed a caret). Without it a stray drag — or a
     double click on a card — paints a selection across the notes, which with the editor open looks
     like highlighting leaking out of it.
 16. Opening the editor **puts the cursor where typing should start**: the **body**, for a new note
@@ -519,7 +529,10 @@ thrown away.
     note went nowhere (measured: 7 times in 30, none in 40 since). The same place destroys the editor,
     which nothing did before. **And a closing note takes its caret with it** (`releaseCaret`, from
     every way the editor closes): the browser otherwise kept the selection, collapsed onto the left
-    edge of the notes column, where a caret could blink after the note had closed.
+    edge of the notes column, where a caret could blink after the note had closed. **Nor does a note that loses the focus keep a selection
+    in the page** (`RichText`'s blur): a ⋮ menu or a picker takes the focus without the browser moving
+    the selection, and Firefox then drew the note's caret at the start of the open menu. The original's
+    selection is out of the note once its menu is open; ProseMirror keeps its own and restores it.
     The editable **fills the whole body box** (`.rich-text` → its `note-body-host` →
     `.note-body`, all stretched): a click anywhere in the empty part of a note has to land in the
     editor, not on the container around it. And the editor draws **no focus ring** — it is excluded
@@ -782,7 +795,7 @@ thrown away.
     `latin-ext` — without the second subset the Polish diacritics fall back to another face). Google
     Sans is on Google Fonts under the **SIL Open Font License**, which is what makes bundling it
     legitimate; do not link it from Google's CDN instead, because a self-hosted, offline-installable
-    app should not call Google on every load. `--keep-font` is the only place the family is named.
+    app should not call Google on every load. `--keep-font` (and `--keep-font-menu`, the ⋮ menus' Roboto) are the only places a family is named.
 23. Demo mode is `DEMO=true`, and it is a **demo**: `DemoData` seeds two sample accounts — Alice is the
     instance's administrator, so a demo needs no `NOTKA_ADMIN_*` — each with
     about ten notes across colours, backgrounds and nesting, plus two notes they share (a checklist

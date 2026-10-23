@@ -180,6 +180,12 @@ fun Route.noteRoutes(notes: NoteService, sharing: SharingService, auth: AuthServ
             call.respond(note.toDto())
         }
 
+        // The reader opened the note: its "edited by" marker goes away for them alone.
+        post("/{id}/seen") {
+            val user = call.requireUser(auth)
+            call.respond(notes.markSeen(user.id, call.requireIntParameter("id")).toDto())
+        }
+
         post("/{id}/move") {
             val user = call.requireUser(auth)
             val request = call.receive<MoveNoteRequest>()

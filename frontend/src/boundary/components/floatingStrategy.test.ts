@@ -9,6 +9,10 @@ import { describe, expect, it } from 'vitest';
  * scrolled to. bits-ui has no app-wide default for it, so each content says so, and this test is what
  * keeps a new one from forgetting.
  *
+ * The one deliberate exception is a card's colour and label pickers (`UNDER_THE_CARD` in
+ * `NoteCard.svelte`): they hang under the card whatever the room, as the original's do, so they are
+ * part of the page and stop the focus from scrolling it themselves.
+ *
  * The sources come in as raw text through Vite, as in `breakpoints.test.ts`.
  */
 const SOURCES = import.meta.glob('../**/*.svelte', {
@@ -18,14 +22,16 @@ const SOURCES = import.meta.glob('../**/*.svelte', {
 }) as Record<string, string>;
 
 describe('floating menus and popovers', () => {
-  it('are all positioned fixed', () => {
+  it('are all positioned fixed, but the card pickers that hang under the card', () => {
     // given: every bits-ui menu and popover content opened in a component
     const contents = Object.entries(SOURCES).flatMap(([file, source]) =>
       [...source.matchAll(/<(DropdownMenu|Popover)\.Content\b[^>]*>/g)].map((match) => ({ file, tag: match[0] }))
     );
 
     // when
-    const absolute = contents.filter((content) => !content.tag.includes('strategy="fixed"'));
+    const absolute = contents.filter(
+      (content) => !content.tag.includes('strategy="fixed"') && !content.tag.includes('{...UNDER_THE_CARD}')
+    );
 
     // then
     expect(contents.length, 'the app has menus to check').toBeGreaterThan(0);

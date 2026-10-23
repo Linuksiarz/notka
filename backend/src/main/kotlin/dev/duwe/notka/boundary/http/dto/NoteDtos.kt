@@ -131,7 +131,17 @@ data class NoteDto(
     /** The note's pictures in order; a note with none omits the field. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val images: List<NoteImageDto> = emptyList(),
+    /**
+     * Somebody else's content edit the reader has not opened the note since — the card's "edited by"
+     * marker. Absent when there is none; `POST /api/notes/{id}/seen` takes it away for this reader.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val unseenEdit: UnseenEditDto? = null,
 )
+
+/** Who wrote a note's content last, and when, while the reader has not seen it. */
+@Serializable
+data class UnseenEditDto(val user: UserDto, val at: Long)
 
 /** A picture's place in the note; its bytes are at `/api/notes/{noteId}/images/{id}`. */
 @Serializable

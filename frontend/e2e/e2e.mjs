@@ -338,9 +338,76 @@ check(
   await bob.page.locator('.card').first().getAttribute('data-color')
 );
 
+console.log('\nedited by');
+
+// then: a note shared with Bob names the person who wrote it, as Google Keep's cards do, until he opens it
+const bobMarker = bob.page.locator('.card').first().locator('.edited-by');
+const markerLook = await bobMarker.evaluate((marker) => {
+  const ring = marker.querySelector('.edited-by-avatar');
+  const name = marker.querySelector('.edited-by-name');
+  return {
+    text: marker.innerText,
+    ring: ring ? getComputedStyle(ring).boxShadow : '',
+    nameColor: name ? getComputedStyle(name).color : '',
+    nameWeight: name ? getComputedStyle(name).fontWeight : '',
+    gradient: getComputedStyle(marker).backgroundImage
+  };
+}).catch(() => null);
+check(
+  'a shared note’s card names who last edited it, and when',
+  markerLook !== null && markerLook.text.includes(ALICE.name) && /Edited/.test(markerLook.text),
+  JSON.stringify(markerLook)
+);
+check(
+  'the marker is the original’s: a white-ringed avatar and a bold white name over a gradient',
+  markerLook !== null &&
+    /rgb\(255, 255, 255\) 0px 0px 0px 2px/.test(markerLook.ring) &&
+    markerLook.nameColor === 'rgb(255, 255, 255)' &&
+    Number(markerLook.nameWeight) >= 700 &&
+    markerLook.gradient.startsWith('linear-gradient'),
+  JSON.stringify(markerLook)
+);
+check(
+  'the owner’s own edits never mark the note for her',
+  (await alice.page.locator('.card').first().locator('.edited-by').count()) === 0
+);
+
 // when: the view-only collaborator opens the note
 await bob.page.locator('.card').first().click();
 await bob.page.waitForSelector('.editor');
+
+// then: the desktop editor's bottom bar is a solid strip in the note's colour, as the original's is:
+// the card wears the colour, the bar is see-through to it, and the picture (on the lines above,
+// `.canvas`) ends where the bar begins
+const barFill = await bob.page.evaluate(() => {
+  const editor = document.querySelector('.editor');
+  const bar = document.querySelector('.editor .toolbar');
+  const canvas = document.querySelector('.editor .canvas');
+  if (!editor || !bar || !canvas) return null;
+  const probe = document.createElement('span');
+  probe.style.color = getComputedStyle(editor).getPropertyValue('--note-color');
+  editor.append(probe);
+  const color = getComputedStyle(probe).color;
+  probe.remove();
+  return {
+    card: getComputedStyle(editor).backgroundColor,
+    cardPicture: getComputedStyle(editor).backgroundImage,
+    bar: getComputedStyle(bar).backgroundColor,
+    color,
+    pictureEnds: Math.round(canvas.getBoundingClientRect().bottom),
+    barStarts: Math.round(bar.getBoundingClientRect().top)
+  };
+});
+check(
+  'the desktop editor’s bottom bar wears the note’s colour, opaque, with the picture above it',
+  barFill !== null &&
+    barFill.card === barFill.color &&
+    barFill.card !== 'rgba(0, 0, 0, 0)' &&
+    barFill.cardPicture === 'none' &&
+    barFill.bar === 'rgba(0, 0, 0, 0)' &&
+    barFill.pictureEnds <= barFill.barStarts,
+  JSON.stringify(barFill)
+);
 
 // then: the editor is read only
 check('a VIEW collaborator gets a read-only editor', (await bob.page.locator('.editor .readonly-note').count()) === 1);
@@ -379,6 +446,38 @@ await bob.page.locator('.share').getByRole('button', { name: 'Close', exact: tru
 await bob.page.waitForTimeout(300);
 await bob.page.keyboard.press('Escape');
 await bob.page.waitForTimeout(300);
+
+// then: opening the note took the marker away — and for good, not only on this screen
+check('opening the note takes its marker away', (await bobMarker.count()) === 0);
+await bob.page.reload({ waitUntil: 'networkidle' });
+await bob.page.waitForSelector('.card');
+check('the marker stays away after a reload', (await bobMarker.count()) === 0);
+
+// when: the owner writes in the note again, while Bob is looking at his notes
+const markedNoteId = Number(await alice.page.locator('.card').first().getAttribute('data-note-id'));
+await alice.page.evaluate(async (id) => {
+  await fetch(`/api/notes/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Edited again by the owner' })
+  });
+}, markedNoteId);
+
+// then: the marker comes back on Bob's card over the live channel, with no reload
+const markedLive = await bobMarker
+  .waitFor({ timeout: 8000 })
+  .then(() => true)
+  .catch(() => false);
+check(
+  'somebody else’s next edit brings the marker back, live',
+  markedLive && (await bobMarker.innerText()).includes(ALICE.name)
+);
+await alice.page.reload({ waitUntil: 'networkidle' });
+await alice.page.waitForSelector('.card');
+check(
+  'the writer’s own card stays unmarked',
+  (await alice.page.locator('.card').first().locator('.edited-by').count()) === 0
+);
 
 console.log('\ntrash');
 

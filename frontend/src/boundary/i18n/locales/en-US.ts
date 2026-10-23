@@ -61,6 +61,7 @@ export const enUS = {
 
   /* --- note card ------------------------------------------------------------------- */
   'card.note': 'Note',
+  'card.editedBy': 'Edited by {name}',
   'card.addLabel': 'Add label',
   /* --- link previews --------------------------------------------------------------- */
   'link.open': 'Open link',

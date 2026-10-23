@@ -476,7 +476,11 @@ const bar = await page.evaluate(() => {
       return box ? Math.round(box.width) : null;
     })(),
     bottomClose: [...document.querySelectorAll('.toolbar button')].filter((button) => (button.textContent ?? '').trim() === 'Close').length,
-    undo: document.querySelector('.toolbar [aria-label="Undo"]')?.hasAttribute('disabled')
+    undo: document.querySelector('.toolbar [aria-label="Undo"]')?.hasAttribute('disabled'),
+    toolbarFill: (() => {
+      const toolbar = document.querySelector('.editor .toolbar');
+      return toolbar ? getComputedStyle(toolbar).backgroundColor : null;
+    })()
   };
 });
 // Measured off the original's Android app: the pin, the bell and the archive on 40px buttons in the
@@ -493,6 +497,8 @@ check(
     bar.height === 64,
   JSON.stringify(bar)
 );
+// The desktop's bar is a strip in the note's colour; the Android app's buttons lie on the picture.
+check('the phone editor keeps its bottom bar transparent', bar.toolbarFill === 'rgba(0, 0, 0, 0)', JSON.stringify(bar.toolbarFill));
 // Loading the note is not the reader's edit: an Undo enabled here took the note back to empty, and
 // the autosave stored that over it.
 check('opening a note leaves nothing to undo', bar.undo === true, `undo disabled: ${bar.undo}`);

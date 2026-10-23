@@ -35,6 +35,8 @@ export function withChanges(
   if (changes.kind !== undefined) next.kind = changes.kind;
   if (changes.title !== undefined) next.title = changes.title;
   if (changes.content !== undefined) next.content = changes.content;
+  // Writing the note makes the reader its last editor, and their own edit never marks it.
+  if (touchesText(changes)) delete next.unseenEdit;
   if (changes.color !== undefined) next.color = changes.color;
   if (changes.background !== undefined) next.background = changes.background;
   if (changes.archived !== undefined) next.archived = changes.archived;

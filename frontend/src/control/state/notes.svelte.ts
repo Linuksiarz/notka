@@ -14,6 +14,7 @@ import type {
 import { normalizeDocument } from '../../entity/noteDocument';
 import { byReminder, bySort, NOTE_SORTS, type NoteSort } from '../../entity/noteOrder';
 import { draftNote, mergeChanges, touchesText, withChanges } from '../../entity/pendingChanges';
+import { seenAsOf } from '../../entity/unseenEdit';
 import { labels } from './labels.svelte';
 import { pendingWrites, type PendingWrite } from './pendingWrites.svelte';
 import { session } from './session.svelte';
@@ -621,6 +622,31 @@ class NotesState {
    */
   async setPinned(id: number, pinned: boolean): Promise<Note | null> {
     return this.patch(id, { pinned });
+  }
+
+  /**
+   * The reader opened the note: the card's "edited by" marker goes away at once, and the server is
+   * told so for the next read. It is the reader's own business — no version, no queue: a note opened
+   * without a connection keeps its marker on the next read and loses it the next time it is opened.
+   */
+  async markSeen(id: number): Promise<void> {
+    const edit = this.byIdAnywhere(id)?.unseenEdit;
+    if (!edit || id < 0) return;
+    this.clearUnseenEdit(id, edit.at);
+    try {
+      await notesApi.markSeen(id);
+    } catch {
+      return;
+    }
+    // A read that was already on its way when the note was opened can have brought the marker back.
+    this.clearUnseenEdit(id, edit.at);
+  }
+
+  private clearUnseenEdit(id: number, seenAt: number): void {
+    const seen = (list: Note[]) => list.map((note) => (note.id === id ? seenAsOf(note, seenAt) : note));
+    this.notes = seen(this.notes);
+    this.archivedNotes = seen(this.archivedNotes);
+    this.remember();
   }
 
   async setLabels(id: number, labelIds: number[]): Promise<void> {

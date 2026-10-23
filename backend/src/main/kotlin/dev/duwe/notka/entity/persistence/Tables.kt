@@ -45,6 +45,10 @@ object Notes : Table("notes") {
     val reminderRepeat = text("reminder_repeat").nullable()
     val createdAt = long("created_at")
     val updatedAt = long("updated_at")
+    /* Who wrote the note's content last, and when — title, kind or body, never its appearance or
+       metadata. `null` once that account is gone. What a card's "edited by" marker is read from. */
+    val editedBy = integer("edited_by").nullable()
+    val editedAt = long("edited_at")
 
     /** Bumped on every write; the value a client last saw is its optimistic-concurrency token. */
     val version = integer("version")
@@ -62,6 +66,17 @@ object NotePins : Table("note_pins") {
     val userId = integer("user_id")
     val pinned = bool("pinned")
     val position = long("position")
+
+    override val primaryKey = PrimaryKey(noteId, userId)
+}
+
+/* What each account last saw of a note: the `edited_at` it had when the reader opened it. A card
+   shows who edited it while somebody else's edit is newer than this — and the reader's own never is.
+   A reader without a row has not opened the note since it was shared with them. */
+object NoteReads : Table("note_reads") {
+    val noteId = integer("note_id")
+    val userId = integer("user_id")
+    val seenAt = long("seen_at")
 
     override val primaryKey = PrimaryKey(noteId, userId)
 }

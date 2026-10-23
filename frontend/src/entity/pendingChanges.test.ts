@@ -32,6 +32,19 @@ describe('mergeChanges', () => {
 });
 
 describe('withChanges', () => {
+  it('takes the "edited by" marker away when the reader writes the note, and not otherwise', () => {
+    // given
+    const marked = note({ unseenEdit: { user: { id: 2, displayName: 'Bob' } as Note['owner'], at: 5 } });
+
+    // when
+    const written = withChanges(marked, { title: 'mine' }, labelFor, 42);
+    const recoloured = withChanges(marked, { color: 'red' }, labelFor, 42);
+
+    // then
+    expect(written.unseenEdit).toBeUndefined();
+    expect(recoloured.unseenEdit).toEqual(marked.unseenEdit);
+  });
+
   it('shows the note as it will be, on top of its section when its pin changed', () => {
     // given
     const before = note();

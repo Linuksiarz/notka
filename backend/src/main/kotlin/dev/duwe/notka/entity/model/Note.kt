@@ -36,6 +36,10 @@ data class Note(
      */
     val reminderAt: Long?,
     val reminderRepeat: ReminderRepeat?,
+    /** Who last wrote the note's content (title, kind, body); `null` once that account is gone. */
+    val editedBy: Int?,
+    /** When they did: a card's "edited by" marker compares it with what the reader last saw. */
+    val editedAt: Long,
 ) {
     companion object {
         /** The plain card: no colour tint, no background pattern. */
@@ -59,6 +63,8 @@ data class NoteFields(
     val background: BackgroundChange = BackgroundChange.Unchanged,
     val reminder: ReminderChange = ReminderChange.Unchanged,
     val updatedAt: Long,
+    /** The account writing the note's content, recorded as its last editor; `null` for any other change. */
+    val editedBy: Int? = null,
     /**
      * When set, the write only lands if the stored row still carries this version. That is what
      * turns a concurrent edit into a `409` instead of a silent overwrite.
