@@ -66,6 +66,8 @@ data class ResolvedNote(
     val pinned: Boolean = false,
     /** Where this reader has the note: its own place once it pinned or unpinned it, else the shared one. */
     val position: Long = note.position,
+    /** Whether this reader folded the list's completed items away: each account's own (`NoteFolds`). */
+    val completedCollapsed: Boolean = false,
     /** The edit a card names as "edited by", or `null` when the reader has seen the note since. */
     val unseenEdit: UnseenEdit? = null,
 ) {
@@ -88,6 +90,8 @@ data class PatchNoteCommand(
     val document: NoteDocument? = null,
     val archived: Boolean? = null,
     val pinned: Boolean? = null,
+    /** Folds or unfolds a list's completed items for this reader alone, like a pin. */
+    val completedCollapsed: Boolean? = null,
     val trashed: Boolean? = null,
     val color: String? = null,
     val background: BackgroundChange = BackgroundChange.Unchanged,
@@ -145,6 +149,7 @@ class NoteService(
         val records = notes.listVisible(userId, view, labelId)
         val owners = users.findSummaries(records.map { it.ownerId }.distinct())
         val filings = notes.filingsAmong(userId, records.map { it.id })
+        val folded = notes.foldedAmong(userId, records.map { it.id })
         val reads = readsAmong(userId, records)
         return records.map { note ->
             val noteAccess = checkNotNull(access.accessFor(userId, note)) {
@@ -156,6 +161,7 @@ class NoteService(
                 owners[note.ownerId] ?: ownerSummary(note),
                 filings[note.id],
                 reads.unseenEdit(note),
+                note.id in folded,
             )
         }.sortedWith(compareByDescending<ResolvedNote> { it.pinned }.thenByDescending { it.position })
     }
@@ -216,14 +222,16 @@ class NoteService(
     }
 
     fun patch(userId: Int, noteId: Int, command: PatchNoteCommand): ResolvedNote {
-        // A pin is the reader's own, so anyone who can see the note may pin it — a VIEW collaborator
-        // too. Everything else in a patch changes the note for everyone and needs edit access.
+        // A pin and a fold are the reader's own, so anyone who can see the note may set them — a VIEW
+        // collaborator too. Everything else in a patch changes the note for everyone and needs edit access.
         val pin = command.pinned
-        val rest = command.copy(pinned = null)
+        val collapsed = command.completedCollapsed
+        val rest = command.copy(pinned = null, completedCollapsed = null)
         if (rest == PatchNoteCommand()) {
             access.requireVisible(userId, noteId)
             // Nobody else is told: their view of the note did not change.
             if (pin != null) notes.setPinned(noteId, userId, pin)
+            if (collapsed != null) notes.setCompletedCollapsed(noteId, userId, collapsed)
             return get(userId, noteId)
         }
         val previous = access.requireEditable(userId, noteId).note
@@ -264,8 +272,9 @@ class NoteService(
             )
         }
         labelIds?.let { labels.replaceForNote(noteId, userId, it) }
-        // After the version guard above, which a pin would otherwise have moved on.
+        // After the version guard above, which a pin or a fold would otherwise have moved on.
         if (pin != null) notes.setPinned(noteId, userId, pin)
+        if (collapsed != null) notes.setCompletedCollapsed(noteId, userId, collapsed)
         val resolved = get(userId, noteId)
         document?.let { linkPreviews.refresh(it) { publishChange(get(userId, noteId).note) } }
         publishChange(resolved.note)
@@ -500,6 +509,7 @@ class NoteService(
         owner: UserSummary,
         filing: Filing? = notes.filingsAmong(viewerId, listOf(visible.note.id))[visible.note.id],
         unseenEdit: UnseenEdit? = null,
+        completedCollapsed: Boolean = visible.note.id in notes.foldedAmong(viewerId, listOf(visible.note.id)),
     ): ResolvedNote {
         val note = visible.note
         return ResolvedNote(
@@ -514,6 +524,7 @@ class NoteService(
             pinned = filing?.pinned ?: false,
             position = filing?.position ?: note.position,
             unseenEdit = unseenEdit,
+            completedCollapsed = completedCollapsed,
         )
     }
 

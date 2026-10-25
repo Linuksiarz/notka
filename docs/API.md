@@ -9,7 +9,8 @@ the browser. The server stores only a SHA-256 of the token, and changing the pas
 every other session.
 
 Every response carries a strict `Content-Security-Policy` (scripts from this origin only, no
-framing). A `POST`, `PATCH` or `DELETE` whose `Sec-Fetch-Site` is anything but `same-origin` or
+framing; `'wasm-unsafe-eval'` lets the page compile the JPEG XL encoder it loads from this origin for
+avatars, and allows no `eval` of script). A `POST`, `PUT`, `PATCH` or `DELETE` whose `Sec-Fetch-Site` is anything but `same-origin` or
 `none` is refused with `403 request.cross_site`; a client that sends no `Sec-Fetch-Site` (not a
 browser) is unaffected. `POST /api/auth/login`, `/register` and `/password-reset` are limited to 10 attempts a minute
 per client address (`429 request.too_many`). A request body larger than twice
@@ -68,6 +69,16 @@ Every non-2xx response has this body:
 | `label.name_taken` | `label` |
 | `label.name_invalid` | – |
 | `note.limit_reached`, `label.limit_reached` (`403`) | `limit` |
+| `avatar.unsupported`, `avatar.not_found` | `userId` for the second |
+| `avatar.too_large` (`413`) | `limit` in KB |
+| `friend.not_found` | `login` (adding) or `userId` (removing) |
+| `friend.self` | – |
+| `friend.already_added` (`409`) | `name` |
+| `friend.limit_reached`, `friend_group.limit_reached` (`403`) | `limit` |
+| `friend_group.not_found` | `groupId` |
+| `friend_group.name_invalid` | – |
+| `friend_group.name_taken` (`409`) | `name` |
+| `friend_group.not_a_friend` | `userId` |
 | `admin.user_not_found`, `admin.cannot_change_admin`, `admin.user_has_no_email` | – |
 | `mail.not_configured` (`409`), `mail.send_failed` (`503`) | – |
 | `theme.not_found`, `theme.archive`, `theme.too_large`, `theme.manifest`, `theme.name`, `theme.empty` | `detail` where it names something |
@@ -80,12 +91,14 @@ Every non-2xx response has this body:
 ### `User`
 
 ```json
-{ "id": 1, "email": "ada@example.com", "username": null, "displayName": "Ada Lovelace", "admin": false }
+{ "id": 1, "email": "ada@example.com", "username": null, "displayName": "Ada Lovelace", "admin": false, "avatarAt": 1761390000000 }
 ```
 
 Every account that signed up has an `email` and no `username`. The administrator created from the
 environment has a `username` it signs in with, and an `email` only when `NOTKA_ADMIN_EMAIL` gave it
-one. `admin` is `true` for the instance's administrator alone.
+one. `admin` is `true` for the instance's administrator alone. `avatarAt` is when the account last
+changed its own picture, `null` while it has none (the client draws the initials); the picture is at
+`GET /api/users/{id}/avatar?v={avatarAt}`.
 
 ### `Label`
 
@@ -105,6 +118,7 @@ one. `admin` is `true` for the instance's administrator alone.
   "background": null,
   "archived": false,
   "pinned": false,
+  "completedCollapsed": false,
   "position": 42,
   "trashedAt": null,
   "createdAt": 1767225600000,
@@ -132,6 +146,7 @@ one. `admin` is `true` for the instance's administrator alone.
 | `access` | `OWNER`, `VIEW` or `EDIT` for the requesting user |
 | `canEdit` | `true` for `OWNER` and `EDIT` |
 | `canChangeAppearance` | `true` for `OWNER` and `EDIT`, `false` for `VIEW`. A change applies to everyone |
+| `completedCollapsed` | whether **the caller** folded the list's "N completed items" away (`note_folds`); the card and the editor both show it |
 | `labels` | only the requesting user's own labels |
 | `shares` | everyone the note is shared with (the owner is `owner`, never a share); omitted while there is nobody |
 | `unseenEdit` | `{ "user": User, "at": 1767225600000 }`: somebody else wrote the note's content (title, kind or body) at `at` and the caller has not opened the note since — the card's "edited by" marker. Omitted otherwise, and always for the caller's own edits. `POST /api/notes/{id}/seen` takes it away |
@@ -203,6 +218,34 @@ Request (all fields optional, at least one required):
 Changing the password requires `currentPassword`. Response `200`: `{ "user": { ... } }`.
 A new password signs out every other session of the account; the one making the change stays.
 
+### `PUT /api/auth/me/avatar`
+
+Sets the account's own picture. The body **is** the picture (any `Content-Type`), and it must be
+**JPEG XL** — a bare codestream or the ISO BMFF container, recognised from the bytes, whose size is read
+from the codestream's header — at most 1024 pixels a side and 512 KB. The web client crops the picture
+the reader chose, scales it to 512 × 512 and encodes it in the page (libjxl as WebAssembly,
+`frontend/src/boundary/jpegXl.ts`), so the server converts nothing and needs no native encoder.
+Response `200`: `{ "user": { ... } }` with the new `avatarAt`.
+
+| Failure | Status / key |
+| --- | --- |
+| not JPEG XL (PNG, JPEG, SVG …), or wider or taller than 1024 | `400 avatar.unsupported` |
+| over 512 KB | `413 avatar.too_large` (`limit` in KB) |
+
+### `DELETE /api/auth/me/avatar`
+
+Takes the picture away; the initials come back. Response `200`: `{ "user": { ... } }` with
+`avatarAt: null`. Harmless when there is none.
+
+### `GET /api/users/{id}/avatar`
+
+The account's picture as `image/jxl`, to anyone signed in — it is shown wherever the account's name is
+(collaborators, the "edited by" marker, the editor's avatars). Asked for with `?v={avatarAt}`, so a new
+picture is a new address and the answer carries `Cache-Control: private, max-age=31536000, immutable`.
+A browser that cannot draw JPEG XL shows the initials instead — there is no fallback decoder; see
+`docs/PLATFORMS.md`. `404 avatar.not_found` when the account has no picture; `401` without a
+session.
+
 ---
 
 ## Notes
@@ -270,6 +313,7 @@ Partial update — only the fields present are applied. Requires `canEdit`.
 | `content` | the body **as a whole**, guarded by `version`. Editors write the body as steps instead (`POST /api/notes/{id}/steps`); a whole body moves `docVersion` on by one and starts the step log again |
 | `trashed` | `true` sets `trashed_at = now`, `false` restores the note; `archived` is untouched |
 | `pinned` | **the caller's own**: pins or unpins the note for the caller alone, and anyone who can see the note may send it — a `VIEW` collaborator too, as long as nothing else is in the patch. Never version-guarded, never archived into the history. A change takes the note to the top of its section **in the caller's order alone** (the note's `position` in the caller's responses); the note's version, its `updated_at` and everybody else's order stay as they were, so nobody else is notified |
+| `completedCollapsed` | **the caller's own**, like `pinned`: `true` folds the list's completed items away for the caller alone, `false` opens them again (`note_folds`). Anyone who can see the note may send it; never version-guarded, never archived into the history, and the note's version and `updated_at` stay, so nobody is notified |
 | `color` | must be one of the 11 color ids or `default`; stored on the note, so it changes for everyone |
 | `background` | one of the 9 background ids, or `""` to clear (`null`/omitted leaves it alone); likewise shared |
 | `reminderAt` | epoch milliseconds; **`0` takes the reminder away**, `null`/omitted leaves it alone |
@@ -448,6 +492,56 @@ collaborator being removed.
 
 ---
 
+## Friends and groups
+
+An account's own list of people it shares with, and named groups of them — like labels, the
+account's alone: the friend is not asked or told, and nobody else ever sees the list. Being a friend
+grants nothing; the share dialog uses the list to suggest people as the reader types, and picking a
+group shares the note with each member through `POST /api/notes/{id}/shares`, one share at a time.
+
+### `GET /api/friends`
+
+Response `200`:
+
+```json
+{
+  "friends": [ User, ... ],
+  "groups": [ { "id": 3, "name": "Family", "memberIds": [2, 5] } ]
+}
+```
+
+Friends in the order they were added, groups by name (`NOCASE`), each group's members in the order
+they were added to it.
+
+### `POST /api/friends`
+
+`{ "login": "bob@example.com" }` — an e-mail address, or the username of an account that signs in with
+one. Response `201`: the friend's `User`. `404 friend.not_found` when no account signs in as that,
+`400 friend.self` for yourself, `409 friend.already_added`, `403 friend.limit_reached` past 500.
+
+### `DELETE /api/friends/{userId}`
+
+Response `204`. The friend also leaves every one of the caller's groups. `404 friend.not_found` when
+the account is not a friend.
+
+### `POST /api/friend-groups`
+
+`{ "name": "Family", "memberIds": [2, 5] }` (`memberIds` optional) → `201` with the group. Names follow
+a label's rules (1..50 characters, unique per account without case: `409 friend_group.name_taken`), and
+every member must be one of the caller's friends (`400 friend_group.not_a_friend`). At most 100 groups.
+
+### `PATCH /api/friend-groups/{id}`
+
+`{ "name": "Relatives" }`, `{ "memberIds": [2] }` or both; a field left out is left as it is, and
+`memberIds` replaces the members. Response `200` with the group. Another account's group is
+`404 friend_group.not_found`, as is one that does not exist.
+
+### `DELETE /api/friend-groups/{id}`
+
+Response `204`.
+
+---
+
 ## Labels
 
 Labels are per user and are never shared.
@@ -480,7 +574,7 @@ Response `200`:
 ```json
 {
   "status": "ok",
-  "version": "1.0.0-rc4",
+  "version": "1.0.0-rc5",
   "demo": false,
   "registrationOpen": true,
   "trashRetentionDays": 30,

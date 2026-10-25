@@ -237,6 +237,7 @@ async function newPage(browser, { locale, viewport, theme }) {
   await context.addInitScript(
     ([localeValue, themeValue]) => {
       localStorage.setItem('notka.locale', localeValue);
+      localStorage.setItem('notka.browserNotice', 'dismissed');
       if (themeValue) localStorage.setItem('notka.theme', themeValue);
     },
     [locale ?? 'en-US', theme ?? '']
@@ -366,7 +367,10 @@ await mkdir(outDir, { recursive: true });
 /* ------------------------------------------------------------------------- signed out */
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await context.addInitScript(() => localStorage.setItem('notka.locale', 'en-US'));
+  await context.addInitScript(() => {
+    localStorage.setItem('notka.locale', 'en-US');
+    localStorage.setItem('notka.browserNotice', 'dismissed');
+  });
   await context.route('**/api/**', (route) =>
     route.fulfill({
       status: 401,

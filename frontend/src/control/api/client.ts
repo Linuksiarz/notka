@@ -138,6 +138,8 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
   put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
   upload: <T>(path: string, raw: Blob) => apiRequest<T>(path, { method: 'POST', raw }),
+  /** Replaces what is at [path] with [raw] — the account's picture. */
+  replace: <T>(path: string, raw: Blob) => apiRequest<T>(path, { method: 'PUT', raw }),
   delete: <T>(path: string, query?: Record<string, QueryValue>) =>
     apiRequest<T>(path, { method: 'DELETE', query })
 };

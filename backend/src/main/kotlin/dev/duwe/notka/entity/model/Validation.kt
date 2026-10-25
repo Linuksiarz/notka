@@ -71,6 +71,18 @@ object Validation {
         return name
     }
 
+    /** A friend group's name follows a label's rules. */
+    fun friendGroupName(raw: String): String {
+        val name = raw.trim()
+        if (name.isEmpty() || name.length > LABEL_NAME_MAX_LENGTH) {
+            throw DomainException.validation(
+                ErrorKeys.FRIEND_GROUP_NAME_INVALID,
+                "Group name must be 1 to $LABEL_NAME_MAX_LENGTH characters",
+            )
+        }
+        return name
+    }
+
     fun noteKind(raw: String): NoteKind =
         NoteKind.entries.firstOrNull { it.name == raw.uppercase() } ?: throw DomainException.validation(
             ErrorKeys.NOTE_INVALID_DOCUMENT,

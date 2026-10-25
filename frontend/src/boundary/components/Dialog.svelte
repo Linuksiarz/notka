@@ -1,3 +1,8 @@
+<script lang="ts" module>
+  /** How many dialogs are open; each one that opens is drawn above the ones open before it. */
+  let openDialogs = 0;
+</script>
+
 <script lang="ts">
   import { Dialog as BitsDialog } from 'bits-ui';
   import type { Snippet } from 'svelte';
@@ -29,6 +34,20 @@
   $effect(() => {
     if (open) return claimBack(() => onClose());
   });
+
+  /**
+   * A dialog opened from another one (the profile picture from Settings, the friends from the share
+   * dialog) goes on top of it. Both used the same z-index, so the one bits-ui happened to portal last
+   * won — on a phone that was Settings, and the picture dialog opened invisibly underneath it.
+   */
+  let layer = $state(0);
+  $effect(() => {
+    if (!open) return;
+    layer = openDialogs++;
+    return () => {
+      openDialogs--;
+    };
+  });
 </script>
 
 <BitsDialog.Root
@@ -38,14 +57,14 @@
   }}
 >
   <BitsDialog.Portal>
-    <BitsDialog.Overlay class="ok-backdrop" />
+    <BitsDialog.Overlay class="ok-backdrop" style="--dialog-layer: {layer}" />
     <!-- No scroll lock: it pads the body for a scrollbar it expects to hide, and ours is always there
          (`html { overflow-y: scroll }`), so the padding only narrowed the notes behind the dialog. -->
     <BitsDialog.Content
       preventScroll={false}
       class="ok-dialog"
       data-overlay="dialog"
-      style="--dialog-width: {width}"
+      style="--dialog-width: {width}; --dialog-layer: {layer}"
       onInteractOutside={(event) => {
         if (!closeOnOutsideClick) {
           event.preventDefault();
@@ -77,7 +96,7 @@
   :global(.ok-backdrop) {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: calc(60 + 2 * var(--dialog-layer, 0));
     background: rgba(0, 0, 0, 0.32);
   }
 
@@ -85,7 +104,7 @@
     position: fixed;
     top: 50%;
     left: 50%;
-    z-index: 61;
+    z-index: calc(61 + 2 * var(--dialog-layer, 0));
     transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;

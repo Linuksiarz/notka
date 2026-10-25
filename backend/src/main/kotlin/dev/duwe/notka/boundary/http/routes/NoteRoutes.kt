@@ -254,6 +254,7 @@ private fun PatchNoteRequest.toCommand() = PatchNoteCommand(
     document = content,
     archived = archived,
     pinned = pinned,
+    completedCollapsed = completedCollapsed,
     trashed = trashed,
     color = color,
     // "" is the sentinel for "clear the background"; null/omitted means "leave it alone".

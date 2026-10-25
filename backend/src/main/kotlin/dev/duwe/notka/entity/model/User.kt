@@ -17,8 +17,10 @@ data class User(
     /** The background theme this account picked; `null` follows the server's default. */
     val backgroundTheme: String?,
     val createdAt: Long,
+    /** When the account last uploaded its own picture; `null` while it shows its initials. */
+    val avatarAt: Long? = null,
 ) {
-    fun toSummary(): UserSummary = UserSummary(id, email, username, displayName, admin)
+    fun toSummary(): UserSummary = UserSummary(id, email, username, displayName, admin, avatarAt)
 }
 
 /** Public view of an account: everything except the password hash and the account's own preferences. */
@@ -28,6 +30,17 @@ data class UserSummary(
     val username: String?,
     val displayName: String,
     val admin: Boolean = false,
+    /** When the account's picture last changed, which is also what tells a cached copy apart; `null` when it has none. */
+    val avatarAt: Long? = null,
+)
+
+/** A friend group: a name the owner gave a few of their friends, to share a note with all of them at once. */
+data class FriendGroup(
+    val id: Int,
+    val ownerId: Int,
+    val name: String,
+    /** In the order they were added. */
+    val memberIds: List<Int>,
 )
 
 data class Session(

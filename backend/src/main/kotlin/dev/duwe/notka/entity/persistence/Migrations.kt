@@ -31,6 +31,38 @@ object Migrations {
         )
         """.trimIndent(),
         """
+        CREATE TABLE IF NOT EXISTS user_avatars (
+            user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            data       BLOB    NOT NULL,
+            byte_size  INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS friends (
+            owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            friend_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (owner_id, friend_id)
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS friend_groups (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            name       TEXT    NOT NULL,
+            created_at INTEGER NOT NULL
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS friend_group_members (
+            group_id INTEGER NOT NULL REFERENCES friend_groups(id) ON DELETE CASCADE,
+            user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            added_at INTEGER NOT NULL,
+            PRIMARY KEY (group_id, user_id)
+        )
+        """.trimIndent(),
+        """
         CREATE TABLE IF NOT EXISTS sessions (
             token        TEXT    PRIMARY KEY,
             user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -66,6 +98,13 @@ object Migrations {
             user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             pinned     INTEGER NOT NULL,
             position   INTEGER NOT NULL,
+            PRIMARY KEY (note_id, user_id)
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS note_folds (
+            note_id    INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             PRIMARY KEY (note_id, user_id)
         )
         """.trimIndent(),
@@ -187,6 +226,8 @@ object Migrations {
         )
         """.trimIndent(),
         "CREATE INDEX IF NOT EXISTS note_images_note_idx ON note_images(note_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS friend_groups_owner_name_idx ON friend_groups(owner_id, name COLLATE NOCASE)",
+        "CREATE INDEX IF NOT EXISTS friend_group_members_user_idx ON friend_group_members(user_id)",
         "CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets(user_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS labels_owner_name_idx ON labels(owner_id, name COLLATE NOCASE)",
         "CREATE INDEX IF NOT EXISTS notes_owner_idx ON notes(owner_id)",

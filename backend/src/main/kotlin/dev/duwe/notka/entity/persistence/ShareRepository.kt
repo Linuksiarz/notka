@@ -54,6 +54,9 @@ class ShareRepository(private val database: Database) {
             NotePins.deleteWhere {
                 Op.build { (NotePins.noteId eq noteId) and (NotePins.userId eq userId) }
             }
+            NoteFolds.deleteWhere {
+                Op.build { (NoteFolds.noteId eq noteId) and (NoteFolds.userId eq userId) }
+            }
         }
     }
 

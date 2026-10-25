@@ -8,6 +8,8 @@ import dev.duwe.notka.boundary.http.dto.toHttpStatus
 import dev.duwe.notka.entity.model.DomainException
 import dev.duwe.notka.entity.model.ErrorKeys
 import dev.duwe.notka.entity.model.ErrorKind
+import dev.duwe.notka.boundary.http.routes.AVATAR_UPLOAD
+import dev.duwe.notka.control.MAX_AVATAR_BYTES
 import dev.duwe.notka.control.MAX_IMAGE_BYTES
 import dev.duwe.notka.control.MAX_THEME_ARCHIVE_BYTES
 import io.ktor.http.ContentType
@@ -50,10 +52,12 @@ private val AUTH_ATTEMPTS_PERIOD = 1.minutes
 /**
  * What the page may load. Everything is served by this server; the only exception is a link card's
  * thumbnail, which is an image on the linked site. Inline styles stay allowed because the editor and
- * the dialogs position themselves with `style` attributes; scripts do not.
+ * the dialogs position themselves with `style` attributes; scripts do not. `'wasm-unsafe-eval'` lets
+ * the page compile the JPEG XL encoder it loads from this origin (an avatar is encoded in the
+ * browser); it allows no `eval` of script.
  */
 private const val CONTENT_SECURITY_POLICY =
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; " +
         "worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; " +
         "form-action 'self'; frame-ancestors 'none'"
@@ -149,6 +153,7 @@ fun Application.configureHttpPlugins(config: AppConfig) {
             val path = call.request.path()
             when {
                 isPost && IMAGE_UPLOAD.matches(path) -> MAX_IMAGE_BYTES.toLong() + 1
+                call.request.httpMethod == HttpMethod.Put && path == AVATAR_UPLOAD -> MAX_AVATAR_BYTES.toLong() + 1
                 isPost && path == THEME_UPLOAD -> MAX_THEME_ARCHIVE_BYTES.toLong() + 1
                 else -> config.maxRequestBytes
             }

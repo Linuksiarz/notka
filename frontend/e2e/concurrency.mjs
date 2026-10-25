@@ -31,7 +31,10 @@ const browser = await chromium.launch();
 
 async function register(user) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await context.addInitScript(() => localStorage.setItem('notka.locale', 'en-US'));
+  await context.addInitScript(() => {
+    localStorage.setItem('notka.locale', 'en-US');
+    localStorage.setItem('notka.browserNotice', 'dismissed');
+  });
   const page = await context.newPage();
   await page.goto(`${baseUrl}/register`, { waitUntil: 'networkidle' });
   await page.getByLabel('Email').fill(user.email);

@@ -21,6 +21,7 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.max
 import org.jetbrains.exposed.sql.replace
 import org.jetbrains.exposed.sql.selectAll
@@ -240,6 +241,31 @@ class NoteRepository(private val database: Database) {
         NotePins.selectAll()
             .where { (NotePins.userId eq userId) and (NotePins.noteId inList noteIds) }
             .associate { it[NotePins.noteId] to Filing(it[NotePins.pinned], it[NotePins.position]) }
+    }
+
+    /** The notes among [noteIds] whose completed items [userId] folded away. */
+    fun foldedAmong(userId: Int, noteIds: Collection<Int>): Set<Int> = transaction(database) {
+        if (noteIds.isEmpty()) return@transaction emptySet()
+        NoteFolds.selectAll()
+            .where { (NoteFolds.userId eq userId) and (NoteFolds.noteId inList noteIds) }
+            .mapTo(mutableSetOf()) { it[NoteFolds.noteId] }
+    }
+
+    /**
+     * Folds or unfolds [noteId]'s completed items for [userId] alone. Like a pin it touches nothing of
+     * the note — not its version, not `updated_at`, not anybody else's fold.
+     */
+    fun setCompletedCollapsed(noteId: Int, userId: Int, collapsed: Boolean) {
+        transaction(database) {
+            if (collapsed) {
+                NoteFolds.insertIgnore {
+                    it[NoteFolds.noteId] = noteId
+                    it[NoteFolds.userId] = userId
+                }
+            } else {
+                NoteFolds.deleteWhere { Op.build { (NoteFolds.noteId eq noteId) and (NoteFolds.userId eq userId) } }
+            }
+        }
     }
 
     /**

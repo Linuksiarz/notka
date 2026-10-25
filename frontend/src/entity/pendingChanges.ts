@@ -40,6 +40,7 @@ export function withChanges(
   if (changes.color !== undefined) next.color = changes.color;
   if (changes.background !== undefined) next.background = changes.background;
   if (changes.archived !== undefined) next.archived = changes.archived;
+  if (changes.completedCollapsed !== undefined) next.completedCollapsed = changes.completedCollapsed;
   if (changes.pinned !== undefined && changes.pinned !== note.pinned) {
     next.pinned = changes.pinned;
     next.position = top;
@@ -78,6 +79,7 @@ export function draftNote(
     background: null,
     archived: false,
     pinned: false,
+    completedCollapsed: false,
     position: top,
     trashedAt: null,
     createdAt: now,

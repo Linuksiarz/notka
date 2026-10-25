@@ -625,6 +625,18 @@ class NotesState {
   }
 
   /**
+   * Folds or unfolds a list's completed items for this reader. Shown at once — it is a click on a
+   * heading, not a write anybody waits for — and stored like a pin: no version, no history.
+   */
+  async setCompletedCollapsed(id: number, completedCollapsed: boolean): Promise<void> {
+    const folded = (list: Note[]) => list.map((note) => (note.id === id ? { ...note, completedCollapsed } : note));
+    this.notes = folded(this.notes);
+    this.archivedNotes = folded(this.archivedNotes);
+    this.remember();
+    await this.patch(id, { completedCollapsed });
+  }
+
+  /**
    * The reader opened the note: the card's "edited by" marker goes away at once, and the server is
    * told so for the next read. It is the reader's own business — no version, no queue: a note opened
    * without a connection keeps its marker on the next read and loses it the next time it is opened.

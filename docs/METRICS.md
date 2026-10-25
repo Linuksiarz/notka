@@ -74,6 +74,16 @@ The **gear opens a menu**, not the settings: a 4px-radius panel, 6px above and b
 with 14px text 17px in — "Settings", "Enable/Disable dark theme" first. A **list card** draws a 1px
 line at 10% ink 5px under its last active row, the "completed" heading 15px under it; the editor
 draws the same line, and its "+ List item" row (39px) sits between the active rows and that line.
+The card's "completed" heading (re-measured 2026-10-23, keep.google.com, 1024×768, Polish locale) is a
+`role="button"` with `aria-expanded` that folds the section **on the card** and leaves the note shut;
+the fold is the editor's too, and survives a reload. It is 15px regular text, `rgb(95,99,104)` in the
+light theme, its chevron an 18px `chevron-right` turned to point **down in both states** at 54% ink,
+10px before the label. The editor turns the same glyph down when open and **up when folded**. A card
+draws **ten list rows** in all: three active and twelve completed draw seven of the completed and then
+"…" (the owner's screenshot: five and five, then "…"); ten active rows leave none, and the heading is
+then `+ 5 ukończonych elementów` with no chevron and no button. On the Android app's card (emulator,
+412dp, font scale 1.0) the section is never drawn: `checked_items_count` reads "+ 4 checked items",
+12sp on an 18.4dp line, 8dp under the last row, not clickable.
 A card's hover bar is colour, reminder, collaborator, (image), archive, more.
 
 The search page (`#search`) is a column of panels, max 800px wide with 80px side margins (so 640px
@@ -588,8 +598,26 @@ the editor show the same people: the note's owner and its collaborators, the rea
 | Editor: how many | all | (no overflow view) |
 
 A dp is one CSS px under `width=device-width`, so the tokens (`--keep-avatar-*` in `tokens.css`) scale
-with the device's density by themselves. The editor's 40dp is the phone's; the desktop's editor keeps
-24px until the web original is measured.
+with the device's density by themselves. The editor's 40dp is the phone's; the desktop's is the web
+original's 30px (below).
+
+### Avatars
+
+Every place an account's circle is drawn, in both originals. The web numbers are the original's own
+stylesheet and DOM (keep.google.com, 2026-10-25, 1440×900); the Android ones the APK's layouts and the
+emulator (412dp at 3.375px/dp, 2026-10-25). Sizes include the ring: the original's is a
+`box-sizing: border-box` border, so a ringed circle takes no more room.
+
+| Where | Web original | Android app | Ours |
+| --- | --- | --- | --- |
+| Account, in the header | 32px picture, **no ring**, in a 40px round button (4px around it) | 32dp (`bento_toolbar_avatar_size`), **no ring** | 32px, no ring, 4px around |
+| A card's collaborators | **24px with a 2px white ring** and `0 1px 1px 1px rgba(0,0,0,.1)`, 4px apart (`.IZ65Hb-WsjYwc-nUpftc .PoC6nf-IZ65Hb-IS8eVe-HiaYvf`) | 24dp, bare (`browse_metadata_avatar` is a plain ImageView) | the same, per layout |
+| The editor's collaborators | **30px with the same ring**, 4px apart (`.PoC6nf-IZ65Hb-IS8eVe-HiaYvf`) | 40dp, 8dp apart, bare | the same, per layout |
+| "Edited by" on a card | the 30px ringed circle (read as ~31px off a screenshot) | – | 30px with the 2px white ring |
+| Collaborators dialog | **40px with a 2px white ring** and `0 1px 1px 1px rgba(60,64,67,.15)`; the picture is the 36px inside (`.EDlbXc-x3Eknd-HiaYvf`); suggestions the same with `rgba(0,0,0,.1)` | **48dp** with a 2dp ring in the screen's own colour and a soft shadow around it | 40px ringed (phone: 48px, the ring in the sheet's colour); friends and suggestions alike |
+
+The web original's stylesheet has no dark-theme override for the ring: it is white in both themes.
+Settings, the server settings and the profile-picture dialog are ours alone and keep a bare circle.
 
 **The editor's title on a phone is 24sp** (`editor_title_text_size`, on `textAppearanceHeadline5`), and
 the emulator agrees: the capital Z of "Zakupy" is 59 device px = **17.5dp** tall at 3.375px/dp, which is

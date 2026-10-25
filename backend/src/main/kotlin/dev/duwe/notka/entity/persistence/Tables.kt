@@ -15,6 +15,49 @@ object Users : Table("users") {
     override val primaryKey = PrimaryKey(id)
 }
 
+/**
+ * An account's own picture, one row or none. Always JPEG XL — the browser encodes it before the upload
+ * (`docs/DATA-MODEL.md`) — and kept in the database like a note's pictures, so the file stays the whole
+ * state. `updated_at` is what a cached copy is told apart by.
+ */
+object UserAvatars : Table("user_avatars") {
+    val userId = integer("user_id")
+    val data = blob("data")
+    val byteSize = integer("byte_size")
+    val updatedAt = long("updated_at")
+
+    override val primaryKey = PrimaryKey(userId)
+}
+
+/* The people an account keeps at hand for sharing: one row per (owner, friend). The owner's own list —
+   the friend is not told and has no row back. */
+object Friends : Table("friends") {
+    val ownerId = integer("owner_id")
+    val friendId = integer("friend_id")
+    val createdAt = long("created_at")
+
+    override val primaryKey = PrimaryKey(ownerId, friendId)
+}
+
+/** Named sets of an account's friends; a group is its owner's alone, like a label. */
+object FriendGroups : Table("friend_groups") {
+    val id = integer("id").autoIncrement()
+    val ownerId = integer("owner_id")
+    val name = text("name")
+    val createdAt = long("created_at")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+/** Who is in a group. Only the owner's friends are; unfriending someone takes them out of every group. */
+object FriendGroupMembers : Table("friend_group_members") {
+    val groupId = integer("group_id")
+    val userId = integer("user_id")
+    val addedAt = long("added_at")
+
+    override val primaryKey = PrimaryKey(groupId, userId)
+}
+
 object Sessions : Table("sessions") {
     val token = text("token")
     val userId = integer("user_id")
@@ -66,6 +109,16 @@ object NotePins : Table("note_pins") {
     val userId = integer("user_id")
     val pinned = bool("pinned")
     val position = long("position")
+
+    override val primaryKey = PrimaryKey(noteId, userId)
+}
+
+/* The lists whose "N completed items" an account has folded away: a row is a fold, and no row is an
+   open section. The reader's own, like a pin — the owner's correction of Google Keep, which keeps it
+   on the note (`is_graveyard_closed`) and folds a shared list for everybody at once. */
+object NoteFolds : Table("note_folds") {
+    val noteId = integer("note_id")
+    val userId = integer("user_id")
 
     override val primaryKey = PrimaryKey(noteId, userId)
 }

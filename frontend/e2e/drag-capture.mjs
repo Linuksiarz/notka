@@ -40,6 +40,7 @@ const context = await browser.newContext({
 });
 await context.addInitScript(() => {
   localStorage.setItem('notka.locale', 'en-US');
+  localStorage.setItem('notka.browserNotice', 'dismissed');
   localStorage.setItem('notka.theme', 'dark');
 });
 await context.route('**/api/**', async (route) => {

@@ -25,7 +25,9 @@ Notes, checklists, labels, reminders and sharing, on your own server, in your ow
 - **Labels, pins, reminders, archive and trash**, with trashed notes purged after 30 days.
 - **Pictures** in notes, pasted, dropped or picked from the device.
 - **Sharing** with other accounts as *view only* or *can edit*, with live updates. Two people typing
-  into one note at once both keep every keystroke.
+  into one note at once both keep every keystroke. Friends and groups of them are suggested as you
+  type, and picking a group shares with all of its members.
+- **Profile pictures**, cropped in the app and stored as JPEG XL.
 - **Version history** of every note, downloadable as Markdown, and **Markdown export and import**
   ([`docs/MARKDOWN.md`](docs/MARKDOWN.md)).
 - **Works offline** as an installable web app, and receives text, links and pictures shared from
@@ -36,6 +38,24 @@ Notes, checklists, labels, reminders and sharing, on your own server, in your ow
 
 Where Notka differs from Google Keep on purpose (Markdown, colours shared with collaborators,
 view-only sharing and more) is listed in [`docs/DIFFERENCES.md`](docs/DIFFERENCES.md).
+
+## Supported browsers
+
+Notka is tested on the browsers below, from the version that draws JPEG XL (the format of profile
+pictures, which Notka has no fallback for). In other browsers some features — pictures in
+particular — may not work correctly, and the app says so when it starts.
+
+| Browser | Minimum version |
+| --- | --- |
+| Waterfox | 6.6 |
+| Firefox | 158 |
+| Chromium / Chrome | 155 |
+| Safari | 17 |
+
+Microsoft Edge is not among them: it does not draw JPEG XL yet.
+
+On a phone: **Android 12** with Chrome (or Android System WebView) 155 or newer, and **iOS 17**.
+The details are in [`docs/PLATFORMS.md`](docs/PLATFORMS.md).
 
 ## Screenshots
 
@@ -153,7 +173,8 @@ database only: before using the same checkout for real, remove its data with `do
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): running from source, tests, building and releasing, the architecture.
 - [ROADMAP.md](ROADMAP.md): what is planned.
-- [`docs/`](docs): the API, the data model, collaboration, themes and the Markdown format.
+- [`docs/`](docs): the API, the data model, collaboration, themes, the Markdown format and the
+  [supported platforms](docs/PLATFORMS.md).
 
 ## License
 

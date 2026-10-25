@@ -42,6 +42,53 @@ query that reads a missing column.
 
 `CHECK (email IS NOT NULL OR username IS NOT NULL)`: an account always has something to sign in with.
 
+### `user_avatars`
+
+An account's own picture, one row or none, in the database like a note's pictures. Always **JPEG XL**:
+the browser crops and encodes it before the upload, so the server stores the bytes it was given —
+recognised from their header (`ImageFormats.sniffJpegXl`), never from a name or a `Content-Type` — and
+converts nothing. The browser draws it itself; one that cannot shows the initials, and is told at
+start that it is not a supported browser (`docs/PLATFORMS.md`).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | INTEGER PK | FK `users(id)` ON DELETE CASCADE |
+| `data` | BLOB NOT NULL | the JPEG XL as uploaded: at most 512 KB and 1024 px a side (the client sends 512 × 512) |
+| `byte_size` | INTEGER NOT NULL | |
+| `updated_at` | INTEGER NOT NULL | epoch millis; the `avatarAt` of the account's `User`, and the `?v=` that tells cached copies apart |
+
+### `friends`, `friend_groups` and `friend_group_members`
+
+The people an account keeps at hand for sharing, and named groups of them. All three are the
+account's own — like labels, and unlike anything about a note: the friend is not asked, has no row
+back, and nobody else ever reads them. A friend grants nothing; sharing still goes through
+`note_shares`, one share at a time.
+
+| `friends` column | Type | Notes |
+| --- | --- | --- |
+| `owner_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE |
+| `friend_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE; never the owner |
+| `created_at` | INTEGER NOT NULL | the order friends are listed in |
+
+PRIMARY KEY `(owner_id, friend_id)`.
+
+| `friend_groups` column | Type | Notes |
+| --- | --- | --- |
+| `id` | INTEGER PK AUTOINCREMENT | |
+| `owner_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE |
+| `name` | TEXT NOT NULL | trimmed, 1..50 chars, UNIQUE per owner `NOCASE` |
+| `created_at` | INTEGER NOT NULL | |
+
+| `friend_group_members` column | Type | Notes |
+| --- | --- | --- |
+| `group_id` | INTEGER NOT NULL | FK `friend_groups(id)` ON DELETE CASCADE |
+| `user_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE; always one of the group owner's friends |
+| `added_at` | INTEGER NOT NULL | the order members are listed in |
+
+PRIMARY KEY `(group_id, user_id)`. Removing a friend removes them from every one of the owner's groups
+in the same transaction (`FriendRepository.removeFriend`), so a group never holds somebody who is not a
+friend; a deleted account leaves every list through the cascades.
+
 ### `server_settings`
 
 | Column | Type | Notes |
@@ -127,6 +174,22 @@ note leads that account's views and nobody else's, and pinning or unpinning take
 section **for that account alone** — everyone else keeps the note's shared `position`, its version and
 its `updated_at`. Anyone who can see the note may pin it, a `VIEW` collaborator too. Taking a share
 away takes that account's row with it. Dragging a note sets the shared `position` and the mover's own.
+
+### `note_folds`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `note_id` | INTEGER NOT NULL | FK `notes(id)` ON DELETE CASCADE |
+| `user_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE |
+| PRIMARY KEY | (`note_id`, `user_id`) | |
+
+**A list's folded "N completed items" are the reader's own**, like a pin: a row means this account
+folded the section away, no row means it is open. The card and the editor show the same fold, and it
+survives closing the note and a reload. Google Keep keeps it on the note (`is_graveyard_closed` in its
+Android app's database, synced between devices) and so folds a shared list for every collaborator at
+once; the owner overruled that — a fold is how one person looks at a list, not a change to it. Anyone
+who can see the note may fold it, a `VIEW` collaborator too; it never moves the version, `updated_at`
+or the history, and nobody else is notified. Taking a share away takes that account's row with it.
 
 ### `note_reads`
 
@@ -323,7 +386,7 @@ when it is ticked rather than re-sorting it on the way to the screen (`AGENTS.md
 ### Invariants
 
 - `pinned` is the **reader's**, not the note's (`note_pins`): it never appears in `content`, and it is
-  worked out for the account that reads the note.
+  worked out for the account that reads the note. So is `completedCollapsed` (`note_folds`).
 - `position` orders a section, highest first: one above every note there is for a new note, a copy,
   and a note whose pin changes; nothing else moves it, so writing in a note leaves it in place (the
   original's order, measured: an edited note keeps its place, also after a reload).

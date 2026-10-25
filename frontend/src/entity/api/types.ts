@@ -69,6 +69,25 @@ export interface User {
   displayName: string;
   /** The instance's administrator, who sees the server settings. */
   admin: boolean;
+  /**
+   * When the account last changed its own picture (`GET /api/users/{id}/avatar?v=…`, always JPEG XL);
+   * `null` while it shows its initials.
+   */
+  avatarAt: number | null;
+}
+
+/** A named set of the reader's friends; picking it in the share dialog adds every member. */
+export interface FriendGroup {
+  id: number;
+  name: string;
+  /** Ids of the reader's friends, in the order they were added to the group. */
+  memberIds: number[];
+}
+
+/** The reader's own friends and groups, never anybody else's. */
+export interface FriendsResponse {
+  friends: User[];
+  groups: FriendGroup[];
 }
 
 export interface Label {
@@ -146,6 +165,11 @@ export interface Note {
   archived: boolean;
   /** Pinned notes lead their view. Metadata like the archive flag: no version guard, no history. */
   pinned: boolean;
+  /**
+   * Whether this reader folded the list's "N completed items" away — the reader's own, like the pin,
+   * and the one state the card and the editor share.
+   */
+  completedCollapsed: boolean;
   /** Its place in its section, highest first (`entity/noteOrder.ts`). */
   position: number;
   trashedAt: number | null;
@@ -258,6 +282,22 @@ export interface UpdateProfileRequest {
   newPassword?: string;
 }
 
+export interface AddFriendRequest {
+  /** An e-mail address, or the username of an account that signs in with one. */
+  login: string;
+}
+
+export interface CreateFriendGroupRequest {
+  name: string;
+  memberIds: number[];
+}
+
+/** A field left out is left as it is. */
+export interface UpdateFriendGroupRequest {
+  name?: string;
+  memberIds?: number[];
+}
+
 export interface UserResponse {
   user: User;
 }
@@ -287,6 +327,7 @@ export interface UpdateNoteRequest {
   content?: NoteDocument;
   archived?: boolean;
   pinned?: boolean;
+  completedCollapsed?: boolean;
   trashed?: boolean;
   color?: NoteColor;
   /** `null` clears the background (`notesApi.update` sends it as `""`); omit the field to leave it untouched. */

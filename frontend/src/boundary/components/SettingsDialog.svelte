@@ -120,7 +120,13 @@
   }
 </script>
 
-<Dialog {open} {onClose} title={t('settings.title')} width="520px">
+<Dialog
+  {open}
+  {onClose}
+  title={t('settings.title')}
+  width="520px"
+  closeOnOutsideClick={!ui.avatarDialogOpen && !ui.friendsDialogOpen}
+>
   <div class="settings">
     <header>
       <h2>{t('settings.title')}</h2>
@@ -260,6 +266,9 @@
         <div class="identity">
           <Avatar --avatar-size="var(--keep-avatar-settings)" user={session.user} />
           <span>{accountName(session.user)}</span>
+          <button type="button" class="link" onclick={() => (ui.avatarDialogOpen = true)}>
+            {t('settings.changePicture')}
+          </button>
         </div>
         <label>
           <span>{t('settings.displayName')}</span>
@@ -267,6 +276,14 @@
         </label>
         <button type="button" class="primary" disabled={busy} onclick={saveProfile}>
           {t('settings.saveProfile')}
+        </button>
+      </section>
+
+      <section>
+        <h3>{t('settings.friends')}</h3>
+        <p class="hint">{t('settings.friendsHint')}</p>
+        <button type="button" class="primary" onclick={() => (ui.friendsDialogOpen = true)}>
+          {t('settings.manageFriends')}
         </button>
       </section>
 
@@ -503,6 +520,19 @@
     background: var(--keep-accent);
     color: #fff;
     font-weight: 500;
+  }
+
+  .link {
+    margin-left: auto;
+    padding: 6px 8px;
+    border-radius: 4px;
+    color: var(--keep-accent);
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .link:hover {
+    background: var(--keep-hover);
   }
 
   .primary:disabled {

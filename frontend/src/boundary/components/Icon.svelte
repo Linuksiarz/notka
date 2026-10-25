@@ -58,6 +58,9 @@
   import contentCopy from '@iconify-icons/ic/outline-content-copy';
   import lockReset from '@iconify-icons/ic/outline-lock-reset';
   import personRemove from '@iconify-icons/ic/outline-person-remove';
+  import groupOutline from '@iconify-icons/ic/outline-group';
+  import zoomIn from '@iconify-icons/ic/outline-zoom-in';
+  import zoomOut from '@iconify-icons/ic/outline-zoom-out';
   import fileUpload from '@iconify-icons/ic/outline-file-upload';
   import swapVert from '@iconify-icons/ic/baseline-swap-vert';
   import addBox from '@iconify-icons/ic/outline-add-box';
@@ -129,6 +132,10 @@
     eye: visibilityOutline,
     'lock-reset': lockReset,
     'person-remove': personRemove,
+    /* Friends and groups, and the avatar cropper's zoom. */
+    group: groupOutline,
+    'zoom-in': zoomIn,
+    'zoom-out': zoomOut,
     upload: fileUpload,
     /* The phone's own glyphs, from the original's Android app: its sort button, the editor's "add"
        box, the camera, and the new-note menu's text and (filled) list. */

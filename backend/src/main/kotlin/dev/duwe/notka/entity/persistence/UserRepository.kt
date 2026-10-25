@@ -5,6 +5,7 @@ import dev.duwe.notka.entity.model.Session
 import dev.duwe.notka.entity.model.User
 import dev.duwe.notka.entity.model.UserSummary
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
@@ -20,6 +21,9 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 
 class UserRepository(private val database: Database) {
+    /** Every read of an account carries when its picture changed, so a summary can point at the right copy. */
+    private val withAvatar = Users.join(UserAvatars, JoinType.LEFT, Users.id, UserAvatars.userId)
+
     fun insert(
         email: String?,
         username: String?,
@@ -49,22 +53,22 @@ class UserRepository(private val database: Database) {
     }
 
     fun findById(id: Int): User? = transaction(database) {
-        Users.selectAll().where { Users.id eq id }.singleOrNull()?.toUser()
+        withAvatar.selectAll().where { Users.id eq id }.singleOrNull()?.toUser()
     }
 
     fun findByEmail(email: String): User? = transaction(database) {
-        Users.selectAll().where { Users.email eq email }.singleOrNull()?.toUser()
+        withAvatar.selectAll().where { Users.email eq email }.singleOrNull()?.toUser()
     }
 
     /** Usernames compare without case, as the column does. */
     fun findByUsername(username: String): User? = transaction(database) {
-        Users.selectAll().where { Users.username.lowerCase() eq username.lowercase() }.singleOrNull()?.toUser()
+        withAvatar.selectAll().where { Users.username.lowerCase() eq username.lowercase() }.singleOrNull()?.toUser()
     }
 
     fun findSummaries(ids: Collection<Int>): Map<Int, UserSummary> {
         if (ids.isEmpty()) return emptyMap()
         return transaction(database) {
-            Users.selectAll().where { Users.id inList ids.distinct() }
+            withAvatar.selectAll().where { Users.id inList ids.distinct() }
                 .map { it.toUser().toSummary() }
                 .associateBy { it.id }
         }
@@ -111,6 +115,7 @@ class UserRepository(private val database: Database) {
             """
             SELECT u.id, u.email, u.username, u.display_name, u.is_admin, u.created_at,
                 (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS last_seen,
+                (SELECT a.updated_at FROM user_avatars a WHERE a.user_id = u.id) AS avatar_at,
                 (SELECT COUNT(*) FROM notes n WHERE n.owner_id = u.id) AS notes,
                 (SELECT COALESCE(SUM(length(CAST(n.title AS BLOB)) + length(CAST(n.content AS BLOB))), 0)
                     FROM notes n WHERE n.owner_id = u.id) AS note_bytes,
@@ -130,6 +135,7 @@ class UserRepository(private val database: Database) {
                         username = result.getString("username"),
                         displayName = result.getString("display_name"),
                         admin = result.getInt("is_admin") != 0,
+                        avatarAt = result.getLong("avatar_at").takeUnless { result.wasNull() },
                     ),
                     createdAt = result.getLong("created_at"),
                     lastSeenAt = result.getLong("last_seen").takeUnless { result.wasNull() },
@@ -152,6 +158,7 @@ class UserRepository(private val database: Database) {
         admin = this[Users.admin],
         backgroundTheme = this[Users.backgroundTheme],
         createdAt = this[Users.createdAt],
+        avatarAt = getOrNull(UserAvatars.updatedAt),
     )
 }
 

@@ -78,6 +78,20 @@ object ErrorKeys {
     const val SHARE_NOT_OWNER = "share.not_owner"
     const val SHARE_NOT_FOUND = "share.not_found"
 
+    const val AVATAR_UNSUPPORTED = "avatar.unsupported"
+    const val AVATAR_TOO_LARGE = "avatar.too_large"
+    const val AVATAR_NOT_FOUND = "avatar.not_found"
+
+    const val FRIEND_NOT_FOUND = "friend.not_found"
+    const val FRIEND_SELF = "friend.self"
+    const val FRIEND_ALREADY_ADDED = "friend.already_added"
+    const val FRIEND_LIMIT_REACHED = "friend.limit_reached"
+    const val FRIEND_GROUP_NOT_FOUND = "friend_group.not_found"
+    const val FRIEND_GROUP_NAME_INVALID = "friend_group.name_invalid"
+    const val FRIEND_GROUP_NAME_TAKEN = "friend_group.name_taken"
+    const val FRIEND_GROUP_NOT_A_FRIEND = "friend_group.not_a_friend"
+    const val FRIEND_GROUP_LIMIT_REACHED = "friend_group.limit_reached"
+
     const val LABEL_NOT_FOUND = "label.not_found"
     const val LABEL_NAME_TAKEN = "label.name_taken"
     const val LABEL_NAME_INVALID = "label.name_invalid"

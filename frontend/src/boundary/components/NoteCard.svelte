@@ -119,6 +119,11 @@
 
   const collaborators = $derived(otherPeople(note, session.user?.id));
 
+  /** The reader's own fold of the completed items, which the editor opens with too. */
+  function toggleCompleted(): void {
+    void notesState.setCompletedCollapsed(note.id, !note.completedCollapsed).catch(() => undefined);
+  }
+
   function openEditor(): void {
     ui.openEditor(note.id, note.kind);
   }
@@ -342,7 +347,13 @@
     {#if note.title}
       <h3 class="title">{note.title}</h3>
     {/if}
-    <NoteContent document={note.content} groupCompleted={note.kind === 'LIST'} />
+    <NoteContent
+      document={note.content}
+      groupCompleted={note.kind === 'LIST'}
+      completedCollapsed={note.completedCollapsed}
+      onToggleCompleted={variant === 'trash' ? undefined : toggleCompleted}
+      completedCountOnly={ui.phone}
+    />
     <ReminderChip {note} compact />
     {#if variant === 'trash' && note.trashedAt !== null}
       <p class="purge">
@@ -749,10 +760,12 @@
 
   .edited-by-avatar {
     --avatar-size: var(--keep-edited-by-avatar);
+    --avatar-ring: 2px;
+    --avatar-ring-shadow: var(--keep-avatar-collaborator-shadow);
+    /* Over the scrim the ring is white on a phone as well. */
+    --keep-avatar-ring-color: #ffffff;
     display: inline-flex;
     margin-bottom: 4px;
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px #fff;
   }
 
   .edited-by-name {

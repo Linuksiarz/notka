@@ -56,6 +56,11 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   );
   let titleInput = $state<HTMLTextAreaElement | null>(null);
 
+  /** The reader's fold of the completed items, shared with the note's card. */
+  const completedCollapsed = $derived(
+    (draft.noteId === null ? undefined : notesState.byIdAnywhere(draft.noteId)?.completedCollapsed) ?? false
+  );
+
   /**
    * The target the draft in the editor belongs to: a note's id as a string, or `'new'` for one that
    * does not exist on the server yet. A draft has no id to compare against, and `null` would mean
@@ -1087,6 +1092,10 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         frame={editorCard}
         labels={draft.canEdit ? labelsState.labels : []}
         onlabel={chooseLabel}
+        {completedCollapsed}
+        oncompletedtoggle={(collapsed) => {
+          if (draft.noteId !== null) void notesState.setCompletedCollapsed(draft.noteId, collapsed).catch(() => undefined);
+        }}
         onupdate={(next) => {
           // Tiptap owns the DOM; this is the only way the draft changes.
           draft.content = next;

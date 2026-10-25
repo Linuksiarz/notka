@@ -1,4 +1,4 @@
-import chevronRight from '@iconify-icons/material-symbols/chevron-right';
+import expandLess from '@iconify-icons/material-symbols/expand-less';
 import expandMore from '@iconify-icons/material-symbols/expand-more';
 import { describe, expect, it } from 'vitest';
 import {
@@ -92,7 +92,7 @@ describe('the completed-items section', () => {
 
     // then
     expect(open).toContain(expandMore.body);
-    expect(folded).toContain(chevronRight.body);
+    expect(folded).toContain(expandLess.body);
     expect(open).toContain(`width="${COMPLETED_CHEVRON_SIZE}"`);
     expect(open).toContain(`height="${COMPLETED_CHEVRON_SIZE}"`);
     expect(open).toContain(`viewBox="0 0 ${expandMore.width} ${expandMore.height}"`);

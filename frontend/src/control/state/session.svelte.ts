@@ -91,8 +91,20 @@ class SessionState {
   }
 
   async updateProfile(changes: UpdateProfileRequest): Promise<void> {
-    const { user } = await authApi.updateProfile(changes);
-    await localStore.set(USER_KEY, user);
+    this.updated((await authApi.updateProfile(changes)).user);
+  }
+
+  /** [picture] is the cropped avatar, encoded as JPEG XL by the page (`boundary/jpegXl.ts`). */
+  async setAvatar(picture: Blob): Promise<void> {
+    this.updated((await authApi.setAvatar(picture)).user);
+  }
+
+  async removeAvatar(): Promise<void> {
+    this.updated((await authApi.removeAvatar()).user);
+  }
+
+  private updated(user: User): void {
+    void localStore.set(USER_KEY, user);
     this.user = user;
   }
 

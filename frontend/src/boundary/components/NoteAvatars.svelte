@@ -35,6 +35,11 @@
     min-width: 0;
   }
 
+  .note-avatars {
+    --avatar-ring: var(--keep-avatar-collaborator-ring);
+    --avatar-ring-shadow: var(--keep-avatar-collaborator-shadow);
+  }
+
   [data-place='card'] {
     --avatar-size: var(--keep-avatar-card);
     --note-avatar-gap: var(--keep-avatar-card-gap);

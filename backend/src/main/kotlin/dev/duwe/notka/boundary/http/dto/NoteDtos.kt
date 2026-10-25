@@ -14,9 +14,11 @@ data class UserDto(
     val username: String?,
     val displayName: String,
     val admin: Boolean,
+    /** When the account's picture last changed (`GET /api/users/{id}/avatar?v=…`); `null` shows the initials. */
+    val avatarAt: Long?,
 )
 
-fun UserSummary.toDto(): UserDto = UserDto(id, email, username, displayName, admin)
+fun UserSummary.toDto(): UserDto = UserDto(id, email, username, displayName, admin, avatarAt)
 
 @Serializable
 data class AuthResponse(val user: UserDto)
@@ -104,6 +106,8 @@ data class NoteDto(
     val color: String,
     val background: String?,
     val archived: Boolean,
+    /** Whether this reader folded the list's completed items away — the reader's own, like [pinned]. */
+    val completedCollapsed: Boolean,
     val pinned: Boolean,
     /** The note's place in its section, highest first; the order the lists come in. */
     val position: Long,
@@ -211,6 +215,8 @@ data class PatchNoteRequest(
     val content: NoteDocument? = null,
     val archived: Boolean? = null,
     val pinned: Boolean? = null,
+    /** Folds (`true`) or unfolds (`false`) the completed items for the caller alone, like [pinned]. */
+    val completedCollapsed: Boolean? = null,
     val trashed: Boolean? = null,
     val color: String? = null,
     val background: String? = null,

@@ -2,9 +2,10 @@
   import type { NoteDocument } from '../../entity/api/types';
   import { listNumbers } from '../../entity/noteDocument';
   import { COMPLETED_SECTION } from '../editor/completedSection';
-  import { checklistSections } from '../../entity/checklistSections';
+  import { cardCompleted, checklistSections } from '../../entity/checklistSections';
   import { t } from '../i18n';
   import Icon from './Icon.svelte';
+  import { ui } from '../../control/state/ui.svelte';
 
   interface Props {
     document: NoteDocument;
@@ -16,9 +17,28 @@
      * opening lines as they are.
      */
     groupCompleted?: boolean;
+    /** The reader folded the completed items away (`Note.completedCollapsed`, shared with the editor). */
+    completedCollapsed?: boolean;
+    /**
+     * Folds or unfolds the section in place, as the original's card does; absent, the heading is a
+     * label and a click on it opens the note like the rest of the card.
+     */
+    onToggleCompleted?: () => void;
+    /**
+     * Only the count, never the rows: the Android app's card, which draws "+ N checked items" and no
+     * completed row, whatever the note's fold.
+     */
+    completedCountOnly?: boolean;
   }
 
-  let { document, maxBlocks, groupCompleted = false }: Props = $props();
+  let {
+    document,
+    maxBlocks,
+    groupCompleted = false,
+    completedCollapsed = false,
+    onToggleCompleted,
+    completedCountOnly = false
+  }: Props = $props();
 
   /**
    * A card draws no empty lines at its end: the original's cards do not, and every list note stored
@@ -47,9 +67,14 @@
       : null
   );
   const blocks = $derived(sections ? sections.active.flatMap((index) => all[index] ?? []) : all);
+  /** What of the completed section fits in the card's ten rows (`cardCompleted`). */
+  const fitted = $derived(sections ? cardCompleted(sections) : null);
+  /** The heading is only a count: nothing of the section would show under it. */
+  const countOnly = $derived(completedCountOnly || (fitted?.full ?? false));
+  const showCompletedRows = $derived(!countOnly && !completedCollapsed);
   const completed = $derived(
-    sections
-      ? sections.completed.map((group) => ({
+    fitted
+      ? fitted.groups.map((group) => ({
           ghost: group.ghost === null ? null : (all[group.ghost] ?? null),
           rows: group.rows.flatMap((index) => all[index] ?? [])
         }))
@@ -57,7 +82,9 @@
   );
   const completedCount = $derived(sections?.completedCount ?? 0);
 
-  const completedLabel = $derived(t('notes.completedItems', { count: completedCount }));
+  const completedLabel = $derived(
+    t(countOnly ? 'notes.completedItemsHidden' : 'notes.completedItems', { count: completedCount })
+  );
 
   function safeHref(href: string | undefined): string | null {
     if (!href) return null;
@@ -162,13 +189,32 @@
     </div>
   {/each}
   {#if completedCount > 0}
-    <!-- A heading, not a control: on a card a click anywhere opens the note, the line and this label
-         included. Folding the section is the editor's own (`completedSection.ts`). -->
-    <div class={COMPLETED_SECTION.toggle}>
-      <Icon name="expand-more" size={18} />
-      <span>{completedLabel}</span>
-    </div>
-    {#each completed as group, groupIndex (groupIndex)}
+    {#if countOnly || !onToggleCompleted}
+      <!-- Only a count — "+ N completed items" when no row of the section fits, or the phone's card:
+           a label, and a click on it opens the note like the rest of the card. -->
+      <div class="{COMPLETED_SECTION.toggle} count-only" class:bare={countOnly}>
+        {#if !countOnly}<span class={COMPLETED_SECTION.chevron}><Icon name="expand-more" size={18} /></span>{/if}
+        <span>{completedLabel}</span>
+      </div>
+    {:else}
+      <!-- The original's card folds and unfolds the section in place, and the note stays shut; its
+           chevron points down in both states (measured), unlike the editor's. -->
+      <button
+        type="button"
+        class={COMPLETED_SECTION.toggle}
+        aria-expanded={!completedCollapsed}
+        onclick={(event) => {
+          // While notes are picked, a click picks the card (rule 20): let it through to the card.
+          if (ui.selecting) return;
+          event.stopPropagation();
+          onToggleCompleted();
+        }}
+      >
+        <span class={COMPLETED_SECTION.chevron}><Icon name="expand-more" size={18} /></span>
+        <span>{completedLabel}</span>
+      </button>
+    {/if}
+    {#each showCompletedRows ? completed : [] as group, groupIndex (groupIndex)}
       {#if group.ghost}
         <!-- The unticked parent of these rows, greyed: it is still in the list above, and drawn again
              here so the rows read as its own (the Android app's "Checked items"). -->
@@ -195,6 +241,10 @@
         </div>
       {/each}
     {/each}
+  {/if}
+
+  {#if showCompletedRows && fitted?.truncated}
+    <div class="more completed-more">{t('card.completedTruncated')}</div>
   {/if}
 
   {#if truncated}
@@ -250,18 +300,39 @@
   /* The same name the editor's heading carries (`boundary/editor/completedSection.ts`); here it is a
      component-scoped class rather than a global one, because a card is not inside an editable.
      Measured from the original's DOM: a 1px line at 10% ink, 5px under the last active row, and the
-     heading 15px under the line. */
+     heading 15px under the line; the heading itself is 15px regular text, its 18px chevron at 54% ink
+     with 10px before the label (keep.google.com, 2026-10-23). */
   .completed-toggle {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 10px;
+    width: 100%;
     margin: 5px 0 2px;
     padding: 14px 0 2px;
+    border: 0;
     border-top: 1px solid var(--keep-completed-rule);
+    background: none;
     color: var(--note-fg-secondary, var(--keep-text-secondary));
-    font-size: 0.8125rem;
-    font-weight: 500;
+    font: inherit;
+    font-size: 0.9375rem;
+    line-height: 1.1875rem;
+    font-weight: 400;
     text-align: left;
+    cursor: pointer;
+  }
+
+  .completed-toggle.count-only {
+    cursor: inherit;
+  }
+
+  .completed-chevron {
+    display: inline-flex;
+    opacity: 0.54;
+  }
+
+  /* "…" under the rows the card had room for, where the original puts it: in the checkbox column. */
+  .completed-more {
+    line-height: 1rem;
   }
 
   .marker {
@@ -398,9 +469,15 @@
       height: 100%;
     }
 
-    /* The Android app's card has no line over its checked items, as its editor has none. */
+    /* The Android app's card has no line over its checked items, as its editor has none, and only
+       counts them: "+ N checked items" at 12sp on an 18.4dp line, 8dp under the last row (measured
+       on the emulator, `checked_items_count`, 2026-10-23). */
     .completed-toggle {
+      margin: 0;
+      padding: 8px 0 0;
       border-top: 0;
+      font-size: 0.75rem;
+      line-height: 1.15rem;
     }
   }
 </style>

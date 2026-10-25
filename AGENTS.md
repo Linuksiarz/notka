@@ -24,6 +24,9 @@ change against Firefox as well, and prefer the standard property (`scrollbar-wid
 next to `::-webkit-scrollbar`, `overflow: clip` only where the fallback is harmless). The mobile
 browsers' overlay scrollbars are their own behaviour; on the desktop the scrollbar is part of the
 original's look and is reserved from the first frame (`html { overflow-y: scroll }`).
+The minimum versions — the first that draw JPEG XL, with Android 12 and iOS 17 — are in
+`docs/PLATFORMS.md` and `entity/recommendedBrowsers.ts`; older browsers get a notice at start, not a
+fallback.
 
 Repository layout:
 
@@ -69,7 +72,7 @@ pnpm run build     # production bundle -> frontend/dist
 pnpm run dev       # dev server on :5173, proxies /api to :8080
 
 # Browser suites (need a running server; see frontend/e2e/README.md)
-pnpm run e2e              # full application regression, 170 checks
+pnpm run e2e              # full application regression, 184 checks
 pnpm run e2e:live         # live collaboration between two accounts
 pnpm run e2e:concurrency  # two people typing into one note at once
 pnpm run e2e:editor       # editor interactions, stubbed API + pnpm preview
@@ -156,7 +159,12 @@ The app ships in **three locales**: `en-US` (American English), `en-GB` (British
 - **JPEG XL is the preferred image format.** Wherever a PNG would be used — screenshots and the
   images in `docs/` — store the image as **lossless** JPEG XL (`.jxl`, `cjxl -d 0`). The screenshot
   scripts already do this (`frontend/e2e/jxl.mjs`). Other formats are for what the outside world
-  requires, such as the pictures a user uploads, which the server accepts by their bytes.
+  requires, such as the pictures a user uploads, which the server accepts by their bytes. An **avatar** is
+  stored as JPEG XL too, encoded **in the browser** (`boundary/jpegXl.ts`, libjxl as WebAssembly from
+  `@jsquash/jxl`) and drawn by the browser itself — **no fallback decoder**: a browser without JPEG XL
+  is told at start which browsers Notka supports (`BrowserNotice.svelte`, `docs/PLATFORMS.md`) and
+  shows initials. The server only recognises the picture by its bytes and converts nothing, so the
+  container stays one JVM process with nothing native beside it.
 
 ## Before Implementing
 
@@ -279,6 +287,8 @@ thrown away.
   and voids the old password only after the mail server accepted the message.
 - Theme pictures are served from this origin, so they go out with a `sandbox` CSP; a theme's files
   are recognised by their bytes, as note pictures are.
+- The CSP's `script-src` carries `'wasm-unsafe-eval'` for the JPEG XL encoder and nothing more; never
+  `'unsafe-eval'`. An avatar is accepted only as JPEG XL (never SVG), capped at 512 KB and 1024 px.
 
 ## Testing
 
@@ -442,9 +452,19 @@ thrown away.
     raise it either**: the checkbox toggles its row without focusing the editor, and only the text of
     an active row brings the caret (and the keyboard) in (`RichText.svelte`,
     `tickRowWithoutKeyboard`).
-12a. **A card's "N completed items" heading is a label, not a control**: on a card a click anywhere opens
-    the note, the heading and the line above it included (`NoteContent.svelte`). Folding the section is
-    the editor's own (`completedSection.ts`). **The editor shows who a note is shared with** — the
+12a. **A card's "N completed items" heading folds the section in place**, as the original's does: a
+    click on it folds or unfolds the completed rows on the card and leaves the note shut, while a click
+    anywhere else on the card opens the note (`NoteContent.svelte`). **The fold is remembered and shared
+    by the card and the editor** (`Note.completedCollapsed`, `PATCH completedCollapsed`): it survives
+    closing the note and a reload. **It is the reader's own** (`note_folds`), like a pin — the owner's
+    correction of Google Keep, which keeps it on the note and folds a shared list for everybody: "to nie
+    powinien być parametr shareowany przy listach shareowanych". Never version-guarded, never a history
+    entry, nobody notified. **A card draws at most ten list rows** (`CARD_LIST_ROWS`, measured): the
+    completed rows fill what the active ones leave and end with "…", and with no room left the heading
+    is only "+ N completed items", a label. The card's chevron points down in both states; the editor's
+    points down open and up folded (measured). **A phone's card only counts them** ("+ N completed
+    items", the Android app's `checked_items_count`), a label, and folding is the editor's there.
+    **The editor shows who a note is shared with** — the
     other people's avatars above its bottom bar (the owner's, for a collaborator) — and the owner's
     avatars open the collaborators. **The desktop editor's bottom bar is a solid strip in the note's
     colour**, the picture stopping at it (the owner's screenshot of the original overruled the
@@ -930,3 +950,15 @@ thrown away.
    (`boundary/textScale.ts`: Dynamic Type on iOS, `TextScalePlugin` in the APK, whose WebView keeps
    `textZoom` at 100) — never the text alone, which left a list's text off its checkboxes. Branch on `ui.phone` in markup, and keep a
    phone number that the script also needs (the checklist's `PHONE_LIST_EM`) in one place.
+27. **Avatars, friends and groups are the account's own.** An account may upload a picture
+   (`PUT /api/auth/me/avatar`): chosen from the account menu or Settings, cropped to a circle with
+   `svelte-easy-crop`, encoded as JPEG XL in the page and shown by `Avatar.svelte` wherever an account
+   appears, the initials standing in while it loads and whenever it cannot be had. `User.avatarAt` is
+   the picture's version and its cache key. **Friends and groups** (`docs/API.md`) are an account's
+   private list — the friend is not told, nothing is shared by being one, and a group holds only
+   friends (unfriending takes them out of every group). The collaborator dialog suggests matching
+   friends and groups as the reader types (bits-ui's Combobox, `entity/friendSuggestions.ts`), never
+   somebody who already has the note or has no address; picking a group shares the note with each
+   member through the ordinary share call, one at a time — never a second write path.
+   **A dialog opened from another one is drawn above it** (`Dialog.svelte` counts the open ones): with
+   one z-index for all of them, the picture dialog opened invisibly under Settings on a phone.

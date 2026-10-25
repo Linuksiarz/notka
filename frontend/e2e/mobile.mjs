@@ -42,7 +42,10 @@ async function phone(size, notes, suffix) {
     hasTouch: true,
     locale: 'en-US'
   });
-  await context.addInitScript(() => localStorage.setItem('notka.locale', 'en-US'));
+  await context.addInitScript(() => {
+    localStorage.setItem('notka.locale', 'en-US');
+    localStorage.setItem('notka.browserNotice', 'dismissed');
+  });
   const page = await context.newPage();
   await page.goto(`${baseUrl}/register`, { waitUntil: 'networkidle' });
   await page.getByLabel('Email').fill(USER.email.replace('@', `.${suffix}@`));
@@ -360,6 +363,37 @@ await page.waitForTimeout(400);
 await page.goBack();
 await page.waitForTimeout(400);
 check('Back from a view picked in the drawer returns to the view before it', page.url() === addressWithDrawer, page.url());
+
+// A dialog opened from Settings goes on top of it: both used one z-index, and on a phone the picture
+// dialog opened invisibly under Settings.
+const topmostAt = (selector) =>
+  page.evaluate((css) => {
+    const target = document.querySelector(css);
+    if (!target) return 'missing';
+    const rect = target.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + 24);
+    return hit !== null && target.contains(hit);
+  }, selector);
+await page.getByRole('button', { name: 'Open navigation' }).click();
+await page.waitForTimeout(400);
+await page.locator('.sidebar .item').filter({ hasText: 'Settings', hasNotText: 'Server' }).click();
+await page.waitForSelector('.ok-dialog[data-state="open"]', { timeout: 5_000 });
+await page.getByRole('button', { name: 'Change picture' }).click();
+await page.waitForSelector('[data-testid=avatar-dialog]');
+await page.waitForTimeout(400);
+const pictureOnTop = await topmostAt('[data-testid=avatar-dialog]');
+await page.locator('[data-testid=avatar-dialog]').getByRole('button', { name: 'Close', exact: true }).click();
+await page.waitForTimeout(400);
+await page.getByRole('button', { name: 'Manage friends and groups' }).click();
+await page.waitForSelector('[data-testid=friends-dialog]');
+await page.waitForTimeout(400);
+const friendsOnTop = await topmostAt('[data-testid=friends-dialog]');
+check('the picture and friends dialogs open on top of Settings', pictureOnTop === true && friendsOnTop === true,
+  JSON.stringify({ pictureOnTop, friendsOnTop }));
+await page.goBack();
+await page.waitForTimeout(400);
+await page.goBack();
+await page.waitForTimeout(500);
 
 console.log('\nthe editor on a phone');
 

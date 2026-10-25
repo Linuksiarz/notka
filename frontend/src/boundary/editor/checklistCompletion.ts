@@ -35,6 +35,10 @@ export interface ChecklistCompletionOptions {
    * i18n catalogue by the component that owns the editor, like the heading.
    */
   addItemLabel?: string;
+  /** Whether the section starts open: the reader's own fold, which the card shares (`Note.completedCollapsed`). */
+  initiallyOpen?: () => boolean;
+  /** The reader folded or unfolded the section from its heading, to be remembered. */
+  onToggle?: (open: boolean) => void;
 }
 
 /** The class of the "+ List item" row, styled in `RichText.svelte`. */
@@ -120,7 +124,7 @@ function ghostRow(text: string, depth: number, order: number, hidden: boolean): 
 }
 
 /** The heading, built by hand: a widget decoration is a DOM node, not a Svelte component. */
-function heading(view: EditorView, open: boolean, label: string): HTMLElement {
+function heading(view: EditorView, open: boolean, label: string, onToggle?: (open: boolean) => void): HTMLElement {
   const row = document.createElement('div');
   row.className = COMPLETED_SECTION.row;
   row.contentEditable = 'false';
@@ -141,10 +145,17 @@ function heading(view: EditorView, open: boolean, label: string): HTMLElement {
 
   button.append(chevron, text);
   button.addEventListener('click', () => {
-    view.dispatch(view.state.tr.setMeta(checklistCompletionKey, { open: !open }));
+    setCompletedOpen(view, !open);
+    onToggle?.(!open);
   });
   row.append(button);
   return row;
+}
+
+/** Opens or folds the section without telling anyone: how a remembered fold reaches the editor. */
+export function setCompletedOpen(view: EditorView, open: boolean): void {
+  if ((checklistCompletionKey.getState(view.state)?.open ?? true) === open) return;
+  view.dispatch(view.state.tr.setMeta(checklistCompletionKey, { open }).setMeta('addToHistory', false));
 }
 
 /** Puts an empty row at [insertAt] — the end of the active rows — with the caret in it. */
@@ -269,7 +280,7 @@ export const ChecklistCompletion = Extension.create<ChecklistCompletionOptions>(
   },
 
   addProseMirrorPlugins() {
-    const { labelFor, addItemLabel } = this.options;
+    const { labelFor, addItemLabel, initiallyOpen, onToggle } = this.options;
     let tapStart: { x: number; y: number } | null = null;
 
     return [
@@ -277,7 +288,7 @@ export const ChecklistCompletion = Extension.create<ChecklistCompletionOptions>(
         key: checklistCompletionKey,
 
         state: {
-          init: () => ({ open: true }),
+          init: () => ({ open: initiallyOpen?.() ?? true }),
           apply: (tr, value) => {
             const next = tr.getMeta(checklistCompletionKey) as ChecklistCompletionState | undefined;
             return next ?? value;
@@ -392,7 +403,7 @@ export const ChecklistCompletion = Extension.create<ChecklistCompletionOptions>(
               const headingOrder = order;
               decorations.push(
                 Decoration.widget(end, (view) => {
-                  const row = heading(view, open, labelFor(sections.completedCount));
+                  const row = heading(view, open, labelFor(sections.completedCount), onToggle);
                   row.style.order = String(headingOrder);
                   return row;
                 }, { side: 3, key: `completed-${end}-${headingOrder}-${open}-${sections.completedCount}` })

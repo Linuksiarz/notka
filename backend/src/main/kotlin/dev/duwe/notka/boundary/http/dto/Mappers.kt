@@ -38,6 +38,7 @@ fun ResolvedNote.toDto(): NoteDto = NoteDto(
     reminderAt = reminderAt,
     reminderRepeat = reminderRepeat?.wire,
     archived = note.archived,
+    completedCollapsed = completedCollapsed,
     pinned = pinned,
     position = position,
     trashedAt = note.trashedAt,

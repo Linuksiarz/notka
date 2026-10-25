@@ -64,7 +64,10 @@ function check(name, condition, detail = '') {
 
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
-await context.addInitScript(() => localStorage.setItem('notka.locale', 'en-US'));
+await context.addInitScript(() => {
+    localStorage.setItem('notka.locale', 'en-US');
+    localStorage.setItem('notka.browserNotice', 'dismissed');
+  });
 
 await context.route('**/api/**', async (route) => {
   const request = route.request();
@@ -972,7 +975,10 @@ console.log('\ndemo instance');
 
 // given: an instance that says it is a demo, and nobody signed in yet
 const demoContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
-await demoContext.addInitScript(() => localStorage.setItem('notka.locale', 'en-US'));
+await demoContext.addInitScript(() => {
+    localStorage.setItem('notka.locale', 'en-US');
+    localStorage.setItem('notka.browserNotice', 'dismissed');
+  });
 await demoContext.route('**/api/**', async (route) => {
   const path = new URL(route.request().url()).pathname.replace(/^\/api/, '');
   const json = (body, status = 200) =>

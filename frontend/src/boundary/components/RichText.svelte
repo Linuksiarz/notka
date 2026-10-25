@@ -36,7 +36,7 @@
   import { noteBodyExtensions } from '../editor/noteSchema';
   import { CollabSync, COLLAB_PLUGIN_NAME, collabPlugin, diffSteps, newClientId } from '../editor/collabSync';
   import type { Outgoing } from '../editor/collabSync';
-  import { ChecklistCompletion } from '../editor/checklistCompletion';
+  import { ChecklistCompletion, setCompletedOpen } from '../editor/checklistCompletion';
   import { ChecklistKeys } from '../editor/checklistKeys';
   import { LabelSuggestion } from '../editor/labelSuggestion';
   import type { LabelChoice, LabelSuggestionState } from '../editor/labelSuggestion';
@@ -80,6 +80,10 @@
     labels?: Label[];
     /** The reader picked one of them, or asked for a new one, after a `#`. */
     onlabel?: (choice: LabelChoice) => void;
+    /** The reader's fold of the completed items, which the card shows too (`Note.completedCollapsed`). */
+    completedCollapsed?: boolean;
+    /** The reader folded or unfolded them from the heading. */
+    oncompletedtoggle?: (collapsed: boolean) => void;
   }
 
   let {
@@ -91,7 +95,9 @@
     onupdate,
     frame = null,
     labels = [],
-    onlabel
+    onlabel,
+    completedCollapsed = false,
+    oncompletedtoggle
   }: Props = $props();
 
   /** The `#` list while one is open. */
@@ -123,7 +129,9 @@
       ChecklistKeys,
       ChecklistCompletion.configure({
         labelFor: (count) => t('notes.completedItems', { count }),
-        addItemLabel: t('editor.addListItem')
+        addItemLabel: t('editor.addListItem'),
+        initiallyOpen: () => !completedCollapsed,
+        onToggle: (open) => oncompletedtoggle?.(!open)
       })
     ],
     // Read once, on purpose: everything after this is handled by the effects below.
@@ -300,6 +308,11 @@
   $effect(() => {
     ui.locale;
     editor.view.dispatch(editor.state.tr.setMeta('locale', ui.locale));
+  });
+
+  /** A fold remembered elsewhere — another note loaded, the reader's other device — reaches the heading. */
+  $effect(() => {
+    setCompletedOpen(editor.view, !completedCollapsed);
   });
 
   /* ------------------------------------------------------------------- the six-dot handle */

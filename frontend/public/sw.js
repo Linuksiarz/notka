@@ -36,14 +36,16 @@ self.addEventListener('install', (event) => {
  * Every chunk the build made — the page's own script and stylesheet, the editor and the zip library
  * it loads later, and the fonts — from the build's manifest (`build.manifest` in `vite.config.ts`),
  * rather than a list every build would invalidate. `.woff` is left out: it is the fallback for
- * browsers too old to run a service worker in the first place.
+ * browsers too old to run a service worker in the first place. So is the JPEG XL codec (`@jsquash`,
+ * megabytes of WebAssembly): it only encodes an avatar being uploaded, which never happens offline.
  */
 async function precacheShell() {
   const shell = await caches.open(SHELL_CACHE);
   await shell.addAll(SHELL_URLS);
   const manifest = await (await fetch('/.vite/manifest.json')).json();
   const files = new Set();
-  for (const chunk of Object.values(manifest)) {
+  for (const [source, chunk] of Object.entries(manifest)) {
+    if (source.includes('@jsquash')) continue;
     for (const file of [chunk.file, ...(chunk.css ?? [])]) {
       if (file && !file.endsWith('.woff')) files.add(`/${file}`);
     }

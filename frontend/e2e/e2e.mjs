@@ -41,7 +41,10 @@ const browser = await chromium.launch();
 
 async function newUser(user, locale = 'en-US') {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale });
-  await context.addInitScript((value) => localStorage.setItem('notka.locale', value), locale);
+  await context.addInitScript((value) => {
+    localStorage.setItem('notka.locale', value);
+    localStorage.setItem('notka.browserNotice', 'dismissed');
+  }, locale);
   const page = await context.newPage();
   await page.goto(`${baseUrl}/register`, { waitUntil: 'networkidle' });
   await page.getByLabel('Email').fill(user.email);
@@ -343,11 +346,11 @@ console.log('\nedited by');
 // then: a note shared with Bob names the person who wrote it, as Google Keep's cards do, until he opens it
 const bobMarker = bob.page.locator('.card').first().locator('.edited-by');
 const markerLook = await bobMarker.evaluate((marker) => {
-  const ring = marker.querySelector('.edited-by-avatar');
+  const ring = marker.querySelector('.edited-by-avatar .avatar');
   const name = marker.querySelector('.edited-by-name');
   return {
     text: marker.innerText,
-    ring: ring ? getComputedStyle(ring).boxShadow : '',
+    ring: ring ? `${getComputedStyle(ring).borderTopWidth} ${getComputedStyle(ring).borderTopColor} ${ring.getBoundingClientRect().width}` : '',
     nameColor: name ? getComputedStyle(name).color : '',
     nameWeight: name ? getComputedStyle(name).fontWeight : '',
     gradient: getComputedStyle(marker).backgroundImage
@@ -361,7 +364,7 @@ check(
 check(
   'the marker is the original’s: a white-ringed avatar and a bold white name over a gradient',
   markerLook !== null &&
-    /rgb\(255, 255, 255\) 0px 0px 0px 2px/.test(markerLook.ring) &&
+    markerLook.ring === '2px rgb(255, 255, 255) 30' &&
     markerLook.nameColor === 'rgb(255, 255, 255)' &&
     Number(markerLook.nameWeight) >= 700 &&
     markerLook.gradient.startsWith('linear-gradient'),
@@ -532,18 +535,60 @@ check(
 
 // when: the card's "completed items" heading is clicked
 await listCard.locator('.completed-toggle').click();
-await alice.page.waitForSelector('.editor', { timeout: 5000 });
+await alice.page.waitForTimeout(500);
 
-// then: it opens the note, as a click anywhere on the card does, rather than folding the section
+// then: it folds the section right there, as the original's card does, and the note stays shut
+check("a click on a card's completed heading leaves the note shut", (await alice.page.locator('.editor').count()) === 0);
 check(
-  "a click on a card's completed heading opens the note",
-  (await alice.page.locator('.editor textarea.title').inputValue()) === 'Shopping'
+  'and folds the completed rows away on the card',
+  (await listCard.locator('.line.checklist.checked').count()) === 0 &&
+    (await listCard.locator('.completed-toggle').getAttribute('aria-expanded')) === 'false'
 );
+
+// when: the page is loaded again and the note is opened
+await alice.page.reload({ waitUntil: 'networkidle' });
+const foldedCard = alice.page.locator('.card').filter({ hasText: 'Shopping' }).first();
+await foldedCard.waitFor();
+check('the fold is remembered over a reload', (await foldedCard.locator('.line.checklist.checked').count()) === 0);
+await foldedCard.locator('.title').click();
+await alice.page.waitForSelector('.editor .completed-toggle');
+
+// then: the editor opens with the same fold
+check(
+  'the editor opens folded, as the card is',
+  (await alice.page.locator('.editor .completed-toggle').getAttribute('aria-expanded')) === 'false'
+);
+
+// when: the editor unfolds it and the note is closed
+await alice.page.locator('.editor .completed-toggle').click();
 await alice.page.keyboard.press('Escape');
 await alice.page.waitForTimeout(700);
+
+// then: the card follows the editor
 check(
-  'and the card still lists its completed item',
+  'unfolding in the editor unfolds the card',
   (await alice.page.locator('.card').filter({ hasText: 'Shopping' }).first().locator('.line.checklist.checked').count()) === 1
+);
+
+// when: a list with three active rows and twelve completed ones is shown
+await alice.page.evaluate(async () => {
+  const row = (text, checked) => ({ id: crypto.randomUUID(), type: 'checklist', checked, depth: 0, spans: [{ text }] });
+  const blocks = [...['a1', 'a2', 'a3'].map((text) => row(text, false)), ...Array.from({ length: 12 }, (_, i) => row(`c${i + 1}`, true))];
+  await fetch('/api/notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'LIST', title: 'Long list', content: { blocks } })
+  });
+});
+await alice.page.reload({ waitUntil: 'networkidle' });
+const longCard = alice.page.locator('.card').filter({ hasText: 'Long list' }).first();
+await longCard.waitFor();
+
+// then: the card draws ten rows in all, the original's limit, and ends the cut section with "…"
+check(
+  'a card draws at most ten list rows, then "…"',
+  (await longCard.locator('.line.checklist').count()) === 10 && (await longCard.locator('.completed-more').count()) === 1,
+  `${await longCard.locator('.line.checklist').count()} rows`
 );
 
 // when: a new list note is given an indented line with Tab
@@ -2261,6 +2306,7 @@ const reduced = await browser.newContext({
   locale: 'en-US',
   reducedMotion: 'reduce'
 });
+await reduced.addInitScript(() => localStorage.setItem('notka.browserNotice', 'dismissed'));
 const reducedPage = await reduced.newPage();
 await reducedPage.goto(baseUrl, { waitUntil: 'networkidle' });
 const reducedUser = {
@@ -2525,7 +2571,10 @@ await alice.page.locator('.topbar').getByRole('button', { name: 'Settings' }).cl
 const aliceSeesServerSettings = await alice.page.getByRole('menuitem', { name: 'Server settings' }).count();
 await alice.page.keyboard.press('Escape');
 const adminContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
-await adminContext.addInitScript(() => localStorage.setItem('notka.locale', 'en-US'));
+await adminContext.addInitScript(() => {
+    localStorage.setItem('notka.locale', 'en-US');
+    localStorage.setItem('notka.browserNotice', 'dismissed');
+  });
 const adminPage = await adminContext.newPage();
 await adminPage.goto(`${baseUrl}/login`, { waitUntil: 'networkidle' });
 await adminPage.getByLabel('Email or username').fill(ADMIN.login);
@@ -2709,6 +2758,178 @@ await mover.page.keyboard.press('Escape');
 await mover.page.waitForTimeout(600);
 
 await mover.context.close();
+
+
+console.log('\nprofile picture, friends and groups');
+// given: Alice on her notes, with Bob's account existing
+await alice.page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+// when: she picks a picture from the account menu, keeps the cropper's framing and saves
+await alice.page.getByRole('button', { name: 'Account menu' }).click();
+await alice.page.getByRole('menuitem', { name: 'Change profile picture' }).click();
+await alice.page.waitForSelector('[data-testid=avatar-dialog]');
+await alice.page
+  .locator('[data-testid=avatar-file]')
+  .setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: png(640, 480) });
+await alice.page.locator('.svelte-easy-crop-area').waitFor();
+await alice.page.waitForTimeout(400);
+await alice.page.locator('[data-testid=avatar-dialog]').getByRole('button', { name: 'Save' }).click();
+await alice.page.waitForSelector('[data-testid=avatar-dialog]', { state: 'detached', timeout: 20_000 });
+
+// then: the server holds a JPEG XL, and the header shows the picture instead of the initials
+const storedAvatar = await alice.page.evaluate(async () => {
+  const { user } = await (await fetch('/api/auth/me')).json();
+  const response = await fetch(`/api/users/${user.id}/avatar?v=${user.avatarAt}`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  return { type: response.headers.get('content-type'), signature: [bytes[0], bytes[1]], size: bytes.length };
+});
+check(
+  'a chosen picture is stored as JPEG XL',
+  storedAvatar.type === 'image/jxl' && storedAvatar.signature[0] === 0xff && storedAvatar.signature[1] === 0x0a,
+  JSON.stringify(storedAvatar)
+);
+// The header shows the picture where the browser draws JPEG XL, and the initials elsewhere — Notka
+// carries no decoder of its own (docs/PLATFORMS.md).
+const drawsJpegXl = await alice.page.evaluate(
+  () =>
+    new Promise((resolve) => {
+      const probe = new Image();
+      probe.onload = () => resolve(probe.naturalWidth === 1);
+      probe.onerror = () => resolve(false);
+      probe.src = 'data:image/jxl;base64,/woAEBAJCAABACgASxiLFcJJQU5/AA==';
+    })
+);
+await alice.page.waitForTimeout(800);
+const headerAvatar = await alice.page.locator('.topbar .avatar').evaluate((avatar) => {
+  const image = avatar.querySelector('img');
+  return { picture: image !== null && image.complete && image.naturalWidth > 0, text: avatar.textContent?.trim() };
+});
+check(
+  drawsJpegXl
+    ? 'the header shows the picture'
+    : 'a browser without JPEG XL keeps the initials in the header',
+  drawsJpegXl ? headerAvatar.picture : !headerAvatar.picture && headerAvatar.text === 'AL',
+  JSON.stringify(headerAvatar)
+);
+
+// and: a collaborator's card points at it, or keeps the initials where the browser cannot draw it
+await bob.page.goto(baseUrl, { waitUntil: 'networkidle' });
+await bob.page.waitForTimeout(800);
+const ownerOnBobsCard = await bob.page.locator('.card .avatar').evaluateAll((avatars) =>
+  avatars.map((avatar) => ({
+    picture: Boolean(avatar.querySelector('img')?.naturalWidth),
+    text: avatar.textContent?.trim()
+  }))
+);
+check(
+  "a collaborator sees the owner's picture where the browser draws it",
+  drawsJpegXl ? ownerOnBobsCard.some((avatar) => avatar.picture) : ownerOnBobsCard.some((avatar) => avatar.text === 'AL'),
+  JSON.stringify(ownerOnBobsCard)
+);
+
+// and: a collaborator's circle on a card wears the original's ring (docs/METRICS.md, "Avatars")
+const cardRing = await bob.page.locator('.card .note-avatars .avatar').first().evaluate((avatar) => {
+  const style = getComputedStyle(avatar);
+  return { size: avatar.getBoundingClientRect().width, border: `${style.borderTopWidth} ${style.borderTopColor}`, shadow: style.boxShadow };
+});
+check(
+  'a card draws its collaborators 24px across with a 2px white ring and a shadow',
+  cardRing.size === 24 && cardRing.border === '2px rgb(255, 255, 255)' && cardRing.shadow !== 'none',
+  JSON.stringify(cardRing)
+);
+
+// when: Alice saves Bob as a friend and puts him in a group
+await alice.page.getByRole('button', { name: 'Account menu' }).click();
+await alice.page.getByRole('menuitem', { name: 'Friends and groups' }).click();
+const friendsDialog = alice.page.locator('[data-testid=friends-dialog]');
+await friendsDialog.waitFor();
+await friendsDialog.getByLabel('Friend’s email or username').fill(BOB.email);
+await friendsDialog.getByRole('button', { name: 'Add', exact: true }).click();
+await friendsDialog.locator('[data-testid=friends-list]').getByText(BOB.name).waitFor();
+await friendsDialog.getByLabel('Name of the new group').fill('Team');
+await friendsDialog.getByRole('button', { name: 'Create', exact: true }).click();
+await friendsDialog.locator('[data-testid=groups-list] summary').filter({ hasText: 'Team' }).click();
+await friendsDialog.locator('[data-testid=groups-list] label').filter({ hasText: BOB.name }).locator('input').check();
+await alice.page.waitForTimeout(500);
+check(
+  'a friend is put in a group',
+  (await friendsDialog.locator('[data-testid=groups-list] summary').filter({ hasText: 'Team' }).innerText()).includes('1 member'),
+  await friendsDialog.locator('[data-testid=groups-list]').innerText()
+);
+await friendsDialog.getByRole('button', { name: 'Close', exact: true }).click();
+
+// and: shares a new note by typing the group's name and picking it
+await alice.page.evaluate(async () => {
+  await fetch('/api/notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Team plans' })
+  });
+});
+await alice.page.goto(baseUrl, { waitUntil: 'networkidle' });
+const teamCard = alice.page.locator('.card').filter({ hasText: 'Team plans' }).first();
+await teamCard.hover();
+await teamCard.getByRole('button', { name: 'Add collaborator' }).click();
+await alice.page.waitForSelector('.share');
+await alice.page.getByLabel('Collaborator email').pressSequentially('tea');
+await alice.page.locator('.share-suggestion').first().waitFor();
+const offeredSuggestions = await alice.page.locator('.share-suggestion').allInnerTexts();
+await alice.page.locator('.share-suggestion').filter({ hasText: 'Team' }).click();
+await alice.page.locator('.share .list li').filter({ hasText: BOB.email }).waitFor({ timeout: 5_000 });
+
+// then: the group was offered, and picking it added its member
+check(
+  'typing offers a matching group, and picking it shares the note with its members',
+  offeredSuggestions.length === 1 && offeredSuggestions[0].includes('Team') &&
+    (await alice.page.locator('.share .list li').filter({ hasText: BOB.email }).count()) === 1,
+  JSON.stringify(offeredSuggestions)
+);
+
+// and: a friend is offered by name, but not once they already have the note
+await alice.page.getByLabel('Collaborator email').pressSequentially(BOB.name.slice(0, 3));
+await alice.page.waitForTimeout(300);
+check(
+  'somebody who already has the note is not suggested again',
+  (await alice.page.locator('.share-suggestion').count()) === 0,
+  JSON.stringify(await alice.page.locator('.share-suggestion').allInnerTexts())
+);
+await alice.page.locator('.share').getByRole('button', { name: 'Close', exact: true }).click();
+
+console.log('\nthe browser notice');
+// given: a browser nobody told Notka to stay quiet in
+const fresh = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'pl-PL' });
+await fresh.addInitScript(() => localStorage.setItem('notka.locale', 'pl'));
+const freshPage = await fresh.newPage();
+
+// when: the app starts
+await freshPage.goto(`${baseUrl}/login`, { waitUntil: 'networkidle' });
+await freshPage.waitForTimeout(600);
+
+// then: a browser without JPEG XL hears which ones Notka is made for, on the sign-in screen already
+const notice = freshPage.locator('[data-testid=browser-notice]');
+const noticeShown = (await notice.count()) === 1;
+check(
+  drawsJpegXl ? 'a browser that draws JPEG XL is not told anything' : 'a browser without JPEG XL is shown the notice at start',
+  noticeShown === !drawsJpegXl
+);
+if (noticeShown) {
+  const listed = await notice.locator('li a').allInnerTexts();
+  check(
+    'the notice lists the tested browsers with their minimum versions, Chromium and Chrome in one row',
+    listed.join('|') === 'Waterfox|Firefox|Chromium|Chrome|Safari' &&
+      (await notice.locator('li').count()) === 4 &&
+      (await notice.innerText()).includes('wersja 155 lub nowsza') &&
+      (await notice.innerText()).includes('w szczególności te związane z obrazami, mogą nie działać poprawnie'),
+    await notice.innerText()
+  );
+  // when: the reader closes it and asks for it not to come back
+  await notice.getByLabel('Nie pokazuj ponownie na tym urządzeniu').check();
+  await notice.getByRole('button', { name: 'Rozumiem' }).click();
+  await freshPage.reload({ waitUntil: 'networkidle' });
+  await freshPage.waitForTimeout(600);
+  check('the notice stays away on that device once dismissed for good', (await notice.count()) === 0);
+}
+await fresh.close();
 
 await alice.context.close();
 await bob.context.close();

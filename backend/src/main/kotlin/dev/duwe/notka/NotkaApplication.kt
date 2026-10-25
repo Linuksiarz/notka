@@ -6,10 +6,16 @@ import dev.duwe.notka.boundary.http.plugins.configureHttpPlugins
 import dev.duwe.notka.boundary.http.plugins.configureStaticServing
 import dev.duwe.notka.boundary.http.routes.adminRoutes
 import dev.duwe.notka.boundary.http.routes.authRoutes
+import dev.duwe.notka.boundary.http.routes.avatarRoutes
+import dev.duwe.notka.boundary.http.routes.friendRoutes
 import dev.duwe.notka.boundary.http.routes.themeRoutes
 import dev.duwe.notka.boundary.mail.SmtpAccountMail
 import dev.duwe.notka.control.AccountMail
 import dev.duwe.notka.control.AdminService
+import dev.duwe.notka.control.AvatarService
+import dev.duwe.notka.control.FriendService
+import dev.duwe.notka.entity.persistence.AvatarRepository
+import dev.duwe.notka.entity.persistence.FriendRepository
 import dev.duwe.notka.control.ServerSettingsService
 import dev.duwe.notka.control.ThemeService
 import dev.duwe.notka.entity.persistence.PasswordResetRepository
@@ -65,6 +71,8 @@ class AppServices(
     val notes: NoteService,
     val sharing: SharingService,
     val labels: LabelService,
+    val avatars: AvatarService,
+    val friends: FriendService,
     val trashCleanup: TrashCleanupJob,
     val sessionCleanup: SessionCleanupJob,
     val events: NoteEventBus,
@@ -137,6 +145,8 @@ class AppServices(
                 ),
                 sharing = SharingService(access, shares, users, clock),
                 labels = LabelService(labels, clock),
+                avatars = AvatarService(AvatarRepository(database), users, clock),
+                friends = FriendService(FriendRepository(database), users, clock),
                 trashCleanup = TrashCleanupJob(notes, config.trashRetentionMillis, clock),
                 sessionCleanup = SessionCleanupJob(auth),
                 events = events,
@@ -197,6 +207,8 @@ fun Application.notkaModule(services: AppServices) {
         themeRoutes(services.auth, services.themes)
         noteRoutes(services.notes, services.sharing, services.auth)
         labelRoutes(services.labels, services.auth)
+        avatarRoutes(services.avatars, services.auth)
+        friendRoutes(services.friends, services.auth)
         eventRoutes(services.events, services.auth)
     }
     configureStaticServing(services.config)

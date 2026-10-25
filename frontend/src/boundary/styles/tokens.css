@@ -160,16 +160,25 @@
   /* Avatars, in dp (a CSS px is one): the account's, the dialogs', and a shared note's collaborators —
      the Android app's card and editor numbers are in docs/METRICS.md, "Collaborators". */
   --keep-avatar-account: 32px;
-  --keep-avatar-share: 32px;
+  --keep-avatar-share: 40px;
   --keep-avatar-settings: 40px;
   --keep-avatar-admin: 36px;
   --keep-avatar-card: 24px;
   --keep-avatar-card-gap: 4px;
-  --keep-avatar-editor: 24px;
+  --keep-avatar-editor: 30px;
   --keep-avatar-editor-gap: 4px;
-  /* A card's "edited by" marker (docs/METRICS.md, "Edited by"): the editor's avatar inside a 2px white
-     ring, over a scrim that is the same in both themes; a marked card's content is at least as tall. */
-  --keep-edited-by-avatar: 28px;
+  /* The original's ring around a collaborator (docs/METRICS.md, "Avatars"): a 2px white border inside
+     the circle's own size and a faint shadow under it, in both themes. The account's own avatar in the
+     header has none. On a card and in the editor it is the web original's; a phone has no ring there. */
+  --keep-avatar-ring-color: #ffffff;
+  --keep-avatar-collaborator-ring: 2px;
+  --keep-avatar-collaborator-shadow: 0 1px 1px 1px rgba(0, 0, 0, 0.1);
+  --keep-avatar-dialog-ring: 2px;
+  --keep-avatar-dialog-shadow: 0 1px 1px 1px rgba(60, 64, 67, 0.15);
+  /* A card's "edited by" marker (docs/METRICS.md, "Edited by"): the editor's avatar with the 2px white
+     ring, 30px across ring included, over a scrim that is the same in both themes; a marked card's
+     content is at least as tall. */
+  --keep-edited-by-avatar: 30px;
   --keep-edited-by-scrim: rgba(0, 0, 0, 0.6);
   --keep-edited-by-height: 128px;
   /* A card's pin over a picture, the same in both themes (the original's own sprite, 2026-10-19):
@@ -369,6 +378,14 @@
     /* The Android app's editor: 40dp circles 8dp apart, every collaborator, wrapping. */
     --keep-avatar-editor: 40px;
     --keep-avatar-editor-gap: 8px;
+    /* The Android app draws its card and editor circles without a ring (`browse_metadata_avatar`,
+       `editor_metadata_avatar`: a bare ImageView); its collaborators screen draws 48dp ones with a 2dp
+       ring in the screen's own colour and a soft shadow (measured on the emulator, 2026-10-25). */
+    --keep-avatar-collaborator-ring: 0px;
+    --keep-avatar-collaborator-shadow: none;
+    --keep-avatar-share: 48px;
+    --keep-avatar-ring-color: var(--keep-surface);
+    --keep-avatar-dialog-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
     /*
      * The cards are smaller and the gutters tighter, measured from the owner's own screenshots of the
      * original at 412 CSS px wide (1391 device px at 3.375x): two cards of **192px** with a **10px**

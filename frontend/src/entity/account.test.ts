@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { otherPeople } from './account';
 import type { User } from './api/types';
 
-const person = (id: number): User => ({ id, email: `${id}@example.com`, username: null, displayName: `P${id}`, admin: false });
+const person = (id: number): User => ({ id, email: `${id}@example.com`, username: null, displayName: `P${id}`, admin: false, avatarAt: null });
 
 describe('otherPeople', () => {
   it('shows the owner the collaborators', () => {

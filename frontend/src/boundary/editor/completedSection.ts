@@ -1,4 +1,4 @@
-import chevronRight from '@iconify-icons/material-symbols/chevron-right';
+import expandLess from '@iconify-icons/material-symbols/expand-less';
 import expandMore from '@iconify-icons/material-symbols/expand-more';
 import { buildIcon } from '@iconify/svelte';
 
@@ -45,14 +45,16 @@ export const COMPLETED_SECTION_STYLED = [
 export const COMPLETED_CHEVRON_SIZE = 20;
 
 /**
- * The chevron for an open (`expand-more`) or a folded (`chevron-right`) section.
+ * The chevron for an open (`expand-more`, pointing down) or a folded (`expand-less`, pointing up)
+ * section — the original's editor turns one glyph between those two (measured, 2026-10-23). A card's
+ * chevron points down in both states.
  *
  * Built from the same icon data and by the same Iconify code path that `Icon.svelte` renders, so the
  * widget's chevron is the card's chevron: one glyph, two sizes. Hand-written paths were what put a
  * third, subtly different chevron in the app.
  */
 export function completedChevron(open: boolean): string {
-  const { attributes, body } = buildIcon(open ? expandMore : chevronRight, {
+  const { attributes, body } = buildIcon(open ? expandMore : expandLess, {
     width: COMPLETED_CHEVRON_SIZE,
     height: COMPLETED_CHEVRON_SIZE
   });

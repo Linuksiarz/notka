@@ -66,3 +66,48 @@ export function checklistSections(rows: readonly ChecklistRowShape[]): Checklist
   const completedCount = completed.reduce((sum, group) => sum + group.rows.length, 0);
   return { active, completed, completedCount };
 }
+
+/**
+ * How many list rows a card draws, the active and the completed ones together — measured on
+ * keep.google.com (2026-10-23): a card with three active rows and twelve completed ones draws seven of
+ * those, then "…"; the owner's own with five active and 98 completed draws five. With no room left the
+ * heading alone stands, as "+ N completed items". The active rows are never cut by it.
+ */
+export const CARD_LIST_ROWS = 10;
+
+export interface CardCompleted {
+  /** The completed groups a card draws, cut to the room left; a greyed parent takes a row too. */
+  groups: CompletedGroup[];
+  /** Some completed rows did not fit: the card ends the section with "…". */
+  truncated: boolean;
+  /** No completed row fits at all: the heading is only a count, and folding it would show nothing. */
+  full: boolean;
+}
+
+export function cardCompleted(sections: ChecklistSections, limit: number = CARD_LIST_ROWS): CardCompleted {
+  let room = limit - sections.active.length;
+  if (room <= 0) return { groups: [], truncated: false, full: true };
+
+  const groups: CompletedGroup[] = [];
+  let truncated = false;
+  for (const group of sections.completed) {
+    if (room <= 0) {
+      truncated = true;
+      break;
+    }
+    const ghost = group.ghost !== null && room >= 2 ? group.ghost : null;
+    if (group.ghost !== null && ghost === null) {
+      truncated = true;
+      break;
+    }
+    if (ghost !== null) room -= 1;
+    const rows = group.rows.slice(0, room);
+    room -= rows.length;
+    groups.push({ ghost, rows });
+    if (rows.length < group.rows.length) {
+      truncated = true;
+      break;
+    }
+  }
+  return { groups, truncated, full: false };
+}

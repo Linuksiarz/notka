@@ -16,6 +16,7 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
 await context.addInitScript(() => {
   localStorage.setItem('notka.locale', 'en-US');
+  localStorage.setItem('notka.browserNotice', 'dismissed');
   localStorage.setItem('notka.theme', 'dark');
 });
 

@@ -15,6 +15,10 @@
   import LabelsDialog from './components/LabelsDialog.svelte';
   import NoteComposer from './components/NoteComposer.svelte';
   import SettingsDialog from './components/SettingsDialog.svelte';
+  import AvatarDialog from './components/AvatarDialog.svelte';
+  import FriendsDialog from './components/FriendsDialog.svelte';
+  import BrowserNotice from './components/BrowserNotice.svelte';
+  import { friends } from '../control/state/friends.svelte';
   import ShareDialog from './components/ShareDialog.svelte';
   import Sidebar from './components/Sidebar.svelte';
   import TopBar from './components/TopBar.svelte';
@@ -84,6 +88,9 @@
     if (!authenticated) {
       notes.reset();
       labels.reset();
+      friends.reset();
+      ui.avatarDialogOpen = false;
+      ui.friendsDialogOpen = false;
       backgroundThemes.reset();
       serverAdmin.reset();
       ui.serverSettingsOpen = false;
@@ -248,6 +255,8 @@
 
   <ComposeFab onCompose={(kind) => ui.openEditor(null, kind)} />
   <ShareDialog noteId={ui.shareNoteId} onClose={() => ui.closeShare()} />
+  <AvatarDialog open={ui.avatarDialogOpen} onClose={() => (ui.avatarDialogOpen = false)} />
+  <!-- After the share and settings dialogs, so it opens on top of either of them. -->
   <LabelsDialog open={ui.labelsDialogOpen} onClose={() => (ui.labelsDialogOpen = false)} />
   <SettingsDialog
     open={ui.settingsOpen || route.name === 'settings'}
@@ -258,12 +267,16 @@
       if (route.name === 'settings') router.navigate('/', { replace: true });
     }}
   />
+  <FriendsDialog open={ui.friendsDialogOpen} onClose={() => (ui.friendsDialogOpen = false)} />
   {#if session.user?.admin}
     <ServerSettingsDialog open={ui.serverSettingsOpen} onClose={() => (ui.serverSettingsOpen = false)} />
   {/if}
   <ConfirmDialog />
   <Toaster position="bottom-left" theme="dark" closeButton />
 {/if}
+
+<!-- Before anything else, on the sign-in screen too: a browser without JPEG XL hears it at start. -->
+<BrowserNotice />
 
 <style>
   .shell {

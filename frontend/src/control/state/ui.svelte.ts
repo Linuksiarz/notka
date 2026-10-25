@@ -83,6 +83,10 @@ class UiState {
   shareNoteId = $state<number | null>(null);
   labelsDialogOpen = $state(false);
   settingsOpen = $state(false);
+  /** Choosing the account's own picture, from the account menu or Settings. */
+  avatarDialogOpen = $state(false);
+  /** The reader's friends and groups, from the account menu, Settings or the share dialog. */
+  friendsDialogOpen = $state(false);
   /** The administrator's server settings, from the gear menu. */
   serverSettingsOpen = $state(false);
 

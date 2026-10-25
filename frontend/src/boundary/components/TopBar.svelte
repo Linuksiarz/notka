@@ -553,6 +553,14 @@
               <strong>{session.user.displayName}</strong>
               <span>{accountName(session.user)}</span>
             </div>
+            <DropdownMenu.Item class="menu-item" onSelect={() => (ui.avatarDialogOpen = true)}>
+              <Icon name="camera" size={20} />
+              <span>{t('topbar.changePicture')}</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item class="menu-item" onSelect={() => (ui.friendsDialogOpen = true)}>
+              <Icon name="group" size={20} />
+              <span>{t('topbar.friends')}</span>
+            </DropdownMenu.Item>
             <DropdownMenu.Item class="menu-item" onSelect={signOut}>
               <Icon name="logout" size={20} />
               <span>{t('topbar.signOut')}</span>
