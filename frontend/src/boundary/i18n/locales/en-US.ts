@@ -497,7 +497,7 @@ export const enUS = {
   'topbar.sort': 'Sort notes',
   'fab.open': 'New note',
   'fab.close': 'Close',
-  'fab.text': 'Text',
+  'fab.text': 'Note',
   'fab.list': 'List',
   'fab.image': 'Image',
   'editor.add': 'Add',

@@ -756,14 +756,30 @@
   .edited-by {
     position: absolute;
     inset: auto 0 0;
+    z-index: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
     padding: 48px 16px 8px;
-    background: linear-gradient(to bottom, transparent, var(--keep-edited-by-scrim) 60%);
     color: #fff;
     pointer-events: none;
+  }
+
+  /* The gradient runs on past the marker to the card's own bottom edge, where the original's is
+     darkest, over the collaborators' row below it; the card clips it (rule 18). Stopping it at the
+     marker drew a hard edge under "Edited …", as if the marker had been cut off. */
+  .edited-by::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 calc(-1 * var(--keep-edited-by-reach)) 0;
+    z-index: -1;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      var(--keep-edited-by-scrim) calc(100% - var(--keep-edited-by-reach)),
+      var(--keep-edited-by-scrim)
+    );
   }
 
   .edited-by-avatar {

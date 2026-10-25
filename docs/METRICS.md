@@ -577,8 +577,12 @@ card (2026-10-23, a 240px card at 2×): the editor's avatar, **~31px across with
 (ours: 28px inside 2px, `--keep-edited-by-avatar`), its left edge **16px** in from the card's; under
 it the name in **bold white, ~14px**, and "Edited 7:27 AM" in white at **~12px** — the editor's own
 "Edited" wording (`formatEditedAt`). It sits at the bottom of the content, over the list and the
-artwork, on a gradient that darkens toward the bottom (ours: transparent to 60% black,
-`--keep-edited-by-scrim`), with the collaborators' row of 24px circles still below it. A marked
+artwork, on a gradient that darkens toward the bottom, with the collaborators' row of 24px circles
+still below it. **The gradient runs on to the card's own bottom edge**, over that row, darkest there:
+read off the owner's screenshot (2026-10-25), the card's colour is about 48% darker at its bottom edge
+than above the marker. Ours (`--keep-edited-by-scrim`, 48% black) stopped at the marker's own box,
+which drew a hard edge under "Edited …" — the owner's "jakby była przycięta od dołu"; its `::before`
+now reaches `--keep-edited-by-reach` below the marker and the card clips it. A marked
 card's content is at least `--keep-edited-by-height` tall, so the marker never covers the title.
 
 ### Collaborators

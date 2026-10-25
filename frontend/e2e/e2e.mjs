@@ -353,7 +353,11 @@ const markerLook = await bobMarker.evaluate((marker) => {
     ring: ring ? `${getComputedStyle(ring).borderTopWidth} ${getComputedStyle(ring).borderTopColor} ${ring.getBoundingClientRect().width}` : '',
     nameColor: name ? getComputedStyle(name).color : '',
     nameWeight: name ? getComputedStyle(name).fontWeight : '',
-    gradient: getComputedStyle(marker).backgroundImage
+    gradient: getComputedStyle(marker, '::before').backgroundImage,
+    // The gradient runs on to the card's bottom edge (clipped by the card), not stopping at the marker.
+    reachesCardBottom:
+      marker.closest('.card').getBoundingClientRect().bottom - marker.getBoundingClientRect().bottom <=
+      parseFloat(getComputedStyle(marker).getPropertyValue('--keep-edited-by-reach'))
   };
 }).catch(() => null);
 check(
@@ -362,12 +366,13 @@ check(
   JSON.stringify(markerLook)
 );
 check(
-  'the marker is the original’s: a white-ringed avatar and a bold white name over a gradient',
+  'the marker is the original’s: a white-ringed avatar and a bold white name over a gradient that reaches the card’s bottom edge',
   markerLook !== null &&
     markerLook.ring === '2px rgb(255, 255, 255) 30' &&
     markerLook.nameColor === 'rgb(255, 255, 255)' &&
     Number(markerLook.nameWeight) >= 700 &&
-    markerLook.gradient.startsWith('linear-gradient'),
+    markerLook.gradient.startsWith('linear-gradient') &&
+    markerLook.reachesCardBottom,
   JSON.stringify(markerLook)
 );
 check(
@@ -2132,8 +2137,8 @@ const before = await rail();
 
 // when: the menu button is used
 // The columns are a fixed width, so folding the rail adds a column instead of stretching the ones
-// there are. Measured off the original (2026-10-15, frame by frame): the notes are in their new
-// places in the same frame as the click, and only the rail's panel animates — 150ms, over the notes.
+// there are. The rail's panel animates over the notes (150ms), and the notes slide to their new
+// places on the grid's own 218ms, as the original's do (measured 2026-10-25).
 const gridBox = () =>
   eve.page.evaluate(() => {
     const cards = [...document.querySelectorAll('.sections .card')];
@@ -2155,14 +2160,14 @@ await eve.page.waitForTimeout(600);
 const afterFold = await gridBox();
 const folded = await rail();
 
-// then: the grid gained a whole column at once, the notes kept their width, and none of them slid
+// then: the grid gained a whole column at once, the notes kept their width, and they slid into place
 check(
-  'folding the rail adds a column, and the notes are in their new places at once',
+  'folding the rail adds a column, and the notes slide to their new places',
   afterFold.grid > beforeFold.grid + 100 &&
     afterFold.width === beforeFold.width &&
     atOnce.grid === afterFold.grid &&
-    atOnce.cardX === afterFold.cardX &&
-    atOnce.moving === 0,
+    atOnce.moving > 0 &&
+    afterFold.moving === 0,
   JSON.stringify({ beforeFold, atOnce, afterFold })
 );
 check(

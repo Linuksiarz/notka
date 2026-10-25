@@ -1418,8 +1418,10 @@
   :global(.note-body li) {
     /* Measured off the original's own screenshot: its checklist rows stand **38px** apart, where ours
        stood 24. The owner reads that as "the distances in Google Keep between the elements are
-       bigger". */
-    min-height: 38px;
+       bigger". A row is its line plus 7px of air on each side, whatever the number of lines — a
+       bare `min-height` left a one-line bullet at 38px and a two-line one at 48, so the rows of one
+       list stood at uneven distances. */
+    padding: 7px 0;
   }
 
   :global(.note-body li p) {

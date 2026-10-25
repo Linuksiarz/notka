@@ -328,15 +328,11 @@
    * nothing is measured off the screen, which is what the multi-column grid had to do with its FLIP.
    * A new item has no earlier place and simply appears there (with its own entrance). The heights are
    * the cards' own; a card whose height changes — a picture loading, a list folding, a link card
-   * arriving — is re-laid out by the observer below, and the notes under it slide.
+   * arriving — is re-laid out by the observer below, and the notes under it slide. So do the notes
+   * when the room changes — the rail folding, the window resized — and a different number of columns
+   * re-deals them, which the original does too on the same 218ms (rule 17).
    */
-  /**
-   * Places every card. [animate] is false when the room changed rather than the notes — the rail
-   * folding, the window resized: the original's notes are in their new places in the same frame
-   * (measured 2026-10-15: a card at x=129 is at x=357 synchronously after the click, with only the
-   * rail's panel animating), and a whole grid sliding at once is what read as less smooth than it.
-   */
-  function relayout(animate = true): void {
+  function relayout(): void {
     const grid = gridElement;
     if (!grid) return;
     const gap = metric('--keep-grid-gap');
@@ -378,8 +374,7 @@
       const from = placed.has(key) ? getComputedStyle(element).translate : null;
       const target = `${to.x}px ${to.y}px`;
       element.style.translate = target;
-      if (!animate) for (const running of element.getAnimations()) running.cancel();
-      if (!from || !ui.animationsAllowed || !animate) continue;
+      if (!from || !ui.animationsAllowed) continue;
       const before = placed.get(key);
       if (before && before.x === to.x && before.y === to.y) continue;
       for (const running of element.getAnimations()) running.cancel();
@@ -399,21 +394,12 @@
     return () => resized.unobserve(element);
   };
 
-  /** The columns the grid was last laid out in, to tell a change of room from a change of notes. */
-  let laidColumns = 0;
-  let laidColumnWidth = 0;
-
   $effect(() => {
     // Everything a layout depends on; the effect runs once the DOM shows them.
     items;
     columns;
     columnWidth;
-    untrack(() => {
-      const roomChanged = laidColumns !== 0 && (columns !== laidColumns || columnWidth !== laidColumnWidth);
-      laidColumns = columns;
-      laidColumnWidth = columnWidth;
-      relayout(!roomChanged);
-    });
+    untrack(relayout);
   });
 
   $effect(() => () => resized.disconnect());

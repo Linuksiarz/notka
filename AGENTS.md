@@ -529,7 +529,13 @@ thrown away.
       (`control/backStack.ts`), which closes whatever covers the app innermost first — a dialog
       (Settings and Server settings among them), the drawer, the note being edited — each owning one
       history entry while it is open; a view picked in the drawer takes the drawer's entry over, so Back
-      from it returns to the view before. `ui.narrow` tracks the
+      from it returns to the view before. **An open phone note never cancels a touch**: the
+      desktop's floating editor stops the page scrolling under it by cancelling `touchmove`, and on iOS a
+      cancelled touch also cancels the edge swipe back — over a note too short to scroll, Back did nothing.
+      The page's scroller is `html`, so `overscroll-behavior-y: none` lives there; on `body` alone iOS
+      pulled the whole screen up, the open note with it. **A Back the browser has already drawn is not drawn again**:
+      iOS's edge swipe slides the note away itself (`PopStateEvent.hasUAVisualTransition`), so the editor
+      then closes without its own shrink (`ui.backDrawn`); it played the exit a second time before. `ui.narrow` tracks the
       stylesheet's breakpoint across resizes; do not fold the rail on a wide screen because someone
       clicked a nav item.
 15. The app's own chrome is **not a document**: `user-select: none` on `body`, opted back in by
@@ -593,15 +599,19 @@ thrown away.
     `--keep-grid-margin` free on both sides (the grid entry of `docs/METRICS.md`). Both are registered
     with `@property` in `tokens.css`, so the phone's `min()`/`calc()` width computes to pixels the script
     can read.
-    **The rail's column changes width at once, and only its panel animates.** Measured off the
-    original frame by frame (2026-10-15): the notes are in their new places in the same frame as the
-    click on the menu button, and the rail's panel alone grows or shrinks — 150ms on the standard
-    curve — over them. Ours used to animate the column itself over 250ms, which re-laid the whole page
-    out on every frame and slid every card besides, and read as much less smooth than the original.
-    So `.sidebar` takes its folded or open width immediately, `.rail` inside it is absolutely
-    positioned and carries the transition, and the grid does **not** animate a re-deal caused by its
-    room changing (the rail, a resized window) — only moves caused by the notes themselves (rule 17's
-    pin, unpin, a card changing height). The narrow layout's drawer slides on the same 150ms curve.
+    **The rail's column changes width at once, and only its panel animates — the notes slide.**
+    Measured off the original frame by frame (2026-10-25, a Keep with 12 notes, a 1700px window): the
+    block of notes shifts with the page in the first frame, and the re-deal into the new number of
+    columns then slides every moved card to its place on the 218ms standard curve, in both directions
+    (a card travelled 1622→614px in ~220ms; every card carries `transition: transform 0.218s`).
+    The earlier reading (2026-10-15, "the notes are in their new places in the same frame") was taken
+    with notes that stay in their columns, where only the block's shift is visible — it was wrong
+    about the re-deal. Ours used to animate the column itself over 250ms, which re-laid the whole
+    page out on every frame, and read as much less smooth. So `.sidebar` takes its folded or open
+    width immediately, `.rail` inside it is absolutely positioned and carries the transition, and the
+    grid slides its cards with `MOTION.regrid`, from where each is on screen. Only the container's
+    width is read, never an animated one, so the grid is laid out once per change. The narrow
+    layout's drawer slides on the same 150ms curve.
     **Who decides whether to animate:** the app, not the stylesheet. `ui.applyMotion()` writes
     `data-motion` on the root from the system's `prefers-reduced-motion` unless Settings overrides
     it (`ui.motionOverride`, stored in `notka.motion`). Google Keep ignores the setting entirely;
@@ -897,6 +907,10 @@ thrown away.
      accelerating curve covers most of the distance in its last frames (the note slammed into the
      grid), and without `forwards` the card flashes back to full size over the grid for the frames
      before it closes. The host is unclipped while the card travels.
+   - **The scrim lifts over the same flight** (`flyToCard`'s `veil`), and its own outro is `|global`:
+     kept at full strength until the editor is removed it went out in one frame — a flash of the whole
+     screen, harsh on the light theme — because Svelte's transitions are local and the scrim's block is
+     removed with its parent, so the outro never ran.
    The new card's arrival moves the notes after it the grid's ordinary way (rule 17): they slide to
    their new places once, while the editor flies onto the card.
    The choreography itself lives in `boundary/editor/editorFlight.ts` (`layoutRect`,

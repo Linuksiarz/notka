@@ -57,7 +57,7 @@ async function phone(size, notes, suffix) {
   for (const [title, lines] of notes) {
     // a phone has no "Take a note…" box: its one button opens the kinds of note, as the original's does
     await page.getByRole('button', { name: 'New note', exact: true }).click();
-    await page.getByRole('button', { name: 'Text', exact: true }).click();
+    await page.getByRole('button', { name: 'Note', exact: true }).click();
     await page.waitForSelector('.editor');
     await page.locator('.editor textarea.title').fill(title);
     await page.locator('.editor .note-body').click();

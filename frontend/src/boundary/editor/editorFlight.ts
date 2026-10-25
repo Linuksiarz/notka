@@ -30,16 +30,26 @@ export function layoutRect(element: HTMLElement): { left: number; top: number; w
  * `from` is the editor's rectangle from before the layout changed — by the time this runs the grid is
  * already in its final arrangement, so the card is measured where it will really be and the flight is
  * a straight line to it.
+ *
+ * `veil` is the scrim under a note that floats over the grid. It lifts over the same flight, so the
+ * notes come back to full brightness as the note lands: a veil kept at full strength until the editor
+ * is removed goes out in a single frame, and that frame is a flash of the whole screen.
  */
 export async function flyToCard(
   card: HTMLElement | null,
   from: DOMRect | null,
-  target: HTMLElement | null
+  target: HTMLElement | null,
+  veil: HTMLElement | null = null
 ): Promise<void> {
   if (!card || !from || !target) return;
   const to = layoutRect(target);
   if (to.width === 0 || from.width === 0) return;
 
+  veil?.animate([{ opacity: 1 }, { opacity: 0 }], {
+    duration: MOTION.medium,
+    easing: MOTION.standard,
+    fill: 'forwards'
+  });
   const flight = card.animate(
     [
       { transformOrigin: 'top left', transform: 'none', opacity: 1 },

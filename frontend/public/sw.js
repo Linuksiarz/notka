@@ -10,9 +10,14 @@
  *     they are stale.
  *   - The shell — the page, every chunk of its script and stylesheet, and the fonts — is cached when
  *     the worker installs, so the installed app opens without a connection from the first time on.
- *   - Navigations are answered from the cached shell at once and refreshed in the background, so
- *     the installed app opens without waiting for the network; a redeployed build is picked up on
- *     the next open. Without a cached shell (the first visit) the network answers.
+ *   - A navigation asks the network first, so an app started while online is the build the server
+ *     has now — answering from the cache first left the installed app on an old build until its
+ *     storage was cleared. Offline, or when the server has not answered within
+ *     `NAVIGATION_TIMEOUT_MS`, the cached shell answers. The page's chunks are named by their content,
+ *     so a fresh page brings its own (a cache miss goes to the network).
+ *   - What the worker stores is revalidated with the server (`cache: 'no-cache'`): the server sends
+ *     no `Cache-Control` for its static files, and a copy the HTTP cache kept heuristically would
+ *     otherwise be taken for the fresh one.
  *   - Everything else same-origin is stale-while-revalidate.
  *   - A share from another app (the manifest's `share_target`) is a `POST /share` no server
  *     answers: the worker keeps what was shared in the share inbox and sends the app to `/share`,
@@ -28,6 +33,11 @@ const SHARE_CACHE = `${CACHE_VERSION}-share`;
 
 const SHELL_URLS = ['/', '/theme.js', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png'];
 
+/** How long a navigation waits for the server before the cached shell answers (a weak connection). */
+const NAVIGATION_TIMEOUT_MS = 3000;
+
+const fresh = (url) => new Request(url, { cache: 'no-cache' });
+
 self.addEventListener('install', (event) => {
   event.waitUntil(precacheShell().then(() => self.skipWaiting()));
 });
@@ -41,8 +51,8 @@ self.addEventListener('install', (event) => {
  */
 async function precacheShell() {
   const shell = await caches.open(SHELL_CACHE);
-  await shell.addAll(SHELL_URLS);
-  const manifest = await (await fetch('/.vite/manifest.json')).json();
+  await shell.addAll(SHELL_URLS.map(fresh));
+  const manifest = await (await fetch(fresh('/.vite/manifest.json'))).json();
   const files = new Set();
   for (const [source, chunk] of Object.entries(manifest)) {
     if (source.includes('@jsquash')) continue;
@@ -50,7 +60,7 @@ async function precacheShell() {
       if (file && !file.endsWith('.woff')) files.add(`/${file}`);
     }
   }
-  await (await caches.open(ASSET_CACHE)).addAll([...files]);
+  await (await caches.open(ASSET_CACHE)).addAll([...files].map(fresh));
 }
 
 self.addEventListener('activate', (event) => {
@@ -113,15 +123,14 @@ async function receiveShare(request) {
 async function networkFirstNavigation(request) {
   const cache = await caches.open(SHELL_CACHE);
   const cached = await cache.match('/');
-  const network = fetch(request).then((response) => {
+  if (cached && !navigator.onLine) return cached;
+  const network = fetch(request, { cache: 'no-cache' }).then((response) => {
     if (response.ok) cache.put('/', response.clone());
     return response;
   });
-  if (cached) {
-    network.catch(() => undefined);
-    return cached;
-  }
-  return network.catch(() => Response.error());
+  if (!cached) return network.catch(() => Response.error());
+  const late = new Promise((resolve) => setTimeout(() => resolve(cached), NAVIGATION_TIMEOUT_MS));
+  return Promise.race([network.then((response) => (response.ok ? response : cached)).catch(() => cached), late]);
 }
 
 async function staleWhileRevalidate(request) {

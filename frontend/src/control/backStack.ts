@@ -17,7 +17,8 @@
  */
 
 interface Layer {
-  onBack: () => void;
+  /** `drawn`: the browser has already drawn the way back itself (iOS's edge swipe slides the page). */
+  onBack: (drawn: boolean) => void;
 }
 
 const MARK = 'notkaBack';
@@ -29,7 +30,7 @@ let popping = false;
 let scheduled = false;
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('popstate', () => {
+  window.addEventListener('popstate', (event) => {
     if (popping) {
       popping = false;
       reconcile();
@@ -38,7 +39,7 @@ if (typeof window !== 'undefined') {
     if (entries === 0) return;
     entries -= 1;
     const layer = layers.pop();
-    layer?.onBack();
+    layer?.onBack(event.hasUAVisualTransition === true);
     schedule();
   });
 }
@@ -69,7 +70,7 @@ function reconcile(): void {
  * Gives an open surface a history entry; the system's Back then calls `onBack` (once) instead of leaving
  * the page. The returned function is for closing it any other way, and does nothing after a Back.
  */
-export function claimBack(onBack: () => void): () => void {
+export function claimBack(onBack: (drawn: boolean) => void): () => void {
   const layer: Layer = { onBack };
   layers.push(layer);
   schedule();

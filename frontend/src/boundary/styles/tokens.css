@@ -179,7 +179,10 @@
      ring, 30px across ring included, over a scrim that is the same in both themes; a marked card's
      content is at least as tall. */
   --keep-edited-by-avatar: 30px;
-  --keep-edited-by-scrim: rgba(0, 0, 0, 0.6);
+  /* Read off the owner's screenshot of the original: the card is about 48% darker at its bottom edge. */
+  --keep-edited-by-scrim: rgba(0, 0, 0, 0.48);
+  /* How far below the marker its gradient reaches: past whatever stands under it, clipped by the card. */
+  --keep-edited-by-reach: 160px;
   --keep-edited-by-height: 128px;
   /* A card's pin over a picture, the same in both themes (the original's own sprite, 2026-10-19):
      dark ink on a white silhouette, the whole glyph at 71%. */

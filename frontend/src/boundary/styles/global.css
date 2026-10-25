@@ -53,6 +53,10 @@ body {
  */
 html {
   overflow-y: scroll;
+  /* The root is the page's scroller, so this is where its bounce and chaining are switched off — on
+     `body` alone it does nothing. Without it iOS pulls the whole screen up, a fixed editor with it,
+     and shows the layer below. */
+  overscroll-behavior-y: none;
   /* iOS enlarges text on its own when the phone turns sideways; the reader's text size is applied
      deliberately instead (`textScale.ts`), so the same setting gives the same type either way. */
   -webkit-text-size-adjust: 100%;

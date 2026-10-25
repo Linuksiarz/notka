@@ -574,7 +574,7 @@ Response `200`:
 ```json
 {
   "status": "ok",
-  "version": "1.0.0-rc5",
+  "version": "1.0.0-rc6",
   "demo": false,
   "registrationOpen": true,
   "trashRetentionDays": 30,

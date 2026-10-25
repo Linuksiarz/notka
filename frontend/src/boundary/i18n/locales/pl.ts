@@ -521,7 +521,7 @@ export const pl: Messages = {
   'topbar.sort': 'Sortuj notatki',
   'fab.open': 'Nowa notatka',
   'fab.close': 'Zamknij',
-  'fab.text': 'Tekst',
+  'fab.text': 'Notatka',
   'fab.list': 'Lista',
   'fab.image': 'Obraz',
   'editor.add': 'Dodaj',

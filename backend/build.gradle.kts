@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "dev.duwe.notka"
-version = "1.0.0-rc5"
+version = "1.0.0-rc6"
 
 kotlin {
     jvmToolchain(21)

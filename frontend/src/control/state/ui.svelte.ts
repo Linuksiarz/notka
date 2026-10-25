@@ -257,13 +257,19 @@ class UiState {
    * answers Escape, saving first), never a close of its own.
    */
   backRequest = $state(0);
+  /**
+   * The last Back was already drawn by the browser: iOS's edge swipe slides the note away itself, and
+   * the editor's own closing animation after it played the exit a second time.
+   */
+  backDrawn = false;
   private releaseEditorBack: (() => void) | null = null;
 
   /** Puts the entry back when a Back was answered by keeping the editor open (a sheet, an unsaved draft). */
   reinstateBackEntry(): void {
     if (this.editorOrigin === null || this.releaseEditorBack) return;
-    this.releaseEditorBack = claimBack(() => {
+    this.releaseEditorBack = claimBack((drawn) => {
       this.releaseEditorBack = null;
+      this.backDrawn = drawn;
       this.backRequest += 1;
     });
   }

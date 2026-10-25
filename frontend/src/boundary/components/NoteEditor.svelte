@@ -117,6 +117,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   let editorHost: HTMLElement | null = $state(null);
   let editorCard: HTMLElement | null = $state(null);
   let closing = false;
+  let scrim = $state<HTMLElement | null>(null);
   /** Bumped whenever a *different* note is opened, so an in-flight close can tell a switch from a save. */
   let session = 0;
 
@@ -236,7 +237,10 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
    * carried the note being edited off the screen.
    */
   $effect(() => {
-    if (!ui.editorOpen || !ui.floatingEditor) return;
+    // Not on a phone: its editor is the whole screen, with nothing under it to hold still, and a
+    // cancelled touch is also what iOS reads as "the page has the gesture" — its edge swipe back did
+    // nothing over a note too short to scroll.
+    if (!ui.editorOpen || !ui.floatingEditor || ui.phone) return;
 
     const block = (event: Event): void => {
       const target = event.target;
@@ -534,11 +538,12 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         ui.reinstateBackEntry();
         return;
       }
-      void close().then(() => ui.reinstateBackEntry());
+      void close(!ui.backDrawn).then(() => ui.reinstateBackEntry());
     });
   });
 
-  async function close(): Promise<void> {
+  /** [animate] is false when the browser has already drawn the note going away (`ui.backDrawn`). */
+  async function close(animate = true): Promise<void> {
     if (closing) return;
     const opening = session;
     closing = true;
@@ -567,6 +572,10 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
 
       // A phone's editor shrinks into its card; the card itself is already in the list, so there is no
       // room to make first (the composer's box is not on a phone's screen).
+      if (!animate) {
+        closeEditor();
+        return;
+      }
       if (ui.phone && editorHost && editorCard && ui.animationsAllowed) {
         const card = document.querySelector<HTMLElement>(`.card[data-note-id="${draft.noteId}"]`);
         const release = await shrinkIntoCard(editorHost, editorCard, card);
@@ -588,7 +597,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         await tick();
         if (session !== opening) return;
         const target = document.querySelector(`.card[data-note-id="${draft.noteId}"]`);
-        await flyToCard(editorCard, from, target instanceof HTMLElement ? target : null);
+        await flyToCard(editorCard, from, target instanceof HTMLElement ? target : null, scrim);
       } finally {
         ui.settling = false;
       }
@@ -895,8 +904,9 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     <div
       class="editor-scrim"
       aria-hidden="true"
+      bind:this={scrim}
       in:fade={{ duration: MOTION.medium, easing: ENTER_EASING }}
-      out:fade={{ duration: MOTION.short, easing: EXIT_EASING }}
+      out:fade|global={{ duration: MOTION.short, easing: EXIT_EASING }}
     ></div>
   {/if}
 
@@ -1016,7 +1026,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
           class="icon-button"
           title={t('editor.close')}
           aria-label={t('editor.back')}
-          onclick={close}
+          onclick={() => close()}
           {@attach ui.glass && glassLens}
         >
           <Icon name="arrow-back" size={barIcon} />
@@ -1424,7 +1434,7 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
         {#if !ui.phone}
           <!-- On a phone the way out is the bar's arrow, the way it is in the original; the bottom
                bar keeps the note's own actions. -->
-          <button type="button" class="close-button" onclick={close}>{t('editor.close')}</button>
+          <button type="button" class="close-button" onclick={() => close()}>{t('editor.close')}</button>
         {/if}
       </div>
     </div>
