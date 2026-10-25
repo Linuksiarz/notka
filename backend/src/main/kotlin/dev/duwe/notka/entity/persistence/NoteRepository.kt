@@ -12,21 +12,9 @@ import dev.duwe.notka.entity.model.NoteView
 import dev.duwe.notka.entity.model.ReminderChange
 import dev.duwe.notka.entity.model.ReminderRepeat
 import dev.duwe.notka.entity.model.TrashAction
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.SqlExpressionBuilder
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.or
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.insertIgnore
-import org.jetbrains.exposed.sql.max
-import org.jetbrains.exposed.sql.replace
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /** How many steps of one note's body the log keeps; an editor further behind reads the note instead. */
 private const val MAX_LOGGED_STEPS = 1000
@@ -87,15 +75,13 @@ class NoteRepository(private val database: Database) {
     fun listVisible(userId: Int, view: NoteView, labelId: Int? = null): List<Note> = transaction(database) {
         val sharedWithUser = NoteShares.select(NoteShares.noteId).where { NoteShares.userId eq userId }
         val viewFilter = when (view) {
-            NoteView.ACTIVE -> Op.build { Notes.trashedAt.isNull() and (Notes.archived eq false) }
-            NoteView.ARCHIVED -> Op.build { Notes.trashedAt.isNull() and (Notes.archived eq true) }
-            NoteView.TRASH -> Op.build { Notes.trashedAt.isNotNull() }
+            NoteView.ACTIVE -> Notes.trashedAt.isNull() and (Notes.archived eq false)
+            NoteView.ARCHIVED -> Notes.trashedAt.isNull() and (Notes.archived eq true)
+            NoteView.TRASH -> Notes.trashedAt.isNotNull()
         }
-        val visible = Op.build { (Notes.ownerId eq userId) or (Notes.id inSubQuery sharedWithUser) }
+        val visible = (Notes.ownerId eq userId) or (Notes.id inSubQuery sharedWithUser)
         val labeled = labelId?.let { wanted ->
-            Op.build {
-                Notes.id inSubQuery NoteLabels.select(NoteLabels.noteId).where { NoteLabels.labelId eq wanted }
-            }
+            Notes.id inSubQuery NoteLabels.select(NoteLabels.noteId).where { NoteLabels.labelId eq wanted }
         }
         val filter = listOfNotNull(viewFilter, visible, labeled).reduce { all, next -> all and next }
         Notes.selectAll().where { filter }
@@ -116,7 +102,7 @@ class NoteRepository(private val database: Database) {
         // starts again after it.
         if (changed > 0 && fields.document != null) {
             val (version, _) = stepHead(id)
-            NoteSteps.deleteWhere { Op.build { NoteSteps.noteId eq id } }
+            NoteSteps.deleteWhere { NoteSteps.noteId eq id }
             writeStepHead(id, version + 1, version + 1)
         }
         changed
@@ -129,12 +115,12 @@ class NoteRepository(private val database: Database) {
      * (its collaborators are told); its `updated_at` does not, because being moved is not being edited.
      */
     fun place(id: Int, position: Long): Int = transaction(database) {
-        Notes.update({ Op.build { (Notes.position greaterEq position) and (Notes.id neq id) } }) { row ->
-            row[Notes.position] = with(SqlExpressionBuilder) { Notes.position + 1 }
+        Notes.update({ (Notes.position greaterEq position) and (Notes.id neq id) }) { row ->
+            row[Notes.position] = Notes.position + 1
         }
-        Notes.update({ Op.build { Notes.id eq id } }) { row ->
+        Notes.update({ Notes.id eq id }) { row ->
             row[Notes.position] = position
-            row[Notes.version] = with(SqlExpressionBuilder) { Notes.version + 1 }
+            row[Notes.version] = Notes.version + 1
         }
     }
 
@@ -149,7 +135,7 @@ class NoteRepository(private val database: Database) {
         val (version, logStart) = stepHead(noteId)
         if (since < logStart || since > version) return@transaction NoteStepLog(version, null)
         val steps = NoteSteps.selectAll()
-            .where { Op.build { (NoteSteps.noteId eq noteId) and (NoteSteps.docVersion greater since) } }
+            .where { (NoteSteps.noteId eq noteId) and (NoteSteps.docVersion greater since) }
             .orderBy(NoteSteps.docVersion to SortOrder.ASC)
             .map { NoteStep(it[NoteSteps.step], it[NoteSteps.clientId]) }
         NoteStepLog(version, steps)
@@ -177,7 +163,7 @@ class NoteRepository(private val database: Database) {
             val next = expected + steps.size
             val keptFrom = maxOf(logStart, next - MAX_LOGGED_STEPS)
             NoteSteps.deleteWhere {
-                Op.build { (NoteSteps.noteId eq noteId) and (NoteSteps.docVersion lessEq keptFrom) }
+                (NoteSteps.noteId eq noteId) and (NoteSteps.docVersion lessEq keptFrom)
             }
             writeStepHead(noteId, next, keptFrom)
             write(noteId, fields)
@@ -194,8 +180,8 @@ class NoteRepository(private val database: Database) {
 
     private fun write(id: Int, fields: NoteFields): Int {
         val guard = fields.expectedVersion?.let { version ->
-            Op.build { (Notes.id eq id) and (Notes.version eq version) }
-        } ?: Op.build { Notes.id eq id }
+            (Notes.id eq id) and (Notes.version eq version)
+        } ?: Notes.id eq id
         val top = if (fields.toTop) topPosition() else null
 
         return Notes.update({ guard }) { row ->
@@ -231,7 +217,7 @@ class NoteRepository(private val database: Database) {
                     row[Notes.editedBy] = it
                     row[Notes.editedAt] = fields.updatedAt
                 }
-                row[Notes.version] = with(SqlExpressionBuilder) { Notes.version + 1 }
+                row[Notes.version] = Notes.version + 1
             }
     }
 
@@ -263,7 +249,7 @@ class NoteRepository(private val database: Database) {
                     it[NoteFolds.userId] = userId
                 }
             } else {
-                NoteFolds.deleteWhere { Op.build { (NoteFolds.noteId eq noteId) and (NoteFolds.userId eq userId) } }
+                NoteFolds.deleteWhere { (NoteFolds.noteId eq noteId) and (NoteFolds.userId eq userId) }
             }
         }
     }
@@ -320,14 +306,14 @@ class NoteRepository(private val database: Database) {
 
     fun delete(id: Int) {
         transaction(database) {
-            Notes.deleteWhere { Op.build { Notes.id eq id } }
+            Notes.deleteWhere { Notes.id eq id }
         }
     }
 
     /** Hard-deletes every trashed note whose `trashed_at` is older than [cutoff]; returns the count. */
     fun purgeTrashedBefore(cutoff: Long): Int = transaction(database) {
         Notes.deleteWhere {
-            Op.build { Notes.trashedAt.isNotNull() and (Notes.trashedAt less cutoff) }
+            Notes.trashedAt.isNotNull() and (Notes.trashedAt less cutoff)
         }
     }
 
@@ -369,11 +355,9 @@ class NoteRepository(private val database: Database) {
         val sharedWithUser = NoteShares.select(NoteShares.noteId).where { NoteShares.userId eq userId }
         Notes.selectAll()
             .where {
-                Op.build {
-                    Notes.trashedAt.isNull() and
-                        Notes.reminderAt.isNotNull() and
-                        ((Notes.ownerId eq userId) or (Notes.id inSubQuery sharedWithUser))
-                }
+                Notes.trashedAt.isNull() and
+                    Notes.reminderAt.isNotNull() and
+                    ((Notes.ownerId eq userId) or (Notes.id inSubQuery sharedWithUser))
             }
             .orderBy(Notes.reminderAt to SortOrder.ASC)
             .map { it.toNote() }

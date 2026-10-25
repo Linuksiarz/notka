@@ -1,19 +1,9 @@
 package dev.duwe.notka.entity.persistence
 
 import dev.duwe.notka.entity.model.FriendGroup
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.batchInsert
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.lowerCase
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /** An account's friends and the groups it sorts them into. Nothing here is ever shown to anybody else. */
 class FriendRepository(private val database: Database) {
@@ -43,10 +33,10 @@ class FriendRepository(private val database: Database) {
         val groups = FriendGroups.select(FriendGroups.id).where { FriendGroups.ownerId eq ownerId }.map { it[FriendGroups.id] }
         if (groups.isNotEmpty()) {
             FriendGroupMembers.deleteWhere {
-                Op.build { (FriendGroupMembers.groupId inList groups) and (FriendGroupMembers.userId eq friendId) }
+                (FriendGroupMembers.groupId inList groups) and (FriendGroupMembers.userId eq friendId)
             }
         }
-        Friends.deleteWhere { Op.build { (Friends.ownerId eq ownerId) and (Friends.friendId eq friendId) } }
+        Friends.deleteWhere { (Friends.ownerId eq ownerId) and (Friends.friendId eq friendId) }
     }
 
     fun groups(ownerId: Int): List<FriendGroup> = transaction(database) {
@@ -100,7 +90,7 @@ class FriendRepository(private val database: Database) {
             val gone = current - memberIds.toSet()
             if (gone.isNotEmpty()) {
                 FriendGroupMembers.deleteWhere {
-                    Op.build { (FriendGroupMembers.groupId eq groupId) and (FriendGroupMembers.userId inList gone) }
+                    (FriendGroupMembers.groupId eq groupId) and (FriendGroupMembers.userId inList gone)
                 }
             }
             insertMembers(groupId, memberIds.filterNot(current::contains), addedAt)

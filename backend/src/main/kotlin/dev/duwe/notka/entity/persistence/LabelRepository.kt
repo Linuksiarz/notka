@@ -1,18 +1,9 @@
 package dev.duwe.notka.entity.persistence
 
 import dev.duwe.notka.entity.model.Label
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.JoinType
-import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.lowerCase
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /** Labels are per user and are never shared; `note_labels` records who attached what. */
 class LabelRepository(private val database: Database) {
@@ -56,7 +47,7 @@ class LabelRepository(private val database: Database) {
 
     fun delete(id: Int) {
         transaction(database) {
-            Labels.deleteWhere { Op.build { Labels.id eq id } }
+            Labels.deleteWhere { Labels.id eq id }
         }
     }
 
@@ -73,7 +64,7 @@ class LabelRepository(private val database: Database) {
     fun replaceForNote(noteId: Int, userId: Int, labelIds: List<Int>) {
         transaction(database) {
             NoteLabels.deleteWhere {
-                Op.build { (NoteLabels.noteId eq noteId) and (NoteLabels.addedBy eq userId) }
+                (NoteLabels.noteId eq noteId) and (NoteLabels.addedBy eq userId)
             }
             labelIds.distinct().forEach { labelId ->
                 NoteLabels.insert {
@@ -88,9 +79,7 @@ class LabelRepository(private val database: Database) {
     fun detach(noteId: Int, labelId: Int, userId: Int) {
         transaction(database) {
             NoteLabels.deleteWhere {
-                Op.build {
-                    (NoteLabels.noteId eq noteId) and (NoteLabels.labelId eq labelId) and (NoteLabels.addedBy eq userId)
-                }
+                (NoteLabels.noteId eq noteId) and (NoteLabels.labelId eq labelId) and (NoteLabels.addedBy eq userId)
             }
         }
     }

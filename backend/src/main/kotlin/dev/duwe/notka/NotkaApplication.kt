@@ -1,5 +1,6 @@
 package dev.duwe.notka
 
+import org.jetbrains.exposed.v1.jdbc.Database
 import dev.duwe.notka.boundary.config.AppConfig
 import dev.duwe.notka.boundary.config.NOTKA_VERSION
 import dev.duwe.notka.boundary.http.plugins.configureHttpPlugins
@@ -56,7 +57,6 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import org.jetbrains.exposed.sql.Database
 
 private val logger = KotlinLogging.logger {}
 

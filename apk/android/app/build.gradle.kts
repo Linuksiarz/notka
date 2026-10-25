@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 /** The app's version is the project's: `version` in `package.json`, as in the other modules. */
@@ -18,7 +17,7 @@ android {
         applicationId = "dev.duwe.notka"
         minSdk = rootProject.extra["minSdkVersion"] as Int
         targetSdk = rootProject.extra["targetSdkVersion"] as Int
-        versionCode = 6
+        versionCode = 7
         versionName = packageVersion
     }
 

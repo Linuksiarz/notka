@@ -1,6 +1,7 @@
 plugins {
-    id("com.android.application") version "8.13.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.4.0" apply false
+    id("com.android.application") version "9.4.1" apply false
+    // AGP 9 compiles Kotlin itself; the plugin is declared only to choose the Kotlin version it uses.
+    id("org.jetbrains.kotlin.android") version "2.4.21" apply false
 }
 
 /**
@@ -8,11 +9,11 @@ plugins {
  * `rootProject.ext` by the Capacitor modules' own build files, which `cap sync` generates.
  */
 extra["minSdkVersion"] = 31
-extra["compileSdkVersion"] = 36
+extra["compileSdkVersion"] = 37
 extra["targetSdkVersion"] = 36
-extra["androidxAppCompatVersion"] = "1.7.1"
-extra["androidxCoreVersion"] = "1.17.0"
-extra["androidxWebkitVersion"] = "1.14.0"
+extra["androidxAppCompatVersion"] = "1.8.0"
+extra["androidxCoreVersion"] = "1.19.1"
+extra["androidxWebkitVersion"] = "1.18.0"
 extra["coreSplashScreenVersion"] = "1.2.0"
 
 allprojects {

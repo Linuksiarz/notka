@@ -8,7 +8,7 @@ FROM node:${NODE_VERSION}-alpine AS frontend-build
 
 # pnpm comes from npm, which every Node.js image has. Corepack is not used: Node.js stopped shipping
 # it with version 25, and an image built on a newer Node would otherwise have no pnpm at all.
-ARG PNPM_VERSION=11.9.0
+ARG PNPM_VERSION=12.15.0
 RUN npm install --global "pnpm@${PNPM_VERSION}"
 WORKDIR /build/frontend
 

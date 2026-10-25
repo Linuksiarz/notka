@@ -1,6 +1,6 @@
 package dev.duwe.notka.entity.persistence
 
-import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.v1.jdbc.*
 import java.io.File
 
 /**

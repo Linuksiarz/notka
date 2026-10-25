@@ -2,16 +2,9 @@ package dev.duwe.notka.entity.persistence
 
 import dev.duwe.notka.entity.model.NoteShare
 import dev.duwe.notka.entity.model.Permission
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class ShareRepository(private val database: Database) {
     fun find(noteId: Int, userId: Int): NoteShare? = transaction(database) {
@@ -48,14 +41,14 @@ class ShareRepository(private val database: Database) {
     fun delete(noteId: Int, userId: Int) {
         transaction(database) {
             NoteShares.deleteWhere {
-                Op.build { (NoteShares.noteId eq noteId) and (NoteShares.userId eq userId) }
+                (NoteShares.noteId eq noteId) and (NoteShares.userId eq userId)
             }
             // A pin is that account's filing of a note it can no longer see.
             NotePins.deleteWhere {
-                Op.build { (NotePins.noteId eq noteId) and (NotePins.userId eq userId) }
+                (NotePins.noteId eq noteId) and (NotePins.userId eq userId)
             }
             NoteFolds.deleteWhere {
-                Op.build { (NoteFolds.noteId eq noteId) and (NoteFolds.userId eq userId) }
+                (NoteFolds.noteId eq noteId) and (NoteFolds.userId eq userId)
             }
         }
     }

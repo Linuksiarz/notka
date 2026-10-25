@@ -3,16 +3,9 @@ package dev.duwe.notka.entity.persistence
 import dev.duwe.notka.entity.model.NoteDocument
 import dev.duwe.notka.entity.model.NoteKind
 import dev.duwe.notka.entity.model.NoteVersion
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /** How much history one note keeps; older snapshots are dropped. */
 private const val MAX_VERSIONS_PER_NOTE = 50
@@ -44,7 +37,7 @@ class NoteVersionRepository(private val database: Database) {
 
     fun find(noteId: Int, version: Int): NoteVersion? = transaction(database) {
         NoteVersions.selectAll()
-            .where { Op.build { (NoteVersions.noteId eq noteId) and (NoteVersions.version eq version) } }
+            .where { (NoteVersions.noteId eq noteId) and (NoteVersions.version eq version) }
             .singleOrNull()
             ?.toNoteVersion()
     }
@@ -61,7 +54,7 @@ class NoteVersionRepository(private val database: Database) {
             ?: return
 
         NoteVersions.deleteWhere {
-            Op.build { (NoteVersions.noteId eq noteId) and (NoteVersions.version less oldestKept) }
+            (NoteVersions.noteId eq noteId) and (NoteVersions.version less oldestKept)
         }
     }
 

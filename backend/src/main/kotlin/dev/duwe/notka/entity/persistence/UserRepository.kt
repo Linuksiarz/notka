@@ -4,21 +4,9 @@ import dev.duwe.notka.entity.model.AccountUsage
 import dev.duwe.notka.entity.model.Session
 import dev.duwe.notka.entity.model.User
 import dev.duwe.notka.entity.model.UserSummary
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.JoinType
-import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
-import org.jetbrains.exposed.sql.lowerCase
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class UserRepository(private val database: Database) {
     /** Every read of an account carries when its picture changed, so a summary can point at the right copy. */
@@ -192,7 +180,7 @@ class SessionRepository(private val database: Database) {
 
     fun delete(token: String) {
         transaction(database) {
-            Sessions.deleteWhere { Op.build { Sessions.token eq token } }
+            Sessions.deleteWhere { Sessions.token eq token }
         }
     }
 
