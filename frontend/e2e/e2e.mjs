@@ -2895,6 +2895,71 @@ check(
 );
 await alice.page.locator('.share').getByRole('button', { name: 'Close', exact: true }).click();
 
+
+/** Two long notes measured on the originals (docs/METRICS.md, "Long notes"), written through the API. */
+async function writeLongNotes(page) {
+  await page.evaluate(async () => {
+    const doc = (lines) => ({ version: 1, blocks: lines.map((text, i) => ({ id: `l${i}`, type: 'paragraph', spans: [{ text }] })) });
+    const mixed = Array.from({ length: 50 }, (_, i) => `Line ${String(i + 1).padStart(2, '0')} — ` + ((i + 1) % 3 ? 'short' : 'a longer line of text that takes more than one line on the card'));
+    const short = Array.from({ length: 60 }, (_, i) => `L${String(i + 1).padStart(2, '0')}`);
+    for (const [title, lines] of [['Long mixed note', mixed], ['Long note of short lines that wraps', short]]) {
+      await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'TEXT', title, content: doc(lines) }) });
+    }
+  });
+}
+
+/** The lines a card's text is drawn on, and how it ends. */
+const cardText = (page, title) =>
+  page.locator('.card').filter({ hasText: title }).first().evaluate((card) => {
+    const tops = new Set();
+    const range = document.createRange();
+    for (const line of card.querySelectorAll('.card-excerpt .line')) {
+      const text = line.querySelector('.text');
+      range.selectNodeContents(text);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 0);
+      if (rects.length === 0) tops.add(Math.round(line.getBoundingClientRect().top));
+      for (const rect of rects) tops.add(Math.round(rect.top));
+    }
+    const text = card.querySelector('.card-excerpt').innerText.trim();
+    return { lines: tops.size, titleLines: Math.round(card.querySelector('.title').offsetHeight / 25), tail: text.slice(-12) };
+  });
+
+console.log('\nlong notes');
+// given: the two long notes the originals were measured with
+await writeLongNotes(alice.page);
+await alice.page.goto(baseUrl, { waitUntil: 'networkidle' });
+await alice.page.waitForTimeout(800);
+
+// when
+const mixedCard = await cardText(alice.page, 'Long mixed note');
+const shortCard = await cardText(alice.page, 'Long note of short lines');
+
+// then: the web original's 426px for title and text — 16 lines under one title line, 15 under two —
+// cut after a whole word, and between paragraphs with "…" on a line of its own
+check(
+  'a long note’s card shows 16 lines under a one-line title, cut after a whole word with “…”',
+  mixedCard.titleLines === 1 && mixedCard.lines === 16 && mixedCard.tail.endsWith('…'),
+  JSON.stringify(mixedCard)
+);
+check(
+  'under a two-line title it shows 15, the “…” on a line of its own when the cut falls between lines',
+  shortCard.titleLines === 2 && shortCard.lines === 15 && /L14\n…$/.test(shortCard.tail),
+  JSON.stringify(shortCard)
+);
+
+// and: a long new note scrolls inside the composer's 600px, its bar under it
+await alice.page.getByRole('button', { name: 'Take a note…' }).click();
+await alice.page.waitForSelector('.editor');
+await alice.page.locator('.editor .note-body p').first().click();
+await alice.page.keyboard.type(Array.from({ length: 40 }, (_, i) => `Row ${i + 1}`).join('\n'));
+const composerBox = await alice.page.evaluate(() => {
+  const body = document.querySelector('.editor .body');
+  return { height: Math.round(body.getBoundingClientRect().height), scrolls: body.scrollHeight > body.clientHeight + 1 };
+});
+check('a long new note scrolls inside the composer’s 600px', composerBox.height === 600 && composerBox.scrolls, JSON.stringify(composerBox));
+await alice.page.keyboard.press('Escape');
+await alice.page.waitForTimeout(800);
+
 console.log('\nthe browser notice');
 // given: a browser nobody told Notka to stay quiet in
 const fresh = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'pl-PL' });

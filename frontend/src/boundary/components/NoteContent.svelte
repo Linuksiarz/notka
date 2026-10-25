@@ -9,8 +9,6 @@
 
   interface Props {
     document: NoteDocument;
-    /** Renders only the first N blocks, used by compact card previews. */
-    maxBlocks?: number;
     /**
      * Collects the ticked items under a collapsible heading, the way the original shows a list: what
      * is left to do first, then "N completed items". Off for compact previews, which show a note's
@@ -33,7 +31,6 @@
 
   let {
     document,
-    maxBlocks,
     groupCompleted = false,
     completedCollapsed = false,
     onToggleCompleted,
@@ -54,9 +51,8 @@
     }
     return document.blocks.slice(0, end);
   });
-  const all = $derived(maxBlocks ? written.slice(0, maxBlocks) : written);
+  const all = $derived(written);
   const numbers = $derived(listNumbers(document.blocks));
-  const truncated = $derived(maxBlocks !== undefined && written.length > maxBlocks);
 
   /** The two sections a list is drawn in — the editor's own rule (`entity/checklistSections.ts`). */
   const sections = $derived(
@@ -247,9 +243,6 @@
     <div class="more completed-more">{t('card.completedTruncated')}</div>
   {/if}
 
-  {#if truncated}
-    <div class="more">{t('card.truncated')}</div>
-  {/if}
 </div>
 
 <style>

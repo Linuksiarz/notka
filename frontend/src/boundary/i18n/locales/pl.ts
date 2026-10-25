@@ -70,7 +70,6 @@ export const pl: Messages = {
   'card.archiveNote': 'Zarchiwizuj notatkę',
   'card.unarchiveNote': 'Przywróć notatkę z archiwum',
   'card.more': 'Więcej',
-  'card.truncated': 'Więcej…',
   'card.completedTruncated': '…',
   'card.moreOptions': 'Więcej opcji',
   'card.deleteNote': 'Usuń notatkę',

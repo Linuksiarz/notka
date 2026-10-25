@@ -17,6 +17,7 @@ export function followSystemBar(): () => void {
   if (!paint) return () => undefined;
 
   let frame = 0;
+  let viewport = viewportKey();
   const schedule = () => {
     if (frame === 0) frame = requestAnimationFrame(sync);
   };
@@ -25,7 +26,12 @@ export function followSystemBar(): () => void {
     const moving = movingElements();
     paint(colorAtTopEdge(moving));
     // Something is on its way: the bar follows it frame by frame, and is read once more when it is there.
-    if (moving.size > 0) schedule();
+    // So is the screen itself while iOS pans it for the keyboard: the pan goes on after the last event
+    // it sends, and a bar read at that event kept the colour of whatever was at the top mid-pan.
+    const now = viewportKey();
+    const panning = now !== viewport;
+    viewport = now;
+    if (moving.size > 0 || panning) schedule();
   };
 
   // What is at the top changes when something opens, closes, recolours, starts or finishes moving;
@@ -39,13 +45,18 @@ export function followSystemBar(): () => void {
     attributes: true,
     attributeFilter: ['class', 'style', 'data-theme', 'data-color', 'data-background', 'data-state', 'hidden']
   });
-  const events = ['transitionrun', 'transitionend', 'animationstart', 'animationend', 'resize'] as const;
+  const events = ['transitionrun', 'transitionend', 'animationstart', 'animationend', 'resize', 'scroll'] as const;
   events.forEach((name) => window.addEventListener(name, schedule, true));
+  // The keyboard moves the visible part of the screen without resizing the window on iOS.
+  window.visualViewport?.addEventListener('resize', schedule);
+  window.visualViewport?.addEventListener('scroll', schedule);
   schedule();
 
   return () => {
     observer.disconnect();
     events.forEach((name) => window.removeEventListener(name, schedule, true));
+    window.visualViewport?.removeEventListener('resize', schedule);
+    window.visualViewport?.removeEventListener('scroll', schedule);
     cancelAnimationFrame(frame);
   };
 }
@@ -165,6 +176,12 @@ function screenTop(): number {
   return window.visualViewport?.offsetTop ?? 0;
 }
 
+/** Where the visible part of the screen is and how big, to tell a pan that is still going on. */
+function viewportKey(): string {
+  const viewport = window.visualViewport;
+  return viewport ? `${viewport.offsetTop}:${viewport.height}:${window.scrollY}` : `${window.scrollY}`;
+}
+
 /**
  * The colour of the status bar's band: what stands still at the middle of the window's top edge, every
  * layer there laid over the next, and every surface on its way over that by how much of the band it
@@ -172,7 +189,9 @@ function screenTop(): number {
  */
 function colorAtTopEdge(moving: Set<Element>): Rgb {
   // Top-most first; the page's own background is under all of them.
-  const stack = document.elementsFromPoint(window.innerWidth / 2, screenTop()).reverse();
+  // One pixel into the screen: on the edge itself a surface whose top is a fraction lower than the
+  // pan's offset is missed, and the page's own background shows in the bar instead of the note.
+  const stack = document.elementsFromPoint(window.innerWidth / 2, screenTop() + 1).reverse();
   let painted: Rgb = [255, 255, 255];
   const page = parseColor(getComputedStyle(document.body).backgroundColor);
   if (page) painted = over(page, painted);

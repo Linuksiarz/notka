@@ -28,6 +28,7 @@
   import LabelPicker from './LabelPicker.svelte';
   import LinkCards from './LinkCards.svelte';
   import NoteContent from './NoteContent.svelte';
+  import CardExcerpt from './CardExcerpt.svelte';
   import ReminderChip from './ReminderChip.svelte';
 
   /**
@@ -75,6 +76,9 @@
    * cards carry no action bar, so this is how a phone reaches the bulk actions. The hold is the
    * platform's own: Android's `ViewConfiguration` long-press timeout (400ms) and touch slop (8px).
    */
+  /** The title as drawn: on the web it takes lines from the text a long note shows (`CardExcerpt`). */
+  let titleHeight = $state(0);
+
   const LONG_PRESS_MS = 400;
   const LONG_PRESS_SLOP = 8;
   let press: { x: number; y: number; timer: ReturnType<typeof setTimeout> } | null = null;
@@ -345,15 +349,19 @@
 
   <div class="body" class:marked={note.unseenEdit && variant !== 'trash'}>
     {#if note.title}
-      <h3 class="title">{note.title}</h3>
+      <h3 class="title" bind:offsetHeight={titleHeight}>{note.title}</h3>
     {/if}
-    <NoteContent
-      document={note.content}
-      groupCompleted={note.kind === 'LIST'}
-      completedCollapsed={note.completedCollapsed}
-      onToggleCompleted={variant === 'trash' ? undefined : toggleCompleted}
-      completedCountOnly={ui.phone}
-    />
+    {#if note.kind === 'TEXT'}
+      <CardExcerpt document={note.content} titleHeight={note.title ? titleHeight : 0} />
+    {:else}
+      <NoteContent
+        document={note.content}
+        groupCompleted
+        completedCollapsed={note.completedCollapsed}
+        onToggleCompleted={variant === 'trash' ? undefined : toggleCompleted}
+        completedCountOnly={ui.phone}
+      />
+    {/if}
     <ReminderChip {note} compact />
     {#if variant === 'trash' && note.trashedAt !== null}
       <p class="purge">

@@ -79,7 +79,6 @@ export const enUS = {
   'card.archiveNote': 'Archive note',
   'card.unarchiveNote': 'Unarchive note',
   'card.more': 'More',
-  'card.truncated': 'More…',
   'card.completedTruncated': '…',
   'card.moreOptions': 'More options',
   'card.deleteNote': 'Delete note',

@@ -781,6 +781,54 @@ check(
 );
 await short.context.close();
 
+
+/** Two long notes measured on the originals (docs/METRICS.md, "Long notes"), written through the API. */
+async function writeLongNotes(page) {
+  await page.evaluate(async () => {
+    const doc = (lines) => ({ version: 1, blocks: lines.map((text, i) => ({ id: `l${i}`, type: 'paragraph', spans: [{ text }] })) });
+    const mixed = Array.from({ length: 50 }, (_, i) => `Line ${String(i + 1).padStart(2, '0')} — ` + ((i + 1) % 3 ? 'short' : 'a longer line of text that takes more than one line on the card'));
+    const short = Array.from({ length: 60 }, (_, i) => `L${String(i + 1).padStart(2, '0')}`);
+    for (const [title, lines] of [['Long mixed note', mixed], ['Long note of short lines that wraps', short]]) {
+      await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'TEXT', title, content: doc(lines) }) });
+    }
+  });
+}
+
+/** The lines a card's text is drawn on, and how it ends. */
+const cardText = (page, title) =>
+  page.locator('.card').filter({ hasText: title }).first().evaluate((card) => {
+    const tops = new Set();
+    const range = document.createRange();
+    for (const line of card.querySelectorAll('.card-excerpt .line')) {
+      const text = line.querySelector('.text');
+      range.selectNodeContents(text);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 0);
+      if (rects.length === 0) tops.add(Math.round(line.getBoundingClientRect().top));
+      for (const rect of rects) tops.add(Math.round(rect.top));
+    }
+    const text = card.querySelector('.card-excerpt').innerText.trim();
+    return { lines: tops.size, titleLines: Math.round(card.querySelector('.title').offsetHeight / 25), tail: text.slice(-12) };
+  });
+
+console.log('\nlong notes on a phone');
+// given: the two long notes the Android app was measured with
+const longPage = (await phone(PHONE, [], 'long')).page;
+await writeLongNotes(longPage);
+await longPage.reload({ waitUntil: 'networkidle' });
+await longPage.waitForTimeout(800);
+
+// when
+const phoneMixed = await cardText(longPage, 'Long mixed note');
+const phoneShort = await cardText(longPage, 'Long note of short lines');
+
+// then: ten lines whatever the title, "…" ending the last one
+check(
+  'a phone card shows ten lines of a long note, “…” ending the last one',
+  phoneMixed.lines === 10 && phoneMixed.tail.endsWith('…') && phoneShort.lines === 10 && phoneShort.tail.endsWith('L10…'),
+  JSON.stringify({ phoneMixed, phoneShort })
+);
+await longPage.context().close();
+
 console.log('\nsharing into Notka from another app');
 
 // given: the installed app — its service worker in control — and a manifest that names it a share target

@@ -855,6 +855,31 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   const editedLabel = $derived(
     draft.updatedAt !== null && !isNew ? formatEditedAt(draft.updatedAt, ui.locale) : null
   );
+  /*
+   * When iOS pans the screen for the keyboard, the phone's editor follows the visible part
+   * (`visualViewport.ts`) and the page above it is what stands at the top of the layout — what Safari
+   * tints its bar with, and what the bar's own sampling falls back to (`systemBar.ts`). While the screen
+   * is panned, that page wears the note's colour, so the bar never shows the notes' background over an
+   * open note.
+   */
+  $effect(() => {
+    const card = editorCard;
+    const viewport = window.visualViewport;
+    if (!ui.phone || !card || !viewport) return;
+    void [draft.color, draft.background, ui.theme];
+    const follow = () => {
+      document.body.style.backgroundColor = viewport.offsetTop > 0 ? getComputedStyle(card).backgroundColor : '';
+    };
+    viewport.addEventListener('scroll', follow);
+    viewport.addEventListener('resize', follow);
+    follow();
+    return () => {
+      viewport.removeEventListener('scroll', follow);
+      viewport.removeEventListener('resize', follow);
+      document.body.style.backgroundColor = '';
+    };
+  });
+
   const showStatus = $derived(!ui.phone && (draft.saving || editedLabel !== null || !draft.canEdit));
 </script>
 
@@ -1584,6 +1609,10 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
      belong to the editable itself, so a click there still lands in the note (rule 16). */
   .editor.from-composer .body {
     min-height: 0;
+    /* A long new note scrolls inside 600px, title and all, with the bar staying under it — the
+       original's composer (`docs/METRICS.md`, "Long notes"). A note opened from the grid has the
+       window's height instead. */
+    max-height: 600px;
   }
 
   .editor.from-composer .body :global(.note-body) {
@@ -2009,8 +2038,11 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     }
 
     /* The Android app's note text starts 21px from the screen's edge, the title's as well. */
-    .body {
+    .body,
+    .editor.from-composer .body {
       padding: 0 21px;
+      /* The whole screen is the note's, a new one's too: no 600px box. */
+      max-height: none;
     }
 
     /* Inside the scrolling body on a phone, reaching past its padding to the insets it was laid out with. */

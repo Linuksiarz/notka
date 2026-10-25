@@ -72,7 +72,7 @@ pnpm run build     # production bundle -> frontend/dist
 pnpm run dev       # dev server on :5173, proxies /api to :8080
 
 # Browser suites (need a running server; see frontend/e2e/README.md)
-pnpm run e2e              # full application regression, 184 checks
+pnpm run e2e              # full application regression, 187 checks
 pnpm run e2e:live         # live collaboration between two accounts
 pnpm run e2e:concurrency  # two people typing into one note at once
 pnpm run e2e:editor       # editor interactions, stubbed API + pnpm preview
@@ -932,7 +932,7 @@ thrown away.
    popovers; **the system's own bar wears whatever is at the top of the screen** — the page, the open
    note's colour, the veil of a sheet or a menu — from `boundary/systemBar.ts`, which samples the top
    edge (a surface on its way counts by how much of the status bar's band it covers, so the bar fades
-   to the open note's colour as the note slides in under it) rather than listing states; an installed web app cannot
+   to the open note's colour as the note slides in under it) rather than listing states; it is read again after every move of the visible screen until that move has stopped, because iOS goes on panning for the keyboard after its last event, and while iOS has the screen panned the page under the phone's editor wears the note's colour, so nothing at the top edge — ours or Safari's own sampling — can show the notes' background over an open note; an installed web app cannot
    draw under the status bar, but `theme-color` makes the bar part of the screen. **Android's app
    (`apk/`) does draw under both bars**: an open note's colour and picture reach behind the clock, the
    bar only takes icons that suit what is under it (`StatusBar.setStyle`, from the same sampling), and
@@ -962,3 +962,10 @@ thrown away.
    member through the ordinary share call, one at a time — never a second write path.
    **A dialog opened from another one is drawn above it** (`Dialog.svelte` counts the open ones): with
    one z-index for all of them, the picture dialog opened invisibly under Settings on a phone.
+28. **A long text note is cut on its card the originals' way** (`docs/METRICS.md`, "Long notes"): after
+   the last whole word that fits, with "…". On the desktop the title and text share 426px (16 lines
+   under a one-line title, 15 under a two-line one), and a cut between paragraphs puts "…" on a line of
+   its own. On a phone the text has 10 lines and "…" ends the last one. `CardExcerpt.svelte` finds the
+   cut by measuring excerpts of the document (`entity/cardExcerpt.ts`). It counts drawn lines, never
+   characters or pixels, so it follows the reader's font and the card's width. A new note's composer
+   scrolls its title and text inside 600px, with the bar below them.

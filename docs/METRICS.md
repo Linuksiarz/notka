@@ -698,3 +698,18 @@ not: every other suite runs at 1440x900 and would never notice a phone layout. T
 suite, `frontend/e2e/mobile.mjs` (`pnpm run e2e:mobile`): it opens a 412x893 window at 3.375x — and a
 420px-tall one, so a note is long enough to scroll under the editor's bar — checks the numbers above,
 and runs in Chromium and Firefox (`node e2e/mobile.mjs <url> firefox`).
+
+### Long notes
+
+Measured on both originals with two test notes (2026-10-25): fifty lines of mixed length under a
+one-line title, and sixty three-character lines under a two-line title. The notes were trashed
+afterwards.
+
+| Where | Web original (1440×900) | Android app (emulator, 412dp) | Ours |
+| --- | --- | --- | --- |
+| A card's text | Title and text get **426px** together: **16 lines** of 24px text under a one-line title (41px with its padding), **15** under a two-line one (66px). The card stays ~493px tall either way. | **10 lines** of text, whatever the title (`IndexNoteDescriptionStyle`, `ellipsize=end`). | The same counts (`entity/cardExcerpt.ts`, `CardExcerpt.svelte`). Lines are counted, not pixels, so the 2px between our blocks costs nothing. |
+| The cut | After the last whole word that fits, then "…"; a cut between paragraphs puts "…" on a line of its own (`L14` / `…`). | "…" at the end of the tenth line (`L10…`). | The same, per layout. |
+| The composer (a new note) | Title and text scroll inside **600px** (`.IZ65Hb-s2gQvd`), with the bar under them | The whole screen | 600px, the bar under it; the whole screen on a phone |
+| A note opened from the grid | As tall as the window allows (810px in a 900px window), scrolling inside | The whole screen | The window's height, scrolling inside |
+
+A list's card keeps its own rule, at most ten list rows (rule 12a).
