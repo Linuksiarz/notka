@@ -12,6 +12,9 @@ jdbc:sqlite:<db-file>?journal_mode=WAL&busy_timeout=5000&foreign_keys=on&synchro
 ```
 
 WAL mode plus `busy_timeout` is what lets Ktor's worker threads read while a write is in flight.
+The connections are pooled (HikariCP, eight of them): without a pool every transaction opened the
+file again, and that was most of what a request cost. A view's notes are read in one query per kind of
+thing — shares, labels, pins, pictures, link cards — never once per note (`NoteService.resolveAll`).
 
 ## Tables
 

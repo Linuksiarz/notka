@@ -163,4 +163,32 @@ class NoteAccessControlTest {
         assertEquals(2, fixture.services.notes.list(owner.id, NoteView.ACTIVE).size)
         assertTrue(owned.note.id in fixture.services.notes.list(owner.id, NoteView.ACTIVE).map { it.note.id })
     }
+
+    @Test
+    fun aListedNoteCarriesItsOwnAccessSharesAndLabels() {
+        // given: the reader owns one note, edits a second one and only sees a third
+        val reader = fixture.registerUser(email = "ada@example.com")
+        val other = fixture.registerUser(email = "bob@example.com", displayName = "Bob")
+        val label = fixture.services.labels.create(reader.id, "Work")
+        val owned = fixture.services.notes.create(reader.id, CreateNoteCommand(title = "Owned", labelIds = listOf(label.id)))
+        val editable = fixture.createNote(other.id, title = "Editable")
+        val viewable = fixture.createNote(other.id, title = "Viewable")
+        fixture.share(editable.note.id, other.id, "ada@example.com", "EDIT")
+        fixture.share(viewable.note.id, other.id, "ada@example.com", "VIEW")
+
+        // when
+        val listed = fixture.services.notes.list(reader.id, NoteView.ACTIVE).associateBy { it.note.title }
+
+        // then
+        assertEquals(Access.OWNER, listed.getValue("Owned").access)
+        assertEquals(Access.EDIT, listed.getValue("Editable").access)
+        assertEquals(Access.VIEW, listed.getValue("Viewable").access)
+        assertEquals(listOf("Work"), listed.getValue("Owned").labels.map { it.name })
+        assertTrue(listed.getValue("Editable").labels.isEmpty())
+        assertTrue(listed.getValue("Owned").shares.isEmpty())
+        assertEquals(listOf("EDIT"), listed.getValue("Editable").shares.map { it.permission })
+        assertEquals(listOf("VIEW"), listed.getValue("Viewable").shares.map { it.permission })
+        assertEquals("Bob", listed.getValue("Viewable").owner.displayName)
+        assertEquals(owned.note.id, listed.getValue("Owned").note.id)
+    }
 }

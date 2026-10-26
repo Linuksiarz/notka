@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import type { NoteDocument } from '../../entity/api/types';
   import {
     PHONE_CARD_TEXT_LINES,
@@ -31,11 +31,23 @@
   const shown = $derived(chars === null ? document : excerpt(document, chars, !ui.phone));
 
   let run = 0;
+  /** What the cut was last made for; the same text again — the grid's copy of a note — needs no new cut. */
+  let fittedFor = '';
 
   $effect(() => {
-    // Everything the cut depends on: the text, the layout, the title's room and the card's width.
-    void [document, ui.phone, titleHeight, width];
-    void fit();
+    // Everything the cut depends on: the text, the layout, the title's room and the card's width. The
+    // width is known from the observer's first report, which comes before the card is painted, so a
+    // card is cut once when it appears rather than once for no width and again for its own.
+    const inputs = [document, ui.phone, titleHeight, width] as const;
+    if (width === 0) return;
+    // Compared outside the tracking: stringifying the document reads every field of it, which would
+    // make the effect follow the whole document rather than which document it is.
+    untrack(() => {
+      const key = JSON.stringify(inputs);
+      if (key === fittedFor) return;
+      fittedFor = key;
+      void fit();
+    });
   });
 
   $effect(() => {
@@ -45,8 +57,9 @@
       if (next !== width) width = next;
     });
     observer.observe(host);
-    // The fonts arriving re-wraps every line.
-    void window.document.fonts?.ready.then(() => void fit());
+    // The fonts arriving re-wraps every line — if they are still on their way.
+    const fonts = window.document.fonts;
+    if (fonts && fonts.status !== 'loaded') void fonts.ready.then(() => void fit());
     return () => observer.disconnect();
   });
 

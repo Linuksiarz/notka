@@ -703,6 +703,10 @@
     revision;
     editable;
     wrapper;
+    // The first measurement is the observer's: its first report comes once the editor is laid out,
+    // before it is painted. Measuring as the editor mounts made the browser lay the page out an extra
+    // time in the middle of opening the note, which held the opening back.
+    if (revision === 0) return;
     measureHandles();
   });
 

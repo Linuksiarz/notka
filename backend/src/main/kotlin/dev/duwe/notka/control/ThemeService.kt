@@ -55,9 +55,10 @@ class ThemeService(
     private val settings: ServerSettingsService,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    fun choice(userId: Int): ThemeChoice {
+    /** The themes and the default; with [userId], that account's own pick as well. */
+    fun choice(userId: Int?): ThemeChoice {
         val all = list()
-        val selected = users.findById(userId)?.backgroundTheme?.takeIf { id -> id == BUILT_IN_THEME_ID || all.any { it.id == id } }
+        val selected = userId?.let(users::findById)?.backgroundTheme?.takeIf { id -> id == BUILT_IN_THEME_ID || all.any { it.id == id } }
         return ThemeChoice(all, settings.defaultTheme(), selected)
     }
 

@@ -131,6 +131,13 @@ class NoteRepository(private val database: Database) {
             ?: (0 to 0)
     }
 
+    /** The body's version in the step log of each of [noteIds]; a note that never had a step is absent (version 0). */
+    fun docVersionsAmong(noteIds: Collection<Int>): Map<Int, Int> = transaction(database) {
+        if (noteIds.isEmpty()) return@transaction emptyMap()
+        NoteStepHeads.selectAll().where { NoteStepHeads.noteId inList noteIds }
+            .associate { it[NoteStepHeads.noteId] to it[NoteStepHeads.docVersion] }
+    }
+
     fun stepsSince(noteId: Int, since: Int): NoteStepLog = transaction(database) {
         val (version, logStart) = stepHead(noteId)
         if (since < logStart || since > version) return@transaction NoteStepLog(version, null)

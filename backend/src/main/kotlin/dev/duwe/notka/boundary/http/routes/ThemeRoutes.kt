@@ -2,6 +2,7 @@ package dev.duwe.notka.boundary.http.routes
 
 import dev.duwe.notka.boundary.http.dto.SelectThemeRequest
 import dev.duwe.notka.boundary.http.dto.toDto
+import dev.duwe.notka.boundary.http.plugins.optionalUser
 import dev.duwe.notka.boundary.http.plugins.requireIntParameter
 import dev.duwe.notka.boundary.http.plugins.requireUser
 import dev.duwe.notka.control.AuthService
@@ -24,12 +25,15 @@ import io.ktor.server.routing.route
  */
 private const val THEME_FILE_POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
 
-/** The themes every account chooses from, its own choice, and the pictures themselves. */
+/**
+ * The themes every account chooses from, its own choice, and the pictures themselves. A theme is
+ * nothing private — the instance's look — so the list and the pictures are open to anyone: the
+ * sign-in screen wears the default theme, and a theme is fetched without waiting for the session.
+ */
 fun Route.themeRoutes(auth: AuthService, themes: ThemeService) {
     route("/api/themes") {
         get {
-            val user = call.requireUser(auth)
-            call.respond(themes.choice(user.id).toDto())
+            call.respond(themes.choice(call.optionalUser(auth)?.id).toDto())
         }
 
         put("/selection") {
@@ -40,10 +44,9 @@ fun Route.themeRoutes(auth: AuthService, themes: ThemeService) {
         }
 
         get("/{themeId}/files/{fileId}") {
-            call.requireUser(auth)
             val (type, bytes) = themes.file(call.parameters["themeId"].orEmpty(), call.requireIntParameter("fileId"))
             // A replaced theme gets new file ids, so a picture never changes under its url.
-            call.response.header(HttpHeaders.CacheControl, "private, max-age=31536000, immutable")
+            call.response.header(HttpHeaders.CacheControl, "public, max-age=31536000, immutable")
             call.response.header("Content-Security-Policy", THEME_FILE_POLICY)
             call.response.header(HttpHeaders.ContentDisposition, "inline")
             call.respondBytes(bytes, ContentType.parse(type))

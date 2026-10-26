@@ -126,6 +126,12 @@ function coverage(element: Element): number {
   return across * down * opacity;
 }
 
+/** Whether any of [element]'s box is in the status bar's band right now. */
+function reachesBand(element: Element): boolean {
+  const box = element.getBoundingClientRect();
+  return box.bottom > screenTop() && box.top < screenTop() + STATUS_BAR && box.right > 0 && box.left < window.innerWidth;
+}
+
 /** The elements an animation that will end is moving; one that never ends (a spinner) is not on its way. */
 function movingElements(): Set<Element> {
   const moving = new Set<Element>();
@@ -191,7 +197,7 @@ function colorAtTopEdge(moving: Set<Element>): Rgb {
   // Top-most first; the page's own background is under all of them.
   // One pixel into the screen: on the edge itself a surface whose top is a fraction lower than the
   // pan's offset is missed, and the page's own background shows in the bar instead of the note.
-  const stack = document.elementsFromPoint(window.innerWidth / 2, screenTop() + 1).reverse();
+  const stack = layersAt(window.innerWidth / 2, screenTop() + 1, moving);
   let painted: Rgb = [255, 255, 255];
   const page = parseColor(getComputedStyle(document.body).backgroundColor);
   if (page) painted = over(page, painted);
@@ -203,11 +209,29 @@ function colorAtTopEdge(moving: Set<Element>): Rgb {
   }
   for (const element of moving) {
     if (element.parentElement && isMoving(element.parentElement, moving)) continue;
+    // A card coming into the grid is nowhere near the bar; only what reaches the band is weighed.
+    if (!reachesBand(element)) continue;
     const surface = paintedSurface(element);
     const color = surface ? parseColor(getComputedStyle(surface).backgroundColor) : null;
     if (surface && color) painted = over([color[0], color[1], color[2], color[3] * coverage(surface)], painted);
   }
   return painted;
+}
+
+/**
+ * The layers at a point that can show, bottom-most first. Usually the top-most element there — the
+ * header — paints an opaque background, and nothing under it can show: that one element is the answer,
+ * and finding it costs next to nothing. `elementsFromPoint` collects every layer of the page at that
+ * point, which with a grid of notes was over a millisecond on every frame of a scroll, so it is asked
+ * only when the top-most element lets something through or is on its way somewhere.
+ */
+function layersAt(x: number, y: number, moving: Set<Element>): Element[] {
+  const top = document.elementFromPoint(x, y);
+  if (top && !isMoving(top, moving)) {
+    const style = getComputedStyle(top);
+    if (Number(style.opacity) === 1 && parseColor(style.backgroundColor)?.[3] === 1) return [top];
+  }
+  return document.elementsFromPoint(x, y).reverse();
 }
 
 type Rgb = [number, number, number];

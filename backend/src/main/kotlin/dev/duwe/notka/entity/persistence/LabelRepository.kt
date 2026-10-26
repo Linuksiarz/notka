@@ -60,6 +60,16 @@ class LabelRepository(private val database: Database) {
             .map { it.toLabel() }
     }
 
+    /** [labelsForNote] for many notes in one query; a note without labels is absent. */
+    fun labelsForNotes(noteIds: Collection<Int>, userId: Int): Map<Int, List<Label>> = transaction(database) {
+        if (noteIds.isEmpty()) return@transaction emptyMap()
+        NoteLabels.join(Labels, JoinType.INNER, onColumn = NoteLabels.labelId, otherColumn = Labels.id)
+            .selectAll()
+            .where { (NoteLabels.noteId inList noteIds) and (NoteLabels.addedBy eq userId) and (Labels.ownerId eq userId) }
+            .orderBy(Labels.name.lowerCase() to SortOrder.ASC)
+            .groupBy({ it[NoteLabels.noteId] }, { it.toLabel() })
+    }
+
     /** Replaces the caller's label set on the note; other users' rows are left alone. */
     fun replaceForNote(noteId: Int, userId: Int, labelIds: List<Int>) {
         transaction(database) {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { backgroundThemes } from '../control/state/backgroundThemes.svelte';
-  import { onMount, type Component } from 'svelte';
+  import { onMount, untrack, type Component } from 'svelte';
   import { Toaster } from 'svelte-sonner';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
   import { subscribeToNoteEvents } from '../control/api/events';
@@ -38,15 +38,27 @@
 
   /**
    * The editor — Tiptap and ProseMirror, most of the app's script — is a chunk of its own: the notes
-   * are on screen without it. It is fetched as soon as the app starts, so opening a note does not
-   * wait for it, and the service worker keeps it for offline use like the rest of the app.
+   * are on screen without it. It is fetched once the first view is loaded and the main thread is free,
+   * so it neither shares the network with the notes nor is parsed while they are being drawn — or at
+   * once, when a note is opened before that. The service worker keeps it for offline use like the rest.
    */
   let NoteEditor = $state<Component | null>(null);
-  void import('./components/NoteEditor.svelte').then((module) => {
-    NoteEditor = module.default;
-    // Once the notes are on screen and the main thread is free, not in the way of the first paint.
-    const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 200));
-    idle(() => void import('./editor/warmUp').then((warm) => warm.warmUpEditor()));
+  let editorRequested = false;
+  const whenIdle = (run: () => void) =>
+    window.requestIdleCallback ? window.requestIdleCallback(run, { timeout: 2000 }) : setTimeout(run, 200);
+
+  function loadEditor(): void {
+    if (editorRequested) return;
+    editorRequested = true;
+    void import('./components/NoteEditor.svelte').then((module) => {
+      NoteEditor = module.default;
+      whenIdle(() => void import('./editor/warmUp').then((warm) => warm.warmUpEditor()));
+    });
+  }
+
+  $effect(() => {
+    if (ui.editorOpen) loadEditor();
+    else if (notes.loaded) whenIdle(loadEditor);
   });
 
   const route = $derived(router.route);
@@ -61,12 +73,22 @@
   onMount(followSystemBar);
   onMount(followVisualViewport);
 
+  // The tab wears the theme's logo, as the header does (`BrandMark`); without one, Notka's own mark.
+  $effect(() => {
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!icon) return;
+    const logo = backgroundThemes.logo;
+    icon.href = logo ?? '/favicon.svg';
+    if (logo) icon.removeAttribute('type');
+    else icon.type = 'image/svg+xml';
+  });
+
   onMount(() => {
     ui.init();
     void instance.load();
     const params = new URLSearchParams(window.location.search);
     const wantsList = params.get('compose') === 'list';
-    void session.restore().finally(() => {
+    void Promise.all([session.restore(), backgroundThemes.restore()]).finally(() => {
       booted = true;
       if (wantsList && session.isAuthenticated) ui.openEditor(null, 'LIST');
     });
@@ -84,25 +106,38 @@
     }
   });
 
+  // Whose data is loaded is the account's business, not the user object's: the server confirming the
+  // session replaces that object, and a profile change does too, and neither is a new account to load.
+  // `undefined` while the session is still being restored: neither signed in nor out yet.
+  const accountId = $derived(
+    session.status === 'loading' ? undefined : authenticated ? (session.user?.id ?? null) : null
+  );
+
   $effect(() => {
-    if (!authenticated) {
-      notes.reset();
-      labels.reset();
-      friends.reset();
-      ui.avatarDialogOpen = false;
-      ui.friendsDialogOpen = false;
-      backgroundThemes.reset();
-      serverAdmin.reset();
-      ui.serverSettingsOpen = false;
-      return;
-    }
+    const owner = accountId;
+    if (owner === undefined) return;
+    untrack(() => (owner === null ? signedOut() : signedIn(owner)));
+  });
+
+  function signedOut(): void {
+    notes.reset();
+    labels.reset();
+    friends.reset();
+    ui.avatarDialogOpen = false;
+    ui.friendsDialogOpen = false;
+    // The sign-in screen wears the instance's default theme.
+    void backgroundThemes.load();
+    serverAdmin.reset();
+    ui.serverSettingsOpen = false;
+  }
+
+  function signedIn(owner: number): void {
     // This account's writes that waited on this device for the server: read them, then send them.
-    const owner = session.user;
-    if (owner) void pendingWrites.restore(owner.id).then(() => notes.flush());
+    void pendingWrites.restore(owner).then(() => notes.flush());
     if (!labels.loaded) void labels.load().catch(() => undefined);
     // Themes live on the server now, and which one is shown is the account's own choice.
     void backgroundThemes.load();
-  });
+  }
 
   /**
    * A share from another app becomes a note and opens, the way the original's share sheet ends in its

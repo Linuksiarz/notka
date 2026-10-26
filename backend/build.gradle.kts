@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "dev.duwe.notka"
-version = "1.0.0-rc7"
+version = "1.0.0-rc8"
 
 kotlin {
     jvmToolchain(21)
@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.ktor.server.default.headers)
     implementation(libs.ktor.server.forwarded.header)
     implementation(libs.ktor.server.caching.headers)
+    implementation(libs.ktor.server.conditional.headers)
     implementation(libs.ktor.server.sse)
     implementation(libs.ktor.server.auto.head.response)
     implementation(libs.ktor.server.rate.limit)
@@ -40,6 +41,7 @@ dependencies {
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
     implementation(libs.sqlite.jdbc)
+    implementation(libs.hikari)
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)

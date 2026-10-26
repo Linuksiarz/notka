@@ -146,24 +146,8 @@ class NoteService(
         // A label the caller does not own is a 404 rather than an empty list: asking for somebody
         // else's label is a mistake, not an empty view.
         requireOwnedLabels(userId, listOfNotNull(labelId))
-        val records = notes.listVisible(userId, view, labelId)
-        val owners = users.findSummaries(records.map { it.ownerId }.distinct())
-        val filings = notes.filingsAmong(userId, records.map { it.id })
-        val folded = notes.foldedAmong(userId, records.map { it.id })
-        val reads = readsAmong(userId, records)
-        return records.map { note ->
-            val noteAccess = checkNotNull(access.accessFor(userId, note)) {
-                "Note ${note.id} was listed but is not accessible"
-            }
-            resolve(
-                VisibleNote(note, noteAccess),
-                userId,
-                owners[note.ownerId] ?: ownerSummary(note),
-                filings[note.id],
-                reads.unseenEdit(note),
-                note.id in folded,
-            )
-        }.sortedWith(compareByDescending<ResolvedNote> { it.pinned }.thenByDescending { it.position })
+        return resolveAll(userId, notes.listVisible(userId, view, labelId))
+            .sortedWith(compareByDescending<ResolvedNote> { it.pinned }.thenByDescending { it.position })
     }
 
     /**
@@ -172,32 +156,10 @@ class NoteService(
      * Its own method rather than a flag on [list], because its order is by the reminder instead of by
      * when the note was last written — and that order is the whole point of the view.
      */
-    fun reminders(userId: Int): List<ResolvedNote> {
-        val records = notes.listWithReminders(userId)
-        val owners = users.findSummaries(records.map { it.ownerId }.distinct())
-        val reads = readsAmong(userId, records)
-        return records.map { note ->
-            val noteAccess = checkNotNull(access.accessFor(userId, note)) {
-                "Note ${note.id} was listed but is not accessible"
-            }
-            resolve(
-                VisibleNote(note, noteAccess),
-                userId,
-                owners[note.ownerId] ?: ownerSummary(note),
-                unseenEdit = reads.unseenEdit(note),
-            )
-        }
-    }
+    fun reminders(userId: Int): List<ResolvedNote> = resolveAll(userId, notes.listWithReminders(userId))
 
-    fun get(userId: Int, noteId: Int): ResolvedNote {
-        val visible = access.requireVisible(userId, noteId)
-        return resolve(
-            visible,
-            userId,
-            ownerSummary(visible.note),
-            unseenEdit = readsAmong(userId, listOf(visible.note)).unseenEdit(visible.note),
-        )
-    }
+    fun get(userId: Int, noteId: Int): ResolvedNote =
+        resolveAll(userId, listOf(access.requireVisible(userId, noteId).note)).single()
 
     /**
      * Records that [userId] opened the note: the "edited by" marker goes away for that reader alone,
@@ -503,29 +465,45 @@ class NoteService(
     }
 
 
-    private fun resolve(
-        visible: VisibleNote,
-        viewerId: Int,
-        owner: UserSummary,
-        filing: Filing? = notes.filingsAmong(viewerId, listOf(visible.note.id))[visible.note.id],
-        unseenEdit: UnseenEdit? = null,
-        completedCollapsed: Boolean = visible.note.id in notes.foldedAmong(viewerId, listOf(visible.note.id)),
-    ): ResolvedNote {
-        val note = visible.note
-        return ResolvedNote(
-            note = note,
-            access = visible.access,
-            owner = owner,
-            labels = labels.labelsForNote(note.id, viewerId),
-            shares = sharesWithUsers(note.id),
-            linkPreviews = linkPreviews.forDocument(note.document),
-            images = images?.listForNote(note.id).orEmpty(),
-            docVersion = notes.stepHead(note.id).first,
-            pinned = filing?.pinned ?: false,
-            position = filing?.position ?: note.position,
-            unseenEdit = unseenEdit,
-            completedCollapsed = completedCollapsed,
-        )
+    /**
+     * Everything a reader is shown about [records], read for the whole batch at once: one query per
+     * kind of thing (owners, shares, labels, pins, folds, pictures, link cards, step heads), never one
+     * per note. Reading them note by note made a list of 200 notes cost well over a thousand queries.
+     */
+    private fun resolveAll(viewerId: Int, records: List<Note>): List<ResolvedNote> {
+        if (records.isEmpty()) return emptyList()
+        val ids = records.map { it.id }
+        val noteShares = shares.listForNotes(ids)
+        val accounts = users.findSummaries(records.map { it.ownerId } + noteShares.values.flatten().map { it.userId })
+        val noteLabels = labels.labelsForNotes(ids, viewerId)
+        val filings = notes.filingsAmong(viewerId, ids)
+        val folded = notes.foldedAmong(viewerId, ids)
+        val pictures = images?.listForNotes(ids).orEmpty()
+        val previews = linkPreviews.forDocuments(records.associate { it.id to it.document })
+        val docVersions = notes.docVersionsAmong(ids)
+        val reads = readsAmong(viewerId, records)
+        return records.map { note ->
+            val sharesOfNote = noteShares[note.id].orEmpty()
+            val filing = filings[note.id]
+            ResolvedNote(
+                note = note,
+                access = checkNotNull(access.accessFor(viewerId, note, sharesOfNote)) {
+                    "Note ${note.id} was listed but is not accessible"
+                },
+                owner = accounts[note.ownerId] ?: ownerSummary(note),
+                labels = noteLabels[note.id].orEmpty(),
+                shares = sharesOfNote.mapNotNull { share ->
+                    accounts[share.userId]?.let { ShareWithUser(it, share.permission.name) }
+                },
+                linkPreviews = previews[note.id].orEmpty(),
+                images = pictures[note.id].orEmpty(),
+                docVersion = docVersions[note.id] ?: 0,
+                pinned = filing?.pinned ?: false,
+                position = filing?.position ?: note.position,
+                unseenEdit = reads.unseenEdit(note),
+                completedCollapsed = note.id in folded,
+            )
+        }
     }
 
     /**
@@ -550,14 +528,6 @@ class NoteService(
     private fun readsAmong(viewerId: Int, records: List<Note>): Reads {
         val editorIds = records.mapNotNull { it.editedBy }.filter { it != viewerId }.distinct()
         return Reads(viewerId, notes.seenAmong(viewerId, records.map { it.id }), users.findSummaries(editorIds))
-    }
-
-    private fun sharesWithUsers(noteId: Int): List<ShareWithUser> {
-        val noteShares = shares.listForNote(noteId)
-        val accounts = users.findSummaries(noteShares.map { it.userId })
-        return noteShares.mapNotNull { share ->
-            accounts[share.userId]?.let { ShareWithUser(it, share.permission.name) }
-        }
     }
 
     /** Archiving is about content: title, kind and the document. Appearance is not versioned. */

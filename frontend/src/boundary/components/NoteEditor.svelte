@@ -881,8 +881,12 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     };
     viewport.addEventListener('scroll', follow);
     viewport.addEventListener('resize', follow);
-    follow();
+    // A frame later, not as the editor mounts: reading the pan then laid the page out an extra time in
+    // the middle of opening the note. A note opens with the keyboard down (rule 12b), so nothing is
+    // panned in that frame anyway.
+    const first = requestAnimationFrame(follow);
     return () => {
+      cancelAnimationFrame(first);
       viewport.removeEventListener('scroll', follow);
       viewport.removeEventListener('resize', follow);
       document.body.style.backgroundColor = '';

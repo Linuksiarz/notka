@@ -19,6 +19,15 @@ class ShareRepository(private val database: Database) {
             .map { it.toShare() }
     }
 
+    /** [listForNote] for many notes in one query; a note shared with nobody is absent. */
+    fun listForNotes(noteIds: Collection<Int>): Map<Int, List<NoteShare>> = transaction(database) {
+        if (noteIds.isEmpty()) return@transaction emptyMap()
+        NoteShares.selectAll().where { NoteShares.noteId inList noteIds }
+            .orderBy(NoteShares.createdAt to SortOrder.ASC)
+            .map { it.toShare() }
+            .groupBy { it.noteId }
+    }
+
     fun insert(noteId: Int, userId: Int, permission: Permission, createdAt: Long) {
         transaction(database) {
             NoteShares.insert {

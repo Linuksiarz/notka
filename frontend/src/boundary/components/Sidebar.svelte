@@ -154,6 +154,7 @@
   {/snippet}
 
   <div class="rail" class:peeking>
+  <div class="rail-content">
   {#if ui.phone}
     <!-- The original's Android drawer: the app's name, then the views, the labels as a section of
          their own with its "Edit", and the archive, the trash and the settings below a second rule. -->
@@ -199,6 +200,7 @@
     <p class="legal">{t('nav.version', { version: __NOTKA_VERSION__ })}</p>
   </footer>
   </div>
+  </div>
 </aside>
 
 {#if ui.sidebarOpen}
@@ -234,6 +236,13 @@
     min-height: 0;
   }
 
+  /* Fills the rail and grows past it when the labels need the room: the rail is what scrolls. */
+  .rail-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+  }
+
   /*
    * Folded to icons on a wide screen; on a narrow one the rail is a drawer instead, so this must not
    * apply there.
@@ -242,6 +251,12 @@
    * width **at once** — the notes are in their new places in the same frame as the click — and only
    * the rail's panel animates, its width over 150ms on the standard curve, over the notes. Animating
    * the column instead re-laid the whole page out on every frame, which is what made ours less smooth.
+   *
+   * The panel's edge travels on the compositor, not as a `width`: the rail is always the open
+   * sidebar's width, the folded one is moved left until only its first 80px show, and its content is
+   * moved right by as much, so the icons stand still while the edge slides — and it clips there
+   * (`overflow: hidden`). An animated `width` re-laid the rail out, repainted it and rebuilt the
+   * page's layers on every frame, because the widening panel crosses the grid's card layers.
    */
   @media (min-width: 901px) {
     .sidebar {
@@ -250,6 +265,11 @@
 
     .sidebar:not(.open) {
       width: var(--keep-sidebar-collapsed-width);
+    }
+
+    .rail,
+    .rail-content {
+      transition: transform var(--keep-duration-short) var(--keep-ease-standard);
     }
 
     .rail {
@@ -261,11 +281,14 @@
       overflow-x: hidden;
       overflow-y: auto;
       background: var(--keep-bg);
-      transition: width var(--keep-duration-short) var(--keep-ease-standard);
     }
 
     .sidebar:not(.open) .rail {
-      width: var(--keep-sidebar-collapsed-width);
+      transform: translateX(calc(var(--keep-sidebar-collapsed-width) - var(--keep-sidebar-width)));
+    }
+
+    .sidebar:not(.open) .rail .rail-content {
+      transform: translateX(calc(var(--keep-sidebar-width) - var(--keep-sidebar-collapsed-width)));
     }
 
     .sidebar:not(.open) .rail:not(.peeking) .text,
@@ -287,8 +310,12 @@
 
     /* Widened on hover only where there is a pointer to hover with. */
     @media (hover: hover) {
+      .sidebar:not(.open) .rail.peeking,
+      .sidebar:not(.open) .rail.peeking .rail-content {
+        transform: none;
+      }
+
       .sidebar:not(.open) .rail.peeking {
-        width: var(--keep-sidebar-width);
         z-index: 60;
         box-shadow: var(--keep-shadow-popover);
       }

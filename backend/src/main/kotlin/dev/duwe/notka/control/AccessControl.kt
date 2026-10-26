@@ -4,6 +4,7 @@ import dev.duwe.notka.entity.model.Access
 import dev.duwe.notka.entity.model.DomainException
 import dev.duwe.notka.entity.model.ErrorKeys
 import dev.duwe.notka.entity.model.Note
+import dev.duwe.notka.entity.model.NoteShare
 import dev.duwe.notka.entity.persistence.NoteRepository
 import dev.duwe.notka.entity.persistence.ShareRepository
 
@@ -20,6 +21,12 @@ class NoteAccessChecker(
     fun accessFor(userId: Int, note: Note): Access? = when {
         note.ownerId == userId -> Access.OWNER
         else -> shares.find(note.id, userId)?.let { Access.from(it.permission) }
+    }
+
+    /** [accessFor], from the note's shares already read — for a batch of notes read at once. */
+    fun accessFor(userId: Int, note: Note, noteShares: List<NoteShare>): Access? = when {
+        note.ownerId == userId -> Access.OWNER
+        else -> noteShares.find { it.userId == userId }?.let { Access.from(it.permission) }
     }
 
     /** Owner or any collaborator; everyone else gets `NOT_FOUND` so note ids stay unguessable. */

@@ -313,6 +313,12 @@
   background-image: var(--theme-art-celebration-dark, url('/backgrounds/celebration-dark.svg'));
 }
 
+/* Until the reader's theme is known (`backgroundThemes`), a background is its tint alone: the built-in
+   picture drawn in the meantime is a request for a file the theme then replaces. */
+:root:not([data-themes-known]) [data-background] {
+  background-image: none;
+}
+
 /* A note surface opts into the palette by setting data-color / data-background. */
 .note-surface {
   background-color: var(--note-bg, var(--keep-surface));

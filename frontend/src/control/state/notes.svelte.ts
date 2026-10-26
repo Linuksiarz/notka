@@ -175,6 +175,11 @@ class NotesState {
     const token = ++this.requestToken;
     this.loading = true;
     this.error = null;
+    // Asked for at once: reading the queue and this device's copy below must not hold the request back.
+    const answer = fetch().then(
+      (copy) => ({ copy }),
+      (error: unknown) => ({ error })
+    );
     try {
       await pendingWrites.ready();
       // The view's last copy is on screen while the server's answer is on its way, so opening the
@@ -188,10 +193,12 @@ class NotesState {
           this.loaded = true;
         }
       }
+      const answered = await answer;
       let copy: ViewCopy;
-      try {
-        copy = await fetch();
-      } catch (error) {
+      if ('copy' in answered) {
+        copy = answered.copy;
+      } else {
+        const { error } = answered;
         const kept = error instanceof ApiError && error.transient ? await localStore.get<ViewCopy>(key) : undefined;
         if (!kept) throw error;
         copy = kept;

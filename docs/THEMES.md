@@ -20,8 +20,8 @@ uploaded themes, the built-in one, or *Server default*, which follows whatever t
 chooses. The choice is kept on the server, so it follows the account to every browser.
 
 The server checks a theme before it stores it — the rules below — and keeps its pictures in the
-database. They are served under `/api/themes/<id>/files/<n>` to signed-in accounts only, with a
-sandboxing `Content-Security-Policy`, so an SVG's script cannot run even when its url is opened on
+database. They are served under `/api/themes/<id>/files/<n>` to anyone — a theme is the instance's
+look, not anybody's data, and the sign-in screen wears the default one — with a sandboxing `Content-Security-Policy`, so an SVG's script cannot run even when its url is opened on
 its own. Removing a theme sends everyone who used it, and the default, back to the built-in one.
 
 To use the Google Keep theme:
@@ -58,7 +58,7 @@ archive or in one folder.
 | `name` | required, up to 80 characters |
 | `id` | optional; derived from the name when absent. Uploading a theme with the id of one the instance already has replaces it. `notka` is the built-in one's and is refused. |
 | `author`, `license` | optional, shown in the list |
-| `logo` | optional: the app's logo in the header, in place of Notka's own mark — SVG, PNG, JPEG or WebP, drawn square |
+| `logo` | optional: the app's logo in the header and the browser tab's icon, in place of Notka's own mark — SVG, PNG, JPEG or WebP, drawn square. The installed app's own icon stays Notka's: a web app manifest cannot change per account. |
 | `highlight`, `highlightDark` | optional `#rrggbb`: the sidebar's active entry in the light and the dark colour scheme. The original derives it from its logo (its yellow bulb, a pale yellow `#feefc3` and `#41331c`), so it travels with the logo. The built-in theme's is Notka's sea green (`#c6e9e5`, `#1d3b3a`). The phone's drawer keeps the Android app's own colours. |
 | `backgrounds` | any of the nine ids; a background the theme leaves out keeps the built-in picture. An id Notka does not have refuses the theme. A theme must carry at least one background, a logo or a highlight. |
 | `light` | the picture for the light theme: SVG, PNG, JPEG or WebP |
@@ -115,6 +115,12 @@ not match its name is refused.
 `--theme-tint-<id>` / `--theme-tint-dark-<id>`. `control/state/backgroundThemes.svelte.ts` reads
 `GET /api/themes`, sets those properties on the root from the active theme (the urls the server
 serves its pictures under) and removes them for the built-in one; `--theme-highlight(-dark)` feed
-`--keep-active` in `tokens.css`, and `BrandMark` draws the theme's logo when it has one. On the server,
+`--keep-active` in `tokens.css`, and `BrandMark` and the favicon (`App.svelte`) show the theme's logo
+when it has one.
+
+The last answer is kept on the device (`localStore`) and applied at start, before the first card is
+drawn, then replaced by the server's. Until some answer is applied the root carries no
+`data-themes-known` and a background is drawn as its tint alone — otherwise a card drawn before the
+theme was known asked for the built-in picture, and then for the theme's. On the server,
 `entity/model/Theme.kt` checks `theme.json` and `control/ThemeService.kt` unpacks the archive and
 checks the pictures.

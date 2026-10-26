@@ -65,6 +65,16 @@
 
   let { note, variant = 'default', beingEdited = false }: Props = $props();
 
+  /**
+   * The action bar's buttons — three popovers and a menu, each a bits-ui component — are built the
+   * first time the card is reached by the pointer or the focus: until then the bar is invisible, and
+   * building them for every card of a view was most of what drawing the grid cost. The bar keeps its
+   * height empty, so the card's box is the same either way. Where nothing hovers the bar is always
+   * shown, and built at once.
+   */
+  let actionsArmed = $state(!window.matchMedia('(hover: hover)').matches);
+  const armActions = () => (actionsArmed = true);
+
   /** bits-ui owns each panel's open state; this only makes sure one is open at a time. */
   let openPanel = $state<'label' | 'appearance' | 'reminder' | 'menu' | null>(null);
 
@@ -277,6 +287,8 @@
   data-note-id={note.id}
   data-color={note.color}
   data-background={note.background ?? undefined}
+  onpointerenter={armActions}
+  onfocusin={armActions}
   onpointerdown={startPress}
   onpointermove={movePress}
   onpointerup={cancelPress}
@@ -429,6 +441,7 @@
     </div>
   {:else}
     <div class="actions">
+      {#if actionsArmed}
       <!-- The original's order: colour first, then the collaborator, then the rest. -->
       <div class="picker-anchor">
         <Popover.Root {...openFor('appearance')}>
@@ -600,6 +613,7 @@
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
       </div>
+      {/if}
     </div>
   {/if}
 
@@ -650,12 +664,8 @@
       border-color var(--keep-duration) var(--keep-ease);
   }
 
-  /* Keep answers the pointer with a deeper shadow and nothing else. A card that lifts would also
-     make its measured position depend on where the pointer happens to be. */
-  .card:hover,
-  .card:focus-within {
-    box-shadow: var(--keep-shadow-card-hover);
-  }
+  /* Keep answers the pointer with a deeper shadow and nothing else — drawn by the grid (`NoteGrid`'s
+     `.slot::before`), where it can fade on the compositor: the card clips what it draws. */
 
   /*
    * Picked for a bulk action. Measured off the original: the picked card carries a **second** light
@@ -950,14 +960,6 @@
     .card,
     .card.being-edited {
       transition: border-color var(--keep-duration) var(--keep-ease);
-    }
-
-    /* The Android app's cards never lift. A finger leaves the tapped card hovered and focused, so the
-       desktop's deeper shadow animated under the note growing out of it, repainting the card on the
-       main thread for the whole flight, and stayed on it after the note had closed. */
-    .card:hover,
-    .card:focus-within {
-      box-shadow: var(--keep-shadow-card);
     }
 
     /* The Android app marks a held card with a 3dp ring of its own (measured on an emulator, in both

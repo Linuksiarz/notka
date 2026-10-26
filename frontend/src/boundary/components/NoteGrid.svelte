@@ -367,18 +367,26 @@
       first = false;
     }
 
-    grid.style.height = `${y}px`;
-    for (const [key, to] of next) {
+    // Every read before the first write: a computed style read after a write makes the browser
+    // recompute the styles, which once per card was most of what a relayout cost.
+    type Move = { element: HTMLElement; to: { x: number; y: number }; from: string | null };
+    const moves = [...next].flatMap(([key, to]): Move[] => {
       const element = elements.get(key);
-      if (!element) continue;
-      const from = placed.has(key) ? getComputedStyle(element).translate : null;
+      if (!element) return [];
+      const before = placed.get(key);
+      if (!ui.animationsAllowed || before === undefined || (before.x === to.x && before.y === to.y)) {
+        return [{ element, to, from: null }];
+      }
+      // From where it is on screen right now, which is mid-way when a move is interrupted.
+      const from = getComputedStyle(element).translate;
+      for (const running of element.getAnimations()) running.cancel();
+      return [{ element, to, from }];
+    });
+    grid.style.height = `${y}px`;
+    for (const { element, to, from } of moves) {
       const target = `${to.x}px ${to.y}px`;
       element.style.translate = target;
-      if (!from || !ui.animationsAllowed) continue;
-      const before = placed.get(key);
-      if (before && before.x === to.x && before.y === to.y) continue;
-      for (const running of element.getAnimations()) running.cancel();
-      // From where it is on screen right now, which is mid-way when a move is interrupted.
+      if (!from) continue;
       element.animate([{ translate: from === 'none' ? '0px 0px' : from }, { translate: target }], {
         duration: MOTION.regrid,
         easing: MOTION.standard
@@ -394,11 +402,17 @@
     return () => resized.unobserve(element);
   };
 
+  /** The arrangement the grid was last laid out for: what goes where, in how many columns of what width. */
+  let laidOutFor = '';
+
   $effect(() => {
-    // Everything a layout depends on; the effect runs once the DOM shows them.
-    items;
-    columns;
-    columnWidth;
+    // Everything a layout depends on; the effect runs once the DOM shows them. The same arrangement
+    // again — a note opened, which hands the grid a new list of the same notes — is not laid out again:
+    // a card that changed height is the observer's business, and laying out here read the page's
+    // layout in the middle of the note opening.
+    const arrangement = `${columns} ${columnWidth} ${items.map((item) => item.key).join(' ')}`;
+    if (arrangement === laidOutFor) return;
+    laidOutFor = arrangement;
     untrack(relayout);
   });
 
@@ -497,6 +511,33 @@
     position: absolute;
     top: 0;
     left: 0;
+  }
+
+  /*
+   * Keep answers the pointer with a deeper shadow and nothing else (a card that lifted would make its
+   * measured position depend on where the pointer is). The shadow is drawn once, under the card, and
+   * only its opacity changes: an animated `box-shadow` repainted the card — picture and all — on every
+   * frame of every hover, on the main thread, where this fades on the compositor. The card itself
+   * clips (rule 18), so the slot draws it. The Android app's cards never lift: a finger leaves the
+   * tapped card hovered, and the shadow stayed on it after the note had closed.
+   */
+  @media not all and (max-width: 600px) {
+    .slot::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: var(--keep-radius);
+      box-shadow: var(--keep-shadow-card-hover);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--keep-duration) var(--keep-ease);
+    }
+
+    .slot:has(> :global(.card:not(.being-edited):hover))::before,
+    .slot:has(> :global(.card:not(.being-edited):focus-within))::before {
+      opacity: 1;
+    }
   }
 
   /* A slot is a stacking context of its own (`translate`), so the hovered one is lifted above its

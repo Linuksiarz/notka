@@ -13,8 +13,10 @@
  *   - A navigation asks the network first, so an app started while online is the build the server
  *     has now — answering from the cache first left the installed app on an old build until its
  *     storage was cleared. Offline, or when the server has not answered within
- *     `NAVIGATION_TIMEOUT_MS`, the cached shell answers. The page's chunks are named by their content,
- *     so a fresh page brings its own (a cache miss goes to the network).
+ *     `NAVIGATION_TIMEOUT_MS`, the cached shell answers.
+ *   - The cached shell is always a whole one: a page from a new build replaces it only once every
+ *     chunk of that build is cached too. Storing the page alone left a shell whose script was not in
+ *     the cache, and the next start without a quick connection had no script to run — a grey screen.
  *   - What the worker stores is revalidated with the server (`cache: 'no-cache'`): the server sends
  *     no `Cache-Control` for its static files, and a copy the HTTP cache kept heuristically would
  *     otherwise be taken for the fresh one.
@@ -24,12 +26,17 @@
  *     which reads it from there (`control/api/shareInbox.ts`) — with or without a connection.
  */
 
-const CACHE_VERSION = 'notka-v1';
+/* Raised to drop what the first worker stored: a page whose chunks it did not have, and the HTML the
+   server used to answer for a chunk of an earlier build. */
+const CACHE_VERSION = 'notka-v2';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_VERSION}-assets`;
 
-/** The share inbox; its name and keys are the app's `control/api/shareInbox.ts`. */
-const SHARE_CACHE = `${CACHE_VERSION}-share`;
+/**
+ * The share inbox; its name and keys are the app's `control/api/shareInbox.ts`. Not versioned: it holds
+ * what somebody shared, not a build, and a new worker must not throw it away.
+ */
+const SHARE_CACHE = 'notka-share';
 
 const SHELL_URLS = ['/', '/theme.js', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png'];
 
@@ -52,6 +59,11 @@ self.addEventListener('install', (event) => {
 async function precacheShell() {
   const shell = await caches.open(SHELL_CACHE);
   await shell.addAll(SHELL_URLS.map(fresh));
+  await precacheBuild();
+}
+
+/** Every chunk of the build the server has now; fails as a whole when one of them cannot be had. */
+async function precacheBuild() {
   const manifest = await (await fetch(fresh('/.vite/manifest.json'))).json();
   const files = new Set();
   for (const [source, chunk] of Object.entries(manifest)) {
@@ -69,7 +81,9 @@ self.addEventListener('activate', (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((key) => !key.startsWith(CACHE_VERSION)).map((key) => caches.delete(key))
+          keys
+            .filter((key) => !key.startsWith(CACHE_VERSION) && key !== SHARE_CACHE)
+            .map((key) => caches.delete(key))
         )
       )
       .then(() => self.clients.claim())
@@ -93,7 +107,10 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirstNavigation(request));
+    const page = fetch(request, { cache: 'no-cache' });
+    // Cloned before the page itself goes to the tab, and kept alive past the answer.
+    event.waitUntil(page.then((response) => (response.ok ? keepShell(response.clone()) : undefined)).catch(() => undefined));
+    event.respondWith(networkFirstNavigation(page));
     return;
   }
 
@@ -120,17 +137,27 @@ async function receiveShare(request) {
   return Response.redirect('/share', 303);
 }
 
-async function networkFirstNavigation(request) {
+async function networkFirstNavigation(network) {
   const cache = await caches.open(SHELL_CACHE);
   const cached = await cache.match('/');
   if (cached && !navigator.onLine) return cached;
-  const network = fetch(request, { cache: 'no-cache' }).then((response) => {
-    if (response.ok) cache.put('/', response.clone());
-    return response;
-  });
   if (!cached) return network.catch(() => Response.error());
   const late = new Promise((resolve) => setTimeout(() => resolve(cached), NAVIGATION_TIMEOUT_MS));
   return Promise.race([network.then((response) => (response.ok ? response : cached)).catch(() => cached), late]);
+}
+
+/** Keeps [page] as the shell — after its build's chunks, when it is a page from another build. */
+async function keepShell(page) {
+  const cache = await caches.open(SHELL_CACHE);
+  const cached = await cache.match('/');
+  const html = await page.clone().text();
+  if (cached && (await cached.clone().text()) === html) return;
+  try {
+    await precacheBuild();
+  } catch {
+    return; // The shell that is there stays: whole, if older.
+  }
+  await cache.put('/', page);
 }
 
 async function staleWhileRevalidate(request) {

@@ -38,6 +38,16 @@ class NoteImageRepository(private val database: Database) {
             .map { it.toImage() }
     }
 
+    /** [listForNote] for many notes in one query; a note without pictures is absent. */
+    fun listForNotes(noteIds: Collection<Int>): Map<Int, List<NoteImage>> = transaction(database) {
+        if (noteIds.isEmpty()) return@transaction emptyMap()
+        NoteImages.select(metadata)
+            .where { NoteImages.noteId inList noteIds }
+            .orderBy(NoteImages.id to SortOrder.ASC)
+            .map { it.toImage() }
+            .groupBy { it.noteId }
+    }
+
     fun countForNote(noteId: Int): Long = transaction(database) {
         NoteImages.selectAll().where { NoteImages.noteId eq noteId }.count()
     }

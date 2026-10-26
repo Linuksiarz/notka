@@ -91,11 +91,13 @@ class LinkPreviewService(
      * The cards for [document], from the cache only. A read must never wait for the network: the
      * page was fetched when the note was written, and whatever is not cached yet simply has no card.
      */
-    fun forDocument(document: NoteDocument): List<LinkPreview> {
-        val urls = extract(document)
-        if (urls.isEmpty()) return emptyList()
-        val byUrl = previews.findAll(urls).associateBy { it.url }
-        return urls.mapNotNull { byUrl[it] }
+    fun forDocument(document: NoteDocument): List<LinkPreview> = forDocuments(mapOf(0 to document))[0].orEmpty()
+
+    /** [forDocument] for many documents, keyed as given, in one read of the cache. */
+    fun <K> forDocuments(documents: Map<K, NoteDocument>): Map<K, List<LinkPreview>> {
+        val urls = documents.mapValues { (_, document) -> extract(document) }
+        val byUrl = previews.findAll(urls.values.flatten()).associateBy { it.url }
+        return urls.mapValues { (_, wanted) -> wanted.mapNotNull { byUrl[it] } }
     }
 
     /**

@@ -241,6 +241,27 @@ class HttpAdminTest {
         assertEquals("#41331c", theme.stringField("highlightDark"))
         assertTrue(theme.stringField("logo").startsWith("/api/themes/brand/files/"))
     }
+
+    @Test
+    fun aThemeAndItsPicturesAreReadWithoutASession() = testApplication {
+        // given: a theme uploaded by the administrator, and a caller who never signed in
+        application { notkaModule(fixture.services) }
+        val root = jsonClient()
+        root.postJson("/api/auth/login", ADMIN_LOGIN)
+        val logo = root.uploadTheme(zip("theme.json" to manifest, "logo.png" to picture("png", 8, 8), "food.png" to picture("png", 4, 4), "m.svg" to svg, "m-dark.svg" to svg))
+            .asJson().stringField("logo")
+        val stranger = jsonClient()
+
+        // when
+        val listed = stranger.get("/api/themes")
+        val picture = stranger.get(logo)
+
+        // then
+        assertEquals(HttpStatusCode.OK, listed.status)
+        assertEquals("watercolour", listed.asJson().getValue("themes").jsonArray.single().jsonObject.stringField("id"))
+        assertEquals(HttpStatusCode.OK, picture.status)
+        assertEquals("public, max-age=31536000, immutable", picture.headers[HttpHeaders.CacheControl])
+    }
 }
 
 private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? = if (this is kotlinx.serialization.json.JsonNull) null else content

@@ -28,6 +28,7 @@ import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.bodylimit.RequestBodyLimit
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.compression.Compression
+import io.ktor.server.plugins.conditionalheaders.ConditionalHeaders
 import io.ktor.server.plugins.compression.deflate
 import io.ktor.server.plugins.compression.gzip
 import io.ktor.server.plugins.compression.excludeContentType
@@ -165,6 +166,9 @@ fun Application.configureHttpPlugins(config: AppConfig) {
             requestKey { call -> call.request.origin.remoteHost }
         }
     }
+    // `Last-Modified` on the app's own files, and a 304 for one the browser already has: they are
+    // revalidated on every start (`StaticContent.kt`), which then costs a header, not the file.
+    install(ConditionalHeaders)
     install(Compression) {
         // Pictures are compressed already; gzipping them again only costs time.
         gzip { excludeContentType(ContentType.Image.Any) }

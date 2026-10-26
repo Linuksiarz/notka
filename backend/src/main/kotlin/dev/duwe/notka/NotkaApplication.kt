@@ -77,10 +77,12 @@ class AppServices(
     val sessionCleanup: SessionCleanupJob,
     val events: NoteEventBus,
     val linkPreviews: LinkPreviewService,
+    private val pool: AutoCloseable,
 ) {
-    /** Stops the preview fetcher: its scope and the client it was given are ours to close. */
+    /** Stops the preview fetcher — its scope and the client it was given are ours to close — and the pool. */
     fun close() {
         linkPreviews.close()
+        pool.close()
     }
 
     companion object {
@@ -102,7 +104,8 @@ class AppServices(
             httpClient: HttpClient = defaultHttpClient(),
             mail: AccountMail? = config.smtp?.let(::SmtpAccountMail),
         ): AppServices {
-            val database = Databases.connect(config.dbPath)
+            val pooled = Databases.connect(config.dbPath)
+            val database = pooled.database
             Migrations.run(config.dbPath)
             val users = UserRepository(database)
             val sessions = SessionRepository(database)
@@ -151,6 +154,7 @@ class AppServices(
                 sessionCleanup = SessionCleanupJob(auth),
                 events = events,
                 linkPreviews = linkPreviews,
+                pool = pooled,
             )
         }
     }

@@ -64,7 +64,7 @@ Rules:
 
 1. Read configuration from environment variables (see below).
 2. Apply the schema (`CREATE TABLE IF NOT EXISTS` bootstrap — on every start, not only when the file is empty).
-3. `Database.connect(...)` with WAL, `busy_timeout=5000`, `foreign_keys=on`.
+3. `Database.connect(...)` over a HikariCP pool, with WAL, `busy_timeout=5000`, `foreign_keys=on`.
 4. Start the trash cleanup job.
 5. Install plugins and routes, start Netty.
 

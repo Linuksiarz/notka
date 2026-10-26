@@ -574,7 +574,7 @@ Response `200`:
 ```json
 {
   "status": "ok",
-  "version": "1.0.0-rc7",
+  "version": "1.0.0-rc8",
   "demo": false,
   "registrationOpen": true,
   "trashRetentionDays": 30,
@@ -600,7 +600,8 @@ Themes are uploaded by the administrator and chosen by every account for itself
 
 ### `GET /api/themes`
 
-Response `200`:
+Open to anyone: a theme is the instance's look, not anybody's data, so the sign-in screen wears the
+default one. Response `200`:
 
 ```json
 {
@@ -623,7 +624,8 @@ Response `200`:
 }
 ```
 
-`selectedThemeId` is the account's own pick; `null` follows `defaultThemeId`. `logo` is `null` for a
+`selectedThemeId` is the account's own pick; `null` follows `defaultThemeId`, and is always `null`
+without a session. `logo` is `null` for a
 theme that keeps Notka's mark, and `highlight`/`highlightDark` (the sidebar's active entry) are `null`
 where the theme leaves the built-in colour.
 
@@ -634,8 +636,8 @@ body as `GET /api/themes`. `404 theme.not_found` for a theme that does not exist
 
 ### `GET /api/themes/{themeId}/files/{fileId}`
 
-The picture's bytes, `Cache-Control: private, max-age=31536000, immutable` (a replaced theme gets new
-file ids), and a `Content-Security-Policy` with `sandbox`, so an SVG opened on its own runs nothing.
+Open to anyone, like the list. The picture's bytes, `Cache-Control: public, max-age=31536000,
+immutable` (a replaced theme gets new file ids), and a `Content-Security-Policy` with `sandbox`, so an SVG opened on its own runs nothing.
 
 ---
 

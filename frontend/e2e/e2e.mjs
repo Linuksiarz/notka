@@ -2122,7 +2122,8 @@ const rail = () =>
     };
     return {
       width: Math.round(sidebar.getBoundingClientRect().width),
-      panel: Math.round(document.querySelector('.sidebar .rail').getBoundingClientRect().width),
+      // What shows of the panel: it slides rather than resizes, so its right edge is its width.
+      panel: Math.round(document.querySelector('.sidebar .rail').getBoundingClientRect().right - sidebar.getBoundingClientRect().left),
       labels: label ? getComputedStyle(label).display !== 'none' : false,
       icons: [...document.querySelectorAll('.sidebar .icon')].filter((icon) => icon.getBoundingClientRect().width > 0)
         .length,

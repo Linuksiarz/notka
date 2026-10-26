@@ -1,4 +1,5 @@
 import { adminApi } from '../api/admin';
+import { localStore } from '../api/localStore';
 import { themesApi } from '../api/themes';
 import { NOTE_BACKGROUNDS } from '../../entity/api/types';
 import type { NoteBackground, Theme, ThemesResponse } from '../../entity/api/types';
@@ -13,6 +14,11 @@ import { activeThemeId, BUILT_IN_THEME_ID } from '../../entity/backgroundTheme';
  * note in their own pictures. Applying a theme is setting `--theme-art-<id>-<light|dark>` and
  * `--theme-tint(-dark)-<id>` and `--theme-tonal(-dark)-<id>` on the root (`palette.css`), and `--theme-highlight(-dark)` for the
  * sidebar (`tokens.css`); the built-in theme sets none of them. A theme's logo is {@link logo}.
+ *
+ * Until the account's theme is known the root carries no `data-themes-known`, and `palette.css` draws
+ * no background picture — only its tint: drawing the built-in picture in the meantime made the browser
+ * fetch it and then the theme's own. The last answer is kept on this device, so a reload (or no
+ * connection) knows the theme before the first card is drawn.
  */
 
 /** What the theme lists show about a theme. */
@@ -46,6 +52,8 @@ function summary(theme: Theme): ThemeSummary {
   };
 }
 
+const THEMES_KEY = 'themes';
+
 const EMPTY: ThemesResponse = { themes: [], defaultThemeId: BUILT_IN_THEME_ID, selectedThemeId: null };
 
 class BackgroundThemesState {
@@ -60,23 +68,24 @@ class BackgroundThemesState {
   /** The active theme's logo, or `null` for Notka's own mark. */
   logo = $derived(this.#choice.themes.find((theme) => theme.id === this.activeId)?.logo ?? null);
 
-  /** Reads the instance's themes and this account's choice, and applies it. Fails quietly: the built-in theme is always there. */
-  async load(): Promise<void> {
-    try {
-      this.#apply(await themesApi.list());
-    } catch {
-      this.#apply(EMPTY);
-    }
+  /** Applies the answer this device kept, if it has one; called at start, before anything is drawn. */
+  async restore(): Promise<void> {
+    const kept = await localStore.get<ThemesResponse>(THEMES_KEY);
+    if (kept) this.#apply(kept);
   }
 
-  /** Signing out goes back to the built-in pictures. */
-  reset(): void {
-    this.#apply(EMPTY);
+  /** Reads the instance's themes and this account's choice, and applies it. Fails quietly: the kept answer or the built-in theme. */
+  async load(): Promise<void> {
+    try {
+      this.#keep(await themesApi.list());
+    } catch {
+      this.#apply((await localStore.get<ThemesResponse>(THEMES_KEY)) ?? EMPTY);
+    }
   }
 
   /** `null` follows the instance's default. */
   async select(id: string | null): Promise<void> {
-    this.#apply(await themesApi.select(id));
+    this.#keep(await themesApi.select(id));
   }
 
   /** Administrator: adds or replaces a theme from its `.zip`. */
@@ -92,8 +101,14 @@ class BackgroundThemesState {
     await this.load();
   }
 
+  #keep(choice: ThemesResponse): void {
+    this.#apply(choice);
+    void localStore.set(THEMES_KEY, choice);
+  }
+
   #apply(choice: ThemesResponse): void {
     this.#choice = choice;
+    document.documentElement.setAttribute('data-themes-known', '');
     const root = document.documentElement.style;
     root.removeProperty('--theme-highlight');
     root.removeProperty('--theme-highlight-dark');

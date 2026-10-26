@@ -12,12 +12,21 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+/** Building a formatter costs far more than using one, and a view formats a date for every card. */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
 function formatDate(
   timestamp: number,
   locale: string,
   options: Intl.DateTimeFormatOptions
 ): string {
-  return new Intl.DateTimeFormat(locale, options).format(new Date(timestamp));
+  const key = `${locale} ${JSON.stringify(options)}`;
+  let formatter = formatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, formatter);
+  }
+  return formatter.format(new Date(timestamp));
 }
 
 /**

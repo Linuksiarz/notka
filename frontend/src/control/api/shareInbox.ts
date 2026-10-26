@@ -5,7 +5,7 @@ import type { SharedContent } from '../../entity/sharedNote';
  * `receiveShare`): Cache Storage, because the worker answers the share's `POST /share` before the
  * page exists and the page reads it back after it has started. Its name and keys are the worker's.
  */
-const SHARE_CACHE = 'notka-v1-share';
+const SHARE_CACHE = 'notka-share';
 const CONTENT_KEY = '/share-inbox/content';
 const imageKey = (index: number) => `/share-inbox/image/${index}`;
 

@@ -13,6 +13,14 @@ fun ApplicationCall.sessionToken(): String? = request.cookies[SESSION_COOKIE]
 /** Resolves the session cookie or fails with `UNAUTHORIZED`; the session expiry slides on every call. */
 suspend fun ApplicationCall.requireUser(auth: AuthService): UserSummary = auth.authenticate(sessionToken())
 
+/** The signed-in user, or `null` for a caller without a valid session — for what anyone may read. */
+suspend fun ApplicationCall.optionalUser(auth: AuthService): UserSummary? = try {
+    requireUser(auth)
+} catch (failure: DomainException) {
+    if (failure.kind != dev.duwe.notka.entity.model.ErrorKind.UNAUTHORIZED) throw failure
+    null
+}
+
 /** Path parameters are never trusted: a non-numeric id can only mean "no such resource". */
 fun ApplicationCall.requireIntParameter(name: String): Int = parameters[name]?.toIntOrNull()
     ?: throw DomainException.notFound(
