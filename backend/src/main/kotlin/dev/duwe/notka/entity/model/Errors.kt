@@ -39,6 +39,9 @@ object ErrorKeys {
     const val AUTH_USERNAME_INVALID = "auth.username_invalid"
     const val AUTH_ADMIN_REQUIRED = "auth.admin_required"
     const val AUTH_RESET_INVALID = "auth.reset_invalid"
+    const val AUTH_RECOVERY_KEY_REQUIRED = "auth.recovery_key_required"
+    const val AUTH_RECOVERY_KEY_INVALID = "auth.recovery_key_invalid"
+    const val AUTH_ENCRYPTION_ALREADY_ON = "auth.encryption_already_on"
 
     const val ADMIN_USER_NOT_FOUND = "admin.user_not_found"
     const val ADMIN_CANNOT_CHANGE_ADMIN = "admin.cannot_change_admin"

@@ -18,6 +18,10 @@ class PooledDatabase(val database: Database, private val pool: HikariDataSource)
  * Ktor worker threads can read while a write is in flight, and foreign keys on so the
  * `ON DELETE CASCADE` rules of the schema actually fire.
  *
+ * `secure_delete` overwrites what a write frees with zeros, so the text a note had before it was
+ * encrypted does not stay readable in the file's free pages (`docs/ENCRYPTION.md`); measured, it
+ * costs a few percent of a write.
+ *
  * The connections are pooled (HikariCP). Without a pool Exposed opened the file anew for every
  * transaction — and every repository call is one — which was most of what a request cost.
  */
@@ -37,5 +41,5 @@ object Databases {
     }
 
     private fun jdbcUrl(path: String): String =
-        "jdbc:sqlite:$path?journal_mode=WAL&busy_timeout=5000&foreign_keys=on&synchronous=NORMAL"
+        "jdbc:sqlite:$path?journal_mode=WAL&busy_timeout=5000&foreign_keys=on&synchronous=NORMAL&secure_delete=on"
 }

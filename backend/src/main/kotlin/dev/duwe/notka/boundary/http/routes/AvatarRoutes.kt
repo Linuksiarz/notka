@@ -1,11 +1,13 @@
 package dev.duwe.notka.boundary.http.routes
 
 import dev.duwe.notka.boundary.http.dto.AuthResponse
+import dev.duwe.notka.boundary.http.dto.toAccountDto
 import dev.duwe.notka.boundary.http.dto.toDto
 import dev.duwe.notka.boundary.http.plugins.requireIntParameter
 import dev.duwe.notka.boundary.http.plugins.requireUser
 import dev.duwe.notka.control.AuthService
 import dev.duwe.notka.control.AvatarService
+import dev.duwe.notka.control.EncryptionService
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.server.request.receive
@@ -22,17 +24,17 @@ const val AVATAR_UPLOAD = "/api/auth/me/avatar"
 
 private val JPEG_XL = ContentType("image", "jxl")
 
-fun Route.avatarRoutes(avatars: AvatarService, auth: AuthService) {
+fun Route.avatarRoutes(avatars: AvatarService, auth: AuthService, encryption: EncryptionService) {
     // The body is the picture itself, recognised by its bytes, not by its Content-Type.
     put(AVATAR_UPLOAD) {
         val user = call.requireUser(auth)
         val bytes = call.receive<ByteArray>()
-        call.respond(AuthResponse(avatars.set(user.id, bytes).toDto()))
+        call.respond(AuthResponse(avatars.set(user.id, bytes).toAccountDto(encryption.settings(user.id))))
     }
 
     delete(AVATAR_UPLOAD) {
         val user = call.requireUser(auth)
-        call.respond(AuthResponse(avatars.remove(user.id).toDto()))
+        call.respond(AuthResponse(avatars.remove(user.id).toAccountDto(encryption.settings(user.id))))
     }
 
     get("/api/users/{id}/avatar") {

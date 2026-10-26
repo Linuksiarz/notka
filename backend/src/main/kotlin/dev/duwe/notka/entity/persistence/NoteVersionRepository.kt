@@ -6,20 +6,26 @@ import dev.duwe.notka.entity.model.NoteVersion
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import javax.crypto.SecretKey
 
 /** How much history one note keeps; older snapshots are dropped. */
 private const val MAX_VERSIONS_PER_NOTE = 50
 
-/** Archived note states. Dumb storage: access control lives in the control layer. */
-class NoteVersionRepository(private val database: Database) {
+/**
+ * Archived note states. Dumb storage: access control lives in the control layer. A sealed note's
+ * history is sealed with it, and opened here.
+ */
+class NoteVersionRepository(private val database: Database, private val keys: KeyRing) {
     fun archive(version: NoteVersion) {
         transaction(database) {
+            val key = keys.sealingKeyOf(version.noteId)
+            val stored = { text: String, place: String -> key?.let { Sealing.sealText(it, text, place) } ?: text }
             NoteVersions.insert {
                 it[noteId] = version.noteId
                 it[NoteVersions.version] = version.version
                 it[kind] = version.kind.name
-                it[title] = version.title
-                it[content] = NoteDocument.write(version.document)
+                it[title] = stored(version.title, SealedPlaces.versionTitle(version.noteId))
+                it[content] = stored(NoteDocument.write(version.document), SealedPlaces.versionContent(version.noteId))
                 it[authorId] = version.authorId
                 it[createdAt] = version.createdAt
             }
@@ -29,17 +35,19 @@ class NoteVersionRepository(private val database: Database) {
 
     /** Newest first, which is the order the history dialog shows them in. */
     fun listForNote(noteId: Int): List<NoteVersion> = transaction(database) {
+        val key = keys.sealingKeyOf(noteId)
         NoteVersions.selectAll()
             .where { NoteVersions.noteId eq noteId }
             .orderBy(NoteVersions.version to SortOrder.DESC)
-            .map { it.toNoteVersion() }
+            .map { it.toNoteVersion(key) }
     }
 
     fun find(noteId: Int, version: Int): NoteVersion? = transaction(database) {
+        val key = keys.sealingKeyOf(noteId)
         NoteVersions.selectAll()
             .where { (NoteVersions.noteId eq noteId) and (NoteVersions.version eq version) }
             .singleOrNull()
-            ?.toNoteVersion()
+            ?.toNoteVersion(key)
     }
 
     /** Keeps the [MAX_VERSIONS_PER_NOTE] newest snapshots and drops the rest. */
@@ -58,13 +66,17 @@ class NoteVersionRepository(private val database: Database) {
         }
     }
 
-    private fun ResultRow.toNoteVersion() = NoteVersion(
-        noteId = this[NoteVersions.noteId],
-        version = this[NoteVersions.version],
-        kind = NoteKind.valueOf(this[NoteVersions.kind]),
-        title = this[NoteVersions.title],
-        document = NoteDocument.parse(this[NoteVersions.content]),
-        authorId = this[NoteVersions.authorId],
-        createdAt = this[NoteVersions.createdAt],
-    )
+    private fun ResultRow.toNoteVersion(key: SecretKey?): NoteVersion {
+        val noteId = this[NoteVersions.noteId]
+        val opened = { text: String, place: String -> key?.let { Sealing.openText(it, text, place) } ?: text }
+        return NoteVersion(
+            noteId = noteId,
+            version = this[NoteVersions.version],
+            kind = NoteKind.valueOf(this[NoteVersions.kind]),
+            title = opened(this[NoteVersions.title], SealedPlaces.versionTitle(noteId)),
+            document = NoteDocument.parse(opened(this[NoteVersions.content], SealedPlaces.versionContent(noteId))),
+            authorId = this[NoteVersions.authorId],
+            createdAt = this[NoteVersions.createdAt],
+        )
+    }
 }

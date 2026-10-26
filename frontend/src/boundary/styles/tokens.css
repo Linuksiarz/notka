@@ -35,6 +35,10 @@
   --keep-menu-divider: rgb(218, 220, 224);
   /* A note's "Edited" on the desktop, read off the original's DOM (2026-10-23). */
   --keep-edited-ink: rgba(0, 0, 0, 0.8);
+  /* Material's plain tooltip as Google's web apps draw it (not measured off Keep, which shows none
+     this long): the encryption lock's explanation (`EncryptionLock.svelte`). */
+  --keep-tooltip-bg: rgba(60, 64, 67, 0.9);
+  --keep-tooltip-ink: #ffffff;
   --keep-search-bg: #f1f3f4;
   /* The search page's filter panels, measured off the original (light theme): a flat white card with
      Material's elevation-1, blue "type" tiles and grey label tiles. */
@@ -328,6 +332,8 @@
   --keep-menu-divider: rgb(95, 99, 105);
   /* Off the owner's screenshot of the original's dark editor: the note's ink at about 90%. */
   --keep-edited-ink: rgba(232, 234, 237, 0.9);
+  --keep-tooltip-bg: rgba(232, 234, 237, 0.9);
+  --keep-tooltip-ink: #202124;
   --keep-active: var(--theme-highlight-dark, #1d3b3a);
   --keep-active-fg: #e8eaed;
 

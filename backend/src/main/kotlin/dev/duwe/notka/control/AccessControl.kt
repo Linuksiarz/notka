@@ -18,22 +18,24 @@ class NoteAccessChecker(
     private val notes: NoteRepository,
     private val shares: ShareRepository,
 ) {
-    fun accessFor(userId: Int, note: Note): Access? = when {
-        note.ownerId == userId -> Access.OWNER
-        else -> shares.find(note.id, userId)?.let { Access.from(it.permission) }
-    }
-
-    /** [accessFor], from the note's shares already read — for a batch of notes read at once. */
+    /** Who [userId] is to [note], from the note's shares already read — for a batch of notes read at once. */
     fun accessFor(userId: Int, note: Note, noteShares: List<NoteShare>): Access? = when {
         note.ownerId == userId -> Access.OWNER
         else -> noteShares.find { it.userId == userId }?.let { Access.from(it.permission) }
     }
 
-    /** Owner or any collaborator; everyone else gets `NOT_FOUND` so note ids stay unguessable. */
+    /**
+     * Owner or any collaborator; everyone else gets `NOT_FOUND` so note ids stay unguessable. Access is
+     * decided before the note is read: a sealed note opens only with its owner's key.
+     */
     fun requireVisible(userId: Int, noteId: Int): VisibleNote {
-        val note = notes.find(noteId) ?: throw notFound(noteId)
-        val access = accessFor(userId, note) ?: throw notFound(noteId)
-        return VisibleNote(note, access)
+        val ownerId = notes.ownerOf(noteId) ?: throw notFound(noteId)
+        val access = if (ownerId == userId) {
+            Access.OWNER
+        } else {
+            shares.find(noteId, userId)?.let { Access.from(it.permission) } ?: throw notFound(noteId)
+        }
+        return VisibleNote(notes.find(noteId) ?: throw notFound(noteId), access)
     }
 
     /** `FORBIDDEN` for a `VIEW` collaborator, `NOT_FOUND` for a stranger. */
@@ -51,8 +53,8 @@ class NoteAccessChecker(
 
     /** Owner only; `FORBIDDEN` for collaborators, `NOT_FOUND` for strangers. */
     fun requireOwner(userId: Int, noteId: Int): Note {
-        val note = notes.find(noteId) ?: throw notFound(noteId)
-        if (note.ownerId == userId) return note
+        val ownerId = notes.ownerOf(noteId) ?: throw notFound(noteId)
+        if (ownerId == userId) return notes.find(noteId) ?: throw notFound(noteId)
         if (shares.find(noteId, userId) != null) {
             throw DomainException.forbidden(
                 ErrorKeys.SHARE_NOT_OWNER,

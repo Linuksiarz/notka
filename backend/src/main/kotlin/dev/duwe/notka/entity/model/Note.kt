@@ -40,6 +40,8 @@ data class Note(
     val editedBy: Int?,
     /** When they did: a card's "edited by" marker compares it with what the reader last saw. */
     val editedAt: Long,
+    /** Stored encrypted with the owner's key (`docs/ENCRYPTION.md`); read back here in the clear either way. */
+    val sealed: Boolean = false,
 ) {
     companion object {
         /** The plain card: no colour tint, no background pattern. */

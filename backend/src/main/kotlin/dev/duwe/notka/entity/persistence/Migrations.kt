@@ -72,6 +72,27 @@ object Migrations {
         )
         """.trimIndent(),
         """
+        CREATE TABLE IF NOT EXISTS account_key_wraps (
+            user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            kind       TEXT    NOT NULL,
+            salt       TEXT,
+            wrapped    TEXT    NOT NULL,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (user_id, kind)
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS session_keys (
+            token   TEXT PRIMARY KEY REFERENCES sessions(token) ON DELETE CASCADE,
+            wrapped TEXT NOT NULL
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS link_preview_opt_outs (
+            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE
+        )
+        """.trimIndent(),
+        """
         CREATE TABLE IF NOT EXISTS notes (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -90,6 +111,11 @@ object Migrations {
             edited_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
             edited_at  INTEGER NOT NULL,
             version    INTEGER NOT NULL DEFAULT 1
+        )
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS sealed_notes (
+            note_id INTEGER PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE
         )
         """.trimIndent(),
         """

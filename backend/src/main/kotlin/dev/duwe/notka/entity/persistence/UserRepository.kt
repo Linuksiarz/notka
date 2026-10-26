@@ -80,6 +80,30 @@ class UserRepository(private val database: Database) {
         }
     }
 
+    /** Whether the account wants cards for the links in its notes; the default is yes. */
+    fun linkPreviews(id: Int): Boolean = transaction(database) {
+        LinkPreviewOptOuts.selectAll().where { LinkPreviewOptOuts.userId eq id }.empty()
+    }
+
+    /** The accounts among [ids] that switched link previews off. */
+    fun linkPreviewsOffAmong(ids: Collection<Int>): Set<Int> {
+        if (ids.isEmpty()) return emptySet()
+        return transaction(database) {
+            LinkPreviewOptOuts.selectAll().where { LinkPreviewOptOuts.userId inList ids.distinct() }
+                .mapTo(mutableSetOf()) { it[LinkPreviewOptOuts.userId] }
+        }
+    }
+
+    fun setLinkPreviews(id: Int, enabled: Boolean) {
+        transaction(database) {
+            if (enabled) {
+                LinkPreviewOptOuts.deleteWhere { userId eq id }
+            } else {
+                LinkPreviewOptOuts.insertIgnore { it[userId] = id }
+            }
+        }
+    }
+
     /** Everyone who picked [themeId] goes back to the server's default; the theme is going away. */
     fun forgetBackgroundTheme(themeId: String) {
         transaction(database) {

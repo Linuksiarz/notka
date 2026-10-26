@@ -2,14 +2,14 @@ import { authApi } from '../api/auth';
 import { ApiError, onUnauthorized } from '../api/client';
 import { localStore } from '../api/localStore';
 import { PENDING_WRITES_KEY } from './pendingWrites.svelte';
-import type { LoginRequest, RegisterRequest, UpdateProfileRequest, User } from '../../entity/api/types';
+import type { Account, LoginRequest, PasswordResetRequest, RegisterRequest, UpdateProfileRequest } from '../../entity/api/types';
 
 type SessionStatus = 'loading' | 'anonymous' | 'authenticated';
 
 const USER_KEY = 'user';
 
 class SessionState {
-  user = $state<User | null>(null);
+  user = $state<Account | null>(null);
   status = $state<SessionStatus>('loading');
 
   constructor() {
@@ -25,7 +25,7 @@ class SessionState {
   async restore(): Promise<void> {
     // The account this device last saw opens at once; the server confirms it behind the scenes, and
     // an expired session ends in the sign-in screen the way it does anywhere else.
-    const known = await localStore.get<User>(USER_KEY);
+    const known = await localStore.get<Account>(USER_KEY);
     if (known) {
       this.user = known;
       this.status = 'authenticated';
@@ -49,8 +49,8 @@ class SessionState {
   }
 
   /** Remembers the account on this device — after wiping another account's copy, if there was one. */
-  private async signedIn(user: User): Promise<void> {
-    const known = await localStore.get<User>(USER_KEY);
+  private async signedIn(user: Account): Promise<void> {
+    const known = await localStore.get<Account>(USER_KEY);
     // Another account's copy — its notes and its unsent writes — is not this account's business.
     if (known && known.id !== user.id) await localStore.clear();
     await localStore.set(USER_KEY, user);
@@ -63,8 +63,9 @@ class SessionState {
     await this.signedIn(user);
   }
 
-  async completePasswordReset(token: string, password: string): Promise<void> {
-    const { user } = await authApi.completePasswordReset({ token, password });
+  /** An account that encrypts its notes also needs its recovery key, or to say it gives them up. */
+  async completePasswordReset(reset: PasswordResetRequest): Promise<void> {
+    const { user } = await authApi.completePasswordReset(reset);
     await this.signedIn(user);
   }
 
@@ -103,7 +104,25 @@ class SessionState {
     this.updated((await authApi.removeAvatar()).user);
   }
 
-  private updated(user: User): void {
+  /**
+   * Turns encryption of the account's private notes on (`docs/ENCRYPTION.md`) and answers with the
+   * recovery key, which the server never sends again. The account's other devices are signed out.
+   */
+  async enableEncryption(password: string): Promise<string> {
+    const { user, recoveryKey } = await authApi.enableEncryption({ password });
+    this.updated(user);
+    return recoveryKey;
+  }
+
+  async disableEncryption(): Promise<void> {
+    this.updated((await authApi.disableEncryption()).user);
+  }
+
+  async setLinkPreviews(linkPreviews: boolean): Promise<void> {
+    this.updated((await authApi.updateProfile({ linkPreviews })).user);
+  }
+
+  private updated(user: Account): void {
     void localStore.set(USER_KEY, user);
     this.user = user;
   }

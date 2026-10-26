@@ -22,6 +22,7 @@ class AuthService(
     private val users: UserRepository,
     private val sessions: SessionRepository,
     private val resets: PasswordResetRepository,
+    private val accountKeys: AccountKeys,
     private val sessionTtlMillis: Long,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -93,7 +94,9 @@ class AuthService(
         if (user == null || !verified) {
             throw DomainException.unauthorized(ErrorKeys.AUTH_INVALID_CREDENTIALS, "Invalid login or password")
         }
-        return AuthResult(user.toSummary(), startSession(user.id))
+        val token = startSession(user.id)
+        accountKeys.unlockWithPassword(user.id, password, token)
+        return AuthResult(user.toSummary(), token)
     }
 
     /** Idempotent. */
@@ -104,6 +107,7 @@ class AuthService(
     /** Signs the account out on every device, the one asking included. */
     fun logoutEverywhere(userId: Int) {
         sessions.deleteAllForUserExcept(userId, keepToken = null)
+        accountKeys.lock(userId)
     }
 
     /**
@@ -128,6 +132,10 @@ class AuthService(
         }
         val user = users.findById(session.userId)
             ?: throw DomainException.unauthorized(message = "Invalid session")
+        if (!accountKeys.unlockSession(user.id, token)) {
+            sessions.delete(tokenHash)
+            throw DomainException.unauthorized(message = "The session cannot open the account's notes")
+        }
         sessions.touch(tokenHash, now + sessionTtlMillis, now)
         return user.toSummary()
     }
@@ -161,6 +169,7 @@ class AuthService(
                 )
             }
             users.updatePasswordHash(userId, PasswordHasher.hash(secret))
+            accountKeys.rewrapPassword(userId, secret)
             sessions.deleteAllForUserExcept(userId, currentToken?.let(::hashToken))
         }
         return checkNotNull(users.findById(userId)) { "User $userId disappeared" }.toSummary()
@@ -190,18 +199,42 @@ class AuthService(
     fun lockOut(userId: Int) {
         users.updatePasswordHash(userId, PasswordHasher.hash(newToken()))
         sessions.deleteAllForUserExcept(userId, keepToken = null)
+        accountKeys.lock(userId)
     }
 
-    /** Sets the password a reset link was sent for, voids the link and signs the account in. */
-    fun completePasswordReset(token: String, newPassword: String): AuthResult {
+    /**
+     * Sets the password a reset link was sent for, voids the link and signs the account in.
+     *
+     * An account that encrypts its notes needs its [recoveryKey] too, because the forgotten password
+     * was what unlocked them; without it the reset goes through only when the owner says so
+     * ([discardEncrypted]), and the notes nobody can open any more are deleted.
+     */
+    fun completePasswordReset(
+        token: String,
+        newPassword: String,
+        recoveryKey: String? = null,
+        discardEncrypted: Boolean = false,
+    ): AuthResult {
         val secret = Validation.password(newPassword)
         val reset = resets.find(hashToken(token))?.takeIf { it.expiresAt > clock() }
             ?: throw DomainException.validation(ErrorKeys.AUTH_RESET_INVALID, "The reset link is invalid or has expired")
+        val accountKey = when {
+            !accountKeys.enabled(reset.userId) -> null
+            !recoveryKey.isNullOrBlank() -> accountKeys.openWithRecoveryKey(reset.userId, recoveryKey)
+                ?: throw DomainException.validation(ErrorKeys.AUTH_RECOVERY_KEY_INVALID, "The recovery key does not match")
+            discardEncrypted -> null.also { accountKeys.discard(reset.userId) }
+            else -> throw DomainException.conflict(
+                ErrorKeys.AUTH_RECOVERY_KEY_REQUIRED,
+                "The account encrypts its notes: the recovery key is needed to keep them",
+            )
+        }
         users.updatePasswordHash(reset.userId, PasswordHasher.hash(secret))
         resets.deleteForUser(reset.userId)
         sessions.deleteAllForUserExcept(reset.userId, keepToken = null)
         val user = checkNotNull(users.findById(reset.userId)) { "User ${reset.userId} disappeared" }
-        return AuthResult(user.toSummary(), startSession(user.id))
+        val session = startSession(user.id)
+        accountKey?.let { accountKeys.adoptPassword(user.id, it, secret, session) }
+        return AuthResult(user.toSummary(), session)
     }
 
     private fun findByLogin(login: String): User? {

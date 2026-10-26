@@ -55,6 +55,7 @@ fun ResolvedNote.toDto(): NoteDto = NoteDto(
     linkPreviews = linkPreviews.map { it.toDto() },
     images = images.map { NoteImageDto(it.id, it.width, it.height, it.contentType) },
     unseenEdit = unseenEdit?.let { UnseenEditDto(it.editor.toDto(), it.at) },
+    encryption = protection.name,
 )
 
 fun LinkPreview.toDto(): LinkPreviewDto = LinkPreviewDto(

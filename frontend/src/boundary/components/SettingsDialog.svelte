@@ -12,7 +12,10 @@
   import { changeServer, inAndroidApp } from '../androidApp';
   import Avatar from './Avatar.svelte';
   import Dialog from './Dialog.svelte';
+  import EncryptionDialog from './EncryptionDialog.svelte';
   import Icon from './Icon.svelte';
+  import { confirmation } from './confirmation.svelte';
+  import { notes } from '../../control/state/notes.svelte';
 
   interface Props {
     open: boolean;
@@ -99,6 +102,36 @@
     }
   }
 
+  let encryptionDialogOpen = $state(false);
+
+  /** On asks for the password and shows the recovery key (`EncryptionDialog`); off asks first. */
+  async function toggleEncryption(on: boolean, box: HTMLInputElement): Promise<void> {
+    // The box shows the account's setting, not the click: it changes once the server has.
+    box.checked = session.user?.encryption ?? false;
+    if (on) {
+      encryptionDialogOpen = true;
+      return;
+    }
+    if (!(await confirmation.ask(t('settings.encryptionOffConfirm'), t('settings.encryptionOffAction')))) return;
+    error = null;
+    try {
+      await session.disableEncryption();
+      void notes.refresh();
+    } catch (caught) {
+      error = tError(caught as Error);
+    }
+  }
+
+  async function toggleLinkPreviews(on: boolean): Promise<void> {
+    error = null;
+    try {
+      await session.setLinkPreviews(on);
+      void notes.refresh();
+    } catch (caught) {
+      error = tError(caught as Error);
+    }
+  }
+
   async function savePassword(): Promise<void> {
     error = null;
     message = null;
@@ -125,7 +158,7 @@
   {onClose}
   title={t('settings.title')}
   width="520px"
-  closeOnOutsideClick={!ui.avatarDialogOpen && !ui.friendsDialogOpen}
+  closeOnOutsideClick={!ui.avatarDialogOpen && !ui.friendsDialogOpen && !encryptionDialogOpen && confirmation.request === null}
 >
   <div class="settings">
     <header>
@@ -301,6 +334,28 @@
           {t('settings.changePassword')}
         </button>
       </section>
+
+      <section>
+        <h3>{t('settings.encryption')}</h3>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            checked={session.user.encryption}
+            onchange={(event) => void toggleEncryption(event.currentTarget.checked, event.currentTarget)}
+          />
+          <span>{t('settings.encryptionToggle')}</span>
+        </label>
+        <p class="hint">{t('settings.encryptionHint')}</p>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            checked={session.user.linkPreviews}
+            onchange={(event) => void toggleLinkPreviews(event.currentTarget.checked)}
+          />
+          <span>{t('settings.linkPreviews')}</span>
+        </label>
+        <p class="hint">{t('settings.linkPreviewsHint')}</p>
+      </section>
     {/if}
 
     {#if message}
@@ -355,6 +410,8 @@
     </section>
   </div>
 </Dialog>
+
+<EncryptionDialog open={encryptionDialogOpen} onClose={() => (encryptionDialogOpen = false)} />
 
 <style>
   .settings {

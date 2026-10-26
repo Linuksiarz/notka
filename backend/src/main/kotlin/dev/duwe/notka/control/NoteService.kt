@@ -70,6 +70,8 @@ data class ResolvedNote(
     val completedCollapsed: Boolean = false,
     /** The edit a card names as "edited by", or `null` when the reader has seen the note since. */
     val unseenEdit: UnseenEdit? = null,
+    /** Whether the note is stored encrypted, or why not (`NoteSealing`). */
+    val protection: NoteProtection = NoteProtection.DISABLED,
 ) {
     val color: String get() = note.color
     val background: String? get() = note.background
@@ -136,6 +138,7 @@ class NoteService(
     private val access: NoteAccessChecker,
     private val events: NoteEventBus,
     private val linkPreviews: LinkPreviewService,
+    private val sealing: NoteSealing,
     private val maxNoteBytes: Int,
     private val maxNotesPerUser: Int = Int.MAX_VALUE,
     private val images: NoteImageRepository? = null,
@@ -177,9 +180,9 @@ class NoteService(
         val document = validateDocument(command.document ?: NoteDocument.empty())
         val labelIds = requireOwnedLabels(userId, command.labelIds ?: emptyList())
         requireRoomForANote(userId)
-        val note = notes.insert(userId, kind, command.title ?: "", document, clock())
+        val note = notes.insert(userId, kind, command.title ?: "", document, clock(), sealed = sealing.wanted(userId, document))
         if (labelIds.isNotEmpty()) labels.replaceForNote(note.id, userId, labelIds)
-        linkPreviews.refresh(document) { publishChange(get(userId, note.id).note) }
+        refreshLinkPreviews(userId, note.id, document)
         return get(userId, note.id)
     }
 
@@ -238,7 +241,7 @@ class NoteService(
         if (pin != null) notes.setPinned(noteId, userId, pin)
         if (collapsed != null) notes.setCompletedCollapsed(noteId, userId, collapsed)
         val resolved = get(userId, noteId)
-        document?.let { linkPreviews.refresh(it) { publishChange(get(userId, noteId).note) } }
+        document?.let { refreshLinkPreviews(userId, noteId, it) }
         publishChange(resolved.note)
         return resolved
     }
@@ -285,7 +288,7 @@ class NoteService(
             )
         if (changed) versions.archive(NoteVersion.of(previous, authorId = userId, createdAt = clock()))
         val resolved = get(userId, noteId)
-        linkPreviews.refresh(document) { publishChange(get(userId, noteId).note) }
+        refreshLinkPreviews(userId, noteId, document)
         publishChange(resolved.note)
         return resolved
     }
@@ -365,6 +368,7 @@ class NoteService(
             createdAt = clock(),
             color = source.color,
             background = source.background,
+            sealed = sealing.wanted(userId, source.document),
         )
         images?.copy(source.id, copied.id, clock())
         val sourceLabels = labels.labelsForNote(source.id, userId).map { it.id }
@@ -458,6 +462,21 @@ class NoteService(
         return resolved
     }
 
+    /**
+     * Fetches the cards for what [document] links to, unless the note's owner switched link previews
+     * off — then the server does not read the links at all, which is what lets such a note stay sealed.
+     */
+    private fun refreshLinkPreviews(userId: Int, noteId: Int, document: NoteDocument) {
+        val ownerId = notes.ownerOf(noteId) ?: return
+        if (!users.linkPreviews(ownerId)) return
+        linkPreviews.refresh(document) { publishChange(get(userId, noteId).note) }
+    }
+
+    /** Fetches the cards of every note the account owns: link previews were just switched back on. */
+    fun refreshLinkPreviews(ownerId: Int) {
+        notes.listOwnedBy(ownerId).forEach { refreshLinkPreviews(ownerId, it.id, it.document) }
+    }
+
     /** Tells every account that can see this note that it moved on to a new version. */
     private fun publishChange(note: Note) {
         val audience = setOf(note.ownerId) + shares.listForNote(note.id).map { it.userId }
@@ -474,15 +493,20 @@ class NoteService(
         if (records.isEmpty()) return emptyList()
         val ids = records.map { it.id }
         val noteShares = shares.listForNotes(ids)
-        val accounts = users.findSummaries(records.map { it.ownerId } + noteShares.values.flatten().map { it.userId })
+        val previewsOff = users.linkPreviewsOffAmong(records.map { it.ownerId })
+        val stored = sealing.settle(viewerId, records, noteShares, previewsOff)
+        val accounts = users.findSummaries(stored.map { it.ownerId } + noteShares.values.flatten().map { it.userId })
         val noteLabels = labels.labelsForNotes(ids, viewerId)
         val filings = notes.filingsAmong(viewerId, ids)
         val folded = notes.foldedAmong(viewerId, ids)
         val pictures = images?.listForNotes(ids).orEmpty()
-        val previews = linkPreviews.forDocuments(records.associate { it.id to it.document })
+        // A note whose owner switched previews off has no cards, for anyone who sees it.
+        val previews = linkPreviews.forDocuments(
+            stored.filter { it.ownerId !in previewsOff }.associate { it.id to it.document },
+        )
         val docVersions = notes.docVersionsAmong(ids)
-        val reads = readsAmong(viewerId, records)
-        return records.map { note ->
+        val reads = readsAmong(viewerId, stored)
+        return stored.map { note ->
             val sharesOfNote = noteShares[note.id].orEmpty()
             val filing = filings[note.id]
             ResolvedNote(
@@ -502,6 +526,7 @@ class NoteService(
                 position = filing?.position ?: note.position,
                 unseenEdit = reads.unseenEdit(note),
                 completedCollapsed = note.id in folded,
+                protection = sealing.protection(viewerId, note, sharesOfNote.isNotEmpty(), previewsOff),
             )
         }
     }

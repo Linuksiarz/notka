@@ -7,8 +7,12 @@ import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
-/** A note's pictures. Reads that list them never touch the bytes; only [bytes] does. */
-class NoteImageRepository(private val database: Database) {
+/**
+ * A note's pictures. Reads that list them never touch the bytes; only [bytes] does. A sealed note's
+ * pictures are sealed with it; their size is the picture's own, so the owner's storage counts what
+ * they uploaded.
+ */
+class NoteImageRepository(private val database: Database, private val keys: KeyRing) {
     private val metadata = listOf(
         NoteImages.id,
         NoteImages.noteId,
@@ -26,10 +30,14 @@ class NoteImageRepository(private val database: Database) {
             it[width] = info.width
             it[height] = info.height
             it[byteSize] = bytes.size
-            it[data] = ExposedBlob(bytes)
+            it[data] = ExposedBlob(stored(noteId, bytes))
             it[NoteImages.createdAt] = createdAt
         } get NoteImages.id
     }
+
+    /** Inside a transaction: [bytes] as [noteId] stores them. */
+    private fun stored(noteId: Int, bytes: ByteArray): ByteArray =
+        keys.sealingKeyOf(noteId)?.let { Sealing.seal(it, bytes, SealedPlaces.image(noteId)) } ?: bytes
 
     fun listForNote(noteId: Int): List<NoteImage> = transaction(database) {
         NoteImages.select(metadata)
@@ -57,16 +65,21 @@ class NoteImageRepository(private val database: Database) {
         NoteImages.select(NoteImages.contentType, NoteImages.data)
             .where { (NoteImages.id eq imageId) and (NoteImages.noteId eq noteId) }
             .singleOrNull()
-            ?.let { it[NoteImages.contentType] to it[NoteImages.data].bytes }
+            ?.let { row ->
+                val data = row[NoteImages.data].bytes
+                val key = keys.sealingKeyOf(noteId)
+                row[NoteImages.contentType] to (key?.let { Sealing.open(it, data, SealedPlaces.image(noteId)) } ?: data)
+            }
     }
 
     fun delete(noteId: Int, imageId: Int): Int = transaction(database) {
         NoteImages.deleteWhere { (NoteImages.id eq imageId) and (NoteImages.noteId eq noteId) }
     }
 
-    /** Puts a copy of every picture of [fromNoteId] on [toNoteId], in the same order. */
+    /** Puts a copy of every picture of [fromNoteId] on [toNoteId], in the same order, sealed as [toNoteId] is. */
     fun copy(fromNoteId: Int, toNoteId: Int, createdAt: Long) {
         transaction(database) {
+            val sourceKey = keys.sealingKeyOf(fromNoteId)
             val rows = NoteImages.selectAll()
                 .where { NoteImages.noteId eq fromNoteId }
                 .orderBy(NoteImages.id to SortOrder.ASC)
@@ -78,7 +91,9 @@ class NoteImageRepository(private val database: Database) {
                     it[width] = row[NoteImages.width]
                     it[height] = row[NoteImages.height]
                     it[byteSize] = row[NoteImages.byteSize]
-                    it[data] = ExposedBlob(row[NoteImages.data].bytes)
+                    val data = row[NoteImages.data].bytes
+                    val plain = sourceKey?.let { key -> Sealing.open(key, data, SealedPlaces.image(fromNoteId)) } ?: data
+                    it[NoteImages.data] = ExposedBlob(stored(toNoteId, plain))
                     it[NoteImages.createdAt] = createdAt
                 }
             }

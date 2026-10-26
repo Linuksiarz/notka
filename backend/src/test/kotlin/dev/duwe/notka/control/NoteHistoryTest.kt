@@ -179,7 +179,7 @@ class NoteHistoryTest {
         val owner = fixture.registerUser()
         val note = fixture.createNote(owner.id, title = "doomed")
         fixture.services.notes.patch(owner.id, note.note.id, PatchNoteCommand(title = "edited"))
-        val versions = NoteVersionRepository(fixture.services.database)
+        val versions = NoteVersionRepository(fixture.services.database, fixture.services.keyRing)
         assertEquals(1, versions.listForNote(note.note.id).size)
 
         // when

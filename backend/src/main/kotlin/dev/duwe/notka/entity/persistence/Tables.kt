@@ -68,6 +68,39 @@ object Sessions : Table("sessions") {
     override val primaryKey = PrimaryKey(token)
 }
 
+/**
+ * The account's own key, wrapped by each secret that may unlock it (`docs/ENCRYPTION.md`): the
+ * password, and the recovery key shown once. A row of either kind means the account encrypts its
+ * private notes; the key itself is never stored unwrapped.
+ */
+object AccountKeyWraps : Table("account_key_wraps") {
+    val userId = integer("user_id")
+    val kind = text("kind")
+    val salt = text("salt").nullable()
+    val wrapped = text("wrapped")
+    val createdAt = long("created_at")
+
+    override val primaryKey = PrimaryKey(userId, kind)
+}
+
+/**
+ * The account's key wrapped by a session's cookie, which only the browser holds (the table keeps its
+ * hash): what lets the server open the account's notes on every request without the password.
+ */
+object SessionKeys : Table("session_keys") {
+    val token = text("token")
+    val wrapped = text("wrapped")
+
+    override val primaryKey = PrimaryKey(token)
+}
+
+/** Accounts that switched link previews off; a row is the choice, no row is the default (on). */
+object LinkPreviewOptOuts : Table("link_preview_opt_outs") {
+    val userId = integer("user_id")
+
+    override val primaryKey = PrimaryKey(userId)
+}
+
 object Notes : Table("notes") {
     val id = integer("id").autoIncrement()
     val ownerId = integer("owner_id")
@@ -97,6 +130,17 @@ object Notes : Table("notes") {
     val version = integer("version")
 
     override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * The notes stored encrypted with their owner's key: a row is the note's title and body, its history,
+ * its step log and its pictures sealed; no row is all of them in the clear. Which notes are sealed is
+ * decided by `NoteSealing`, never by the client.
+ */
+object SealedNotes : Table("sealed_notes") {
+    val noteId = integer("note_id")
+
+    override val primaryKey = PrimaryKey(noteId)
 }
 
 /* A pin is the reader's own, as in Google Keep: one row per (note, account) that pinned or unpinned

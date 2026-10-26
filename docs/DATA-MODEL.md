@@ -8,8 +8,11 @@ SQLite is the only supported database. All timestamps are stored as **epoch mill
 The JDBC URL used by the backend is:
 
 ```
-jdbc:sqlite:<db-file>?journal_mode=WAL&busy_timeout=5000&foreign_keys=on&synchronous=NORMAL
+jdbc:sqlite:<db-file>?journal_mode=WAL&busy_timeout=5000&foreign_keys=on&synchronous=NORMAL&secure_delete=on
 ```
+
+`secure_delete` overwrites what a write frees with zeros, so the clear text of a note that was sealed
+does not stay readable in the file's free space (`docs/ENCRYPTION.md`).
 
 WAL mode plus `busy_timeout` is what lets Ktor's worker threads read while a write is in flight.
 The connections are pooled (HikariCP, eight of them): without a pool every transaction opened the
@@ -121,11 +124,25 @@ database file stays the whole state.
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `token` | TEXT PK | 256-bit URL-safe random string, this is the cookie value |
+| `token` | TEXT PK | SHA-256 of the cookie (256 random bits); a copy of the database is no set of logins |
 | `user_id` | INTEGER NOT NULL | FK `users(id)` ON DELETE CASCADE |
 | `created_at` | INTEGER NOT NULL | |
 | `expires_at` | INTEGER NOT NULL | sliding, refreshed on use |
 | `last_seen_at` | INTEGER NOT NULL | |
+
+### `account_key_wraps`, `session_keys` and `link_preview_opt_outs`
+
+An account's own key and its settings about what the server may read (`docs/ENCRYPTION.md`).
+
+| Table | Column | Notes |
+| --- | --- | --- |
+| `account_key_wraps` | `user_id`, `kind` | PK; FK `users(id)` ON DELETE CASCADE. `kind` is `PASSWORD` or `RECOVERY`; a row of either means the account encrypts its private notes |
+| | `salt` | Base64; the password wrap's own PBKDF2 salt, `NULL` for the recovery wrap |
+| | `wrapped` | the account's key sealed (AES-GCM) by the key derived from that secret |
+| | `created_at` | |
+| `session_keys` | `token` | PK; FK `sessions(token)` ON DELETE CASCADE, so every way a session ends takes its copy with it |
+| | `wrapped` | the account's key sealed by a key derived from the session's cookie, which only the browser has |
+| `link_preview_opt_outs` | `user_id` | PK; FK `users(id)` ON DELETE CASCADE. A row is the account's "no link previews"; no row is the default |
 
 ### `notes`
 
@@ -161,6 +178,14 @@ owner, `VIEW`, `EDIT` — sees the same values, and anyone who can edit changes 
 This is **deliberately different from Google Keep**, where colour is personal and a collaborator's
 choice never changes what the owner sees. Keeping one appearance on the note is also what makes the
 model smaller: there is no resolution step and no row to create lazily on first read.
+
+### `sealed_notes`
+
+One row per note stored encrypted with its owner's key, `note_id` PK, FK `notes(id)` ON DELETE CASCADE.
+A row means the note's `title` and `content`, its `note_versions`, its `note_steps` and its
+`note_images.data` are ciphertext (Base64 text, raw bytes for pictures); `NoteSealing` keeps it in step
+with the rule in `docs/ENCRYPTION.md`, and the repositories open and seal them, so nothing above them
+sees ciphertext. Byte sizes (`note_images.byte_size`, the administrator's usage) stay the clear ones.
 
 ### `note_pins`
 
@@ -287,7 +312,7 @@ A note's pictures, bytes included, so that the database file is still the whole 
 | `content_type` | TEXT NOT NULL | `image/png`, `image/jpeg`, `image/gif` or `image/webp`, recognised from the bytes |
 | `width`, `height` | INTEGER NOT NULL | read from the picture's header |
 | `byte_size` | INTEGER NOT NULL | what counts against the owner's storage |
-| `data` | BLOB NOT NULL | the picture as uploaded |
+| `data` | BLOB NOT NULL | the picture as uploaded, sealed while the note is (`sealed_notes`) |
 | `created_at` | INTEGER NOT NULL | |
 
 ### `link_previews`

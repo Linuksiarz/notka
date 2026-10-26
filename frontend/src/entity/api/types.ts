@@ -76,6 +76,14 @@ export interface User {
   avatarAt: number | null;
 }
 
+/** The signed-in account: a [User] plus its own settings, which nobody else is told. */
+export interface Account extends User {
+  /** Whether the account's private notes are stored encrypted (`docs/ENCRYPTION.md`). */
+  encryption: boolean;
+  /** Whether the server fetches cards for the links in the account's notes. */
+  linkPreviews: boolean;
+}
+
 /** A named set of the reader's friends; picking it in the share dialog adds every member. */
 export interface FriendGroup {
   id: number;
@@ -154,6 +162,12 @@ export interface UnseenEdit {
   at: number;
 }
 
+/**
+ * Whether a note is stored encrypted with its owner's key, and when it is not, why: shared with
+ * somebody, read by the server for its link previews, or its owner has not turned encryption on.
+ */
+export type NoteEncryption = 'ENCRYPTED' | 'SHARED' | 'LINK_PREVIEWS' | 'DISABLED';
+
 export interface Note {
   id: number;
   kind: NoteKind;
@@ -204,6 +218,8 @@ export interface Note {
   shares?: NoteShare[];
   /** Absent unless somebody else edited the content since this reader last opened the note. */
   unseenEdit?: UnseenEdit;
+  /** Absent for a note this device created offline and has not stored on the server yet. */
+  encryption?: NoteEncryption;
 }
 
 export interface ApiErrorBody {
@@ -274,12 +290,27 @@ export interface LoginRequest {
 export interface PasswordResetRequest {
   token: string;
   password: string;
+  /** For an account that encrypts its notes: what keeps them (`docs/ENCRYPTION.md`). */
+  recoveryKey?: string;
+  /** For an account that encrypts its notes and lost the recovery key: delete them and reset anyway. */
+  discardEncrypted?: boolean;
 }
 
 export interface UpdateProfileRequest {
   displayName?: string;
   currentPassword?: string;
   newPassword?: string;
+  linkPreviews?: boolean;
+}
+
+export interface EnableEncryptionRequest {
+  password: string;
+}
+
+/** The only answer that ever carries the recovery key. */
+export interface EncryptionEnabledResponse {
+  user: Account;
+  recoveryKey: string;
 }
 
 export interface AddFriendRequest {
@@ -299,7 +330,7 @@ export interface UpdateFriendGroupRequest {
 }
 
 export interface UserResponse {
-  user: User;
+  user: Account;
 }
 
 export interface NotesResponse {

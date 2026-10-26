@@ -162,6 +162,15 @@
       </button>
     </header>
 
+    <!-- A sealed note is stored in the clear once it is shared (`docs/ENCRYPTION.md`): said before the
+         first share, not after it. Once shared, the note is no longer encrypted and this goes. -->
+    {#if canManage && note?.encryption === 'ENCRYPTED'}
+      <p class="encryption-warning" role="note">
+        <Icon name="no-encryption" size={20} />
+        <span>{t('share.encryptionWarning')}</span>
+      </p>
+    {/if}
+
     {#if canManage}
       <form
         class="invite"
@@ -399,6 +408,24 @@
     margin: 0;
     color: var(--keep-danger);
     font-size: 0.8125rem;
+  }
+
+  .encryption-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--keep-divider);
+    border-radius: 8px;
+    color: var(--keep-text);
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+  }
+
+  .encryption-warning > :global(svg) {
+    flex-shrink: 0;
+    color: var(--keep-text-secondary);
   }
 
   .muted {

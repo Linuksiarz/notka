@@ -27,7 +27,12 @@ import dev.duwe.notka.boundary.http.routes.eventRoutes
 import dev.duwe.notka.boundary.http.routes.healthRoutes
 import dev.duwe.notka.boundary.http.routes.labelRoutes
 import dev.duwe.notka.boundary.http.routes.noteRoutes
+import dev.duwe.notka.control.AccountKeys
 import dev.duwe.notka.control.AuthService
+import dev.duwe.notka.control.EncryptionService
+import dev.duwe.notka.control.NoteSealing
+import dev.duwe.notka.entity.persistence.AccountKeyRepository
+import dev.duwe.notka.entity.persistence.KeyRing
 import dev.duwe.notka.control.DemoData
 import dev.duwe.notka.control.LabelService
 import dev.duwe.notka.control.NoteAccessChecker
@@ -65,6 +70,9 @@ class AppServices(
     val config: AppConfig,
     val database: Database,
     val auth: AuthService,
+    val encryption: EncryptionService,
+    /** The unlocked keys of the accounts in use; in memory only. */
+    val keyRing: KeyRing,
     val settings: ServerSettingsService,
     val admin: AdminService,
     val themes: ThemeService,
@@ -107,10 +115,11 @@ class AppServices(
             val pooled = Databases.connect(config.dbPath)
             val database = pooled.database
             Migrations.run(config.dbPath)
+            val keyRing = KeyRing(clock)
             val users = UserRepository(database)
             val sessions = SessionRepository(database)
-            val notes = NoteRepository(database)
-            val versions = NoteVersionRepository(database)
+            val notes = NoteRepository(database, keyRing)
+            val versions = NoteVersionRepository(database, keyRing)
             val shares = ShareRepository(database)
             val labels = LabelRepository(database)
             val access = NoteAccessChecker(notes, shares)
@@ -121,37 +130,43 @@ class AppServices(
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
                 clock = clock,
             )
-            val auth = AuthService(users, sessions, PasswordResetRepository(database), config.sessionTtlMillis, clock)
+            val accountKeys = AccountKeys(AccountKeyRepository(database), keyRing, notes, clock)
+            val sealing = NoteSealing(notes, shares, users, accountKeys, linkPreviews)
+            val auth = AuthService(users, sessions, PasswordResetRepository(database), accountKeys, config.sessionTtlMillis, clock)
             val themes = ThemeRepository(database)
             val settings = ServerSettingsService(ServerSettingsRepository(database), themes)
+            val noteService = NoteService(
+                notes = notes,
+                versions = versions,
+                shares = shares,
+                labels = labels,
+                users = users,
+                access = access,
+                events = events,
+                linkPreviews = linkPreviews,
+                sealing = sealing,
+                maxNoteBytes = config.maxNoteBytes,
+                maxNotesPerUser = config.maxNotesPerUser,
+                images = NoteImageRepository(database, keyRing),
+                maxImageBytesPerUser = config.maxImageBytesPerUser,
+                clock = clock,
+            )
             return AppServices(
                 config = config,
                 database = database,
                 auth = auth,
+                encryption = EncryptionService(users, sessions, accountKeys, sealing, noteService),
+                keyRing = keyRing,
                 settings = settings,
                 admin = AdminService(users, auth, mail, config.publicUrl),
                 themes = ThemeService(themes, users, settings, clock),
-                notes = NoteService(
-                    notes = notes,
-                    versions = versions,
-                    shares = shares,
-                    labels = labels,
-                    users = users,
-                    access = access,
-                    events = events,
-                    linkPreviews = linkPreviews,
-                    maxNoteBytes = config.maxNoteBytes,
-                    maxNotesPerUser = config.maxNotesPerUser,
-                    images = NoteImageRepository(database),
-                    maxImageBytesPerUser = config.maxImageBytesPerUser,
-                    clock = clock,
-                ),
-                sharing = SharingService(access, shares, users, clock),
+                notes = noteService,
+                sharing = SharingService(access, shares, users, sealing, clock),
                 labels = LabelService(labels, clock),
                 avatars = AvatarService(AvatarRepository(database), users, clock),
                 friends = FriendService(FriendRepository(database), users, clock),
                 trashCleanup = TrashCleanupJob(notes, config.trashRetentionMillis, clock),
-                sessionCleanup = SessionCleanupJob(auth),
+                sessionCleanup = SessionCleanupJob(auth, keyRing),
                 events = events,
                 linkPreviews = linkPreviews,
                 pool = pooled,
@@ -206,12 +221,12 @@ fun Application.notkaModule(services: AppServices) {
     configureHttpPlugins(services.config)
     routing {
         healthRoutes(services.config, services.settings)
-        authRoutes(services.auth, services.settings, services.config)
+        authRoutes(services.auth, services.encryption, services.settings, services.config)
         adminRoutes(services.auth, services.admin, services.settings, services.themes, services.config)
         themeRoutes(services.auth, services.themes)
         noteRoutes(services.notes, services.sharing, services.auth)
         labelRoutes(services.labels, services.auth)
-        avatarRoutes(services.avatars, services.auth)
+        avatarRoutes(services.avatars, services.auth, services.encryption)
         friendRoutes(services.friends, services.auth)
         eventRoutes(services.events, services.auth)
     }

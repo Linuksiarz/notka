@@ -57,6 +57,7 @@ Every non-2xx response has this body:
 | `request.invalid_body`, `request.unauthorized`, `request.not_found`, `request.internal` | – |
 | `request.too_large`, `request.too_many`, `request.cross_site` | – |
 | `auth.invalid_credentials`, `auth.username_invalid`, `auth.admin_required`, `auth.reset_invalid` | – |
+| `auth.recovery_key_required` (`409`), `auth.recovery_key_invalid`, `auth.encryption_already_on` (`409`) | – |
 | `auth.email_taken`, `auth.email_invalid` | `email` |
 | `auth.registration_disabled`, `auth.display_name_invalid`, `auth.password_too_short`, `auth.invalid_current_password` | – |
 | `note.not_found`, `note.forbidden` | `noteId` |
@@ -99,6 +100,11 @@ environment has a `username` it signs in with, and an `email` only when `NOTKA_A
 one. `admin` is `true` for the instance's administrator alone. `avatarAt` is when the account last
 changed its own picture, `null` while it has none (the client draws the initials); the picture is at
 `GET /api/users/{id}/avatar?v={avatarAt}`.
+
+The signed-in account itself — every `{ "user": … }` the `/api/auth` routes answer with — carries two
+more fields, which nobody else is told: `encryption` (its private notes are stored encrypted,
+`docs/ENCRYPTION.md`) and `linkPreviews` (the server fetches cards for the links in its notes; `true`
+by default).
 
 ### `Label`
 
@@ -149,6 +155,7 @@ changed its own picture, `null` while it has none (the client draws the initials
 | `completedCollapsed` | whether **the caller** folded the list's "N completed items" away (`note_folds`); the card and the editor both show it |
 | `labels` | only the requesting user's own labels |
 | `shares` | everyone the note is shared with (the owner is `owner`, never a share); omitted while there is nobody |
+| `encryption` | `ENCRYPTED` while the note is stored encrypted with its owner's key; otherwise why not: `SHARED`, `LINK_PREVIEWS` (the server reads its links for their cards) or `DISABLED` (the owner has not turned encryption on). See `docs/ENCRYPTION.md` |
 | `unseenEdit` | `{ "user": User, "at": 1767225600000 }`: somebody else wrote the note's content (title, kind or body) at `at` and the caller has not opened the note since — the card's "edited by" marker. Omitted otherwise, and always for the caller's own edits. `POST /api/notes/{id}/seen` takes it away |
 
 ---
@@ -194,6 +201,11 @@ fragment so no server or proxy on the way ever logs it.
 Response `200`: `{ "user": { ... } }` plus a fresh session cookie — the reset signs the account in.
 The link works once, for 24 hours; otherwise `400 auth.reset_invalid`.
 
+An account that encrypts its notes also sends `"recoveryKey": "PW7H-F365-…"` (case, dashes and
+spaces do not matter): the forgotten password was what opened the notes. Without it the answer is
+`409 auth.recovery_key_required`, a key that does not match is `400 auth.recovery_key_invalid`, and
+`"discardEncrypted": true` resets anyway, deleting the sealed notes for good.
+
 ### `POST /api/auth/logout`
 
 Response `204`. Deletes the session row and clears the cookie. Idempotent.
@@ -217,6 +229,21 @@ Request (all fields optional, at least one required):
 
 Changing the password requires `currentPassword`. Response `200`: `{ "user": { ... } }`.
 A new password signs out every other session of the account; the one making the change stays.
+`"linkPreviews": false` stops the server reading the links in the account's notes (no cards, and
+notes with links can be encrypted); `true` brings the cards back.
+
+### `POST /api/auth/me/encryption`
+
+Request: `{ "password": "…" }` — asked again, because it is what the account's key is wrapped with.
+Response `201`: `{ "user": { …, "encryption": true }, "recoveryKey": "PW7H-F365-PDY3-TGEC-HY55-SVMD-MJ35-X3PS" }`
+— the only answer that ever carries the recovery key. The account's private notes are sealed before
+it is sent, and every other session of the account is signed out. `400 auth.invalid_current_password`,
+`409 auth.encryption_already_on`.
+
+### `DELETE /api/auth/me/encryption`
+
+Response `200`: `{ "user": { …, "encryption": false } }`. Every note of the account is stored in the
+clear again and the key is forgotten; the recovery key stops working.
 
 ### `PUT /api/auth/me/avatar`
 

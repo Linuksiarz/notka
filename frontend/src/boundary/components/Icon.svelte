@@ -57,6 +57,8 @@
   import openInNew from '@iconify-icons/ic/baseline-open-in-new';
   import contentCopy from '@iconify-icons/ic/outline-content-copy';
   import lockReset from '@iconify-icons/ic/outline-lock-reset';
+  import lockOutline from '@iconify-icons/ic/outline-lock';
+  import noEncryption from '@iconify-icons/ic/outline-no-encryption';
   import personRemove from '@iconify-icons/ic/outline-person-remove';
   import groupOutline from '@iconify-icons/ic/outline-group';
   import zoomIn from '@iconify-icons/ic/outline-zoom-in';
@@ -131,6 +133,8 @@
     moon: darkMode,
     eye: visibilityOutline,
     'lock-reset': lockReset,
+    lock: lockOutline,
+    'no-encryption': noEncryption,
     'person-remove': personRemove,
     /* Friends and groups, and the avatar cropper's zoom. */
     group: groupOutline,

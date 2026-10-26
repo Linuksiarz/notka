@@ -194,6 +194,8 @@ export const pl: Messages = {
   'share.viewOnly': 'Tylko podgląd',
   'share.invite': 'Zaproś',
   'share.loading': 'Wczytywanie osób z dostępem…',
+  'share.encryptionWarning':
+    'Ta notatka jest zaszyfrowana. Po udostępnieniu zostanie zapisana bez szyfrowania, bo osoby z dostępem odczytują ją bez Twojego hasła. Gdy przestaniesz ją udostępniać, znów zostanie zaszyfrowana.',
   'share.empty':
     'Nikt inny nie widzi jeszcze tej notatki. Każdy, komu ją udostępnisz, widzi ten sam kolor i tło, a każdy z uprawnieniem „może edytować” może je zmienić wszystkim.',
   'share.permissionFor': 'Uprawnienie dla {name}',
@@ -374,6 +376,56 @@ export const pl: Messages = {
   'settings.experimental': 'Eksperymentalne',
   'settings.glass': 'Liquid Glass',
   'settings.glassHint': 'Szklane przyciski edytora z iOS na telefonie. Domyślnie włączone tylko na iPhonie.',
+  'settings.encryption': 'Szyfrowanie',
+  'settings.encryptionToggle': 'Szyfruj moje prywatne notatki',
+  'settings.encryptionHint':
+    'Notatki, których nikt poza Tobą nie widzi, są zapisywane zaszyfrowane kluczem, który odblokowuje tylko Twoje hasło, więc administrator serwera nie odczyta ich z bazy danych. Notatki udostępnione pozostają niezaszyfrowane.',
+  'settings.linkPreviews': 'Pokazuj podglądy linków',
+  'settings.linkPreviewsHint':
+    'Aby pokazać kartę linku, serwer odczytuje linki z Twoich notatek, dlatego notatka z linkami nie jest szyfrowana, dopóki ta opcja jest włączona.',
+  'settings.encryptionOffConfirm':
+    'Twoje notatki będą znów zapisywane bez szyfrowania, a klucz odzyskiwania przestanie działać. Wyłączyć szyfrowanie?',
+  'settings.encryptionOffAction': 'Wyłącz',
+  'encryption.lock.encrypted':
+    'Treść tej notatki jest zaszyfrowana Twoim hasłem. Administrator serwera nie może jej odczytać z bazy danych.',
+  'encryption.lock.shared':
+    'Treść tej notatki nie jest zaszyfrowana, ponieważ notatka jest współdzielona: każda osoba z dostępem musi móc ją odczytać bez hasła właściciela.',
+  'encryption.lock.linkPreviews':
+    'Treść tej notatki nie jest zaszyfrowana, ponieważ serwer musi wygenerować podglądy dla załączonych linków. Jeśli chcesz, aby notatki z linkami były szyfrowane, wyłącz podglądy linków w ustawieniach.',
+  'encryption.lock.disabled':
+    'Treść tej notatki nie jest zaszyfrowana. Szyfrowanie prywatnych notatek możesz włączyć w ustawieniach.',
+  'encryption.lock.encryptedLabel': 'Zaszyfrowana',
+  'encryption.lock.notEncryptedLabel': 'Niezaszyfrowana',
+  'encryption.enableTitle': 'Włącz szyfrowanie',
+  'encryption.enableText':
+    'Twoje prywatne notatki, ich historia i obrazy będą zapisywane zaszyfrowane kluczem, który odblokowuje tylko Twoje hasło. Administrator serwera nie będzie mógł ich odczytać z bazy danych.',
+  'encryption.enableShared':
+    'Notatki, które udostępniasz, pozostają niezaszyfrowane, bo osoby, którym je udostępniasz, odczytują je bez Twojego hasła.',
+  'encryption.enableSignOut': 'Pozostałe urządzenia zostaną wylogowane; po ponownym zalogowaniu notatki otworzą się i tam.',
+  'encryption.cancel': 'Anuluj',
+  'encryption.enable': 'Włącz',
+  'encryption.enabling': 'Włączanie…',
+  'encryption.recoveryTitle': 'Twój klucz odzyskiwania',
+  'encryption.recoveryText':
+    'Zapisz ten klucz i przechowuj go w bezpiecznym miejscu. Jeśli zapomnisz hasła, tylko on pozwoli zachować zaszyfrowane notatki przy resetowaniu hasła.',
+  'encryption.recoveryCopy': 'Kopiuj klucz odzyskiwania',
+  'encryption.recoveryCopied': 'Skopiowano klucz odzyskiwania',
+  'encryption.recoveryWarning':
+    'Jest pokazywany tylko ten jeden raz. Bez niego reset hasła usuwa zaszyfrowane notatki i nikt — nawet administrator — nie zdoła ich przywrócić.',
+  'encryption.disableLinkPreviews': 'Wyłącz podglądy linków',
+  'encryption.disableLinkPreviewsHint':
+    'Gdy podglądy linków są włączone, serwer odczytuje linki z Twoich notatek, aby pobrać ich karty, więc notatki z linkami pozostają niezaszyfrowane. Wyłącz je, aby szyfrować także te notatki; możesz to później zmienić w ustawieniach.',
+  'encryption.recoveryDone': 'Klucz zapisany',
+  'auth.recoveryKey': 'Klucz odzyskiwania',
+  'auth.recoveryKeyHint':
+    'Twoje notatki są zaszyfrowane, a odblokowywało je stare hasło. Wpisz klucz odzyskiwania pokazany przy włączaniu szyfrowania, aby je zachować.',
+  'auth.recoveryKeyLost': 'Nie mam klucza odzyskiwania',
+  'auth.recoveryKeyLostWarning':
+    'Twoje zaszyfrowane notatki zostaną trwale usunięte. Notatki udostępnione innym zostaną zachowane.',
+  'auth.recoveryKeyMissing': 'Wpisz klucz odzyskiwania albo zaznacz, że go nie masz.',
+  'errors.auth.recovery_key_required': 'To konto szyfruje notatki: wpisz jego klucz odzyskiwania.',
+  'errors.auth.recovery_key_invalid': 'Ten klucz odzyskiwania nie pasuje. Sprawdź go znak po znaku.',
+  'errors.auth.encryption_already_on': 'Szyfrowanie jest już włączone dla tego konta.',
   'settings.languageHint': 'Wybierz język interfejsu.',
   'settings.profile': 'Profil',
   'settings.displayName': 'Nazwa wyświetlana',

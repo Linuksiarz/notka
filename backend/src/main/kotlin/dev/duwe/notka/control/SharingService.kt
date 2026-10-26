@@ -16,6 +16,7 @@ class SharingService(
     private val access: NoteAccessChecker,
     private val shares: ShareRepository,
     private val users: UserRepository,
+    private val sealing: NoteSealing,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     fun list(userId: Int, noteId: Int): List<ShareWithUser> {
@@ -46,6 +47,7 @@ class SharingService(
                 mapOf("email" to normalizedEmail),
             )
         }
+        sealing.beforeSharing(noteId)
         shares.insert(noteId, target.id, requestedPermission, clock())
         return ShareWithUser(target.toSummary(), requestedPermission.name)
     }
@@ -64,6 +66,7 @@ class SharingService(
         access.requireEditable(userId, noteId)
         val existing = shares.find(noteId, targetUserId) ?: throw shareNotFound(noteId, targetUserId)
         shares.delete(noteId, existing.userId)
+        sealing.afterUnsharing(noteId)
     }
 
     private fun shareNotFound(noteId: Int, targetUserId: Int) = DomainException.notFound(

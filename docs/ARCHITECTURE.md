@@ -42,6 +42,7 @@ dev/duwe/notka/
 ├── entity/model/               ErrorKind/DomainException, entities, NoteDocument, validation
 ├── entity/persistence/         Database, Migrations, Exposed tables, *Repository
 ├── control/                    AuthService, NoteService, SharingService, LabelService,
+│                               AccountKeys, NoteSealing, EncryptionService,
 │                               PasswordHasher, TrashCleanupJob
 └── boundary/config/            AppConfig (environment)
     boundary/http/dto/          wire DTOs and mappers
@@ -192,6 +193,7 @@ src/
 | --- | --- |
 | Pictures | Implemented: `note_images`, `/api/notes/{id}/images`, `NoteImages` / `ImageViewer`. Drawings and voice notes are not |
 | Link previews | **Implemented.** The urls are read out of the document (`LinkPreviewService.extract`), fetched through a guarded client and cached in `link_previews`; no url is ever stored beside the note, so removing a link removes its card |
+| Encryption of private notes | **Implemented**, at rest and on the server: `docs/ENCRYPTION.md`. Not end to end — the server holds an account's key while it is in use |
 | Reminders | Implemented: `reminder_at`/`reminder_repeat` on the note, set through `PATCH`, gathered by `GET /api/notes?reminders=true` |
 | Label filtering | `GET /api/notes?labelId=` narrows a view to the notes carrying that label; labels stay per-user |
 | Note search | Top bar filters the already-loaded note list client-side only |

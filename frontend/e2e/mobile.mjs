@@ -161,7 +161,7 @@ const fab = await page.evaluate(() => {
 });
 check(
   'the one button opens the kinds of note and turns into a 60px round close button',
-  fab.kinds.join(',') === 'Image,List,Text' && fab.size === 60,
+  fab.kinds.join(',') === 'Image,List,Note' && fab.size === 60,
   JSON.stringify(fab)
 );
 await page.getByRole('button', { name: 'Close', exact: true }).last().click();

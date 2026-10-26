@@ -13,6 +13,7 @@
   import LinkCards from './LinkCards.svelte';
   import type { ReminderRepeat } from '../../entity/api/types';
   import NoteAvatars from './NoteAvatars.svelte';
+  import EncryptionLock, { encryptionExplanation } from './EncryptionLock.svelte';
   import { otherPeople } from '../../entity/account';
   import ReminderChip from './ReminderChip.svelte';
   import ReminderPicker from './ReminderPicker.svelte';
@@ -894,6 +895,8 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   });
 
   const showStatus = $derived(!ui.phone && (draft.saving || editedLabel !== null || !draft.canEdit));
+  /** Whether the note is stored encrypted, or why not; unknown for a note not on the server yet. */
+  const encryption = $derived(currentNote?.encryption ?? null);
 </script>
 
 <!-- Capture phase on purpose: bits-ui listens on `document` for Escape, so by the time a listener
@@ -1172,12 +1175,17 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
              the note's link previews come under it — then the bar's icons (measured off the owner's
              screenshots). A phone shows it as the heading of the ⋮ sheet instead, where the original's app
              has it. -->
-        {#if sharedWith.length > 0 || showStatus}
+        {#if sharedWith.length > 0 || showStatus || (!ui.phone && encryption)}
           <div class="edited-row">
             {#if sharedWith.length > 0}
               <button type="button" class="people shared-with" aria-label={t('card.collaborator')} title={t('card.collaborator')} onclick={openCollaborators}>
                 <NoteAvatars people={sharedWith} place="editor" />
               </button>
+            {/if}
+            <!-- The lock stands just before "Edited …": whether what the line describes is stored
+                 encrypted. A phone has it at the top of the ⋮ sheet, where its "Edited" is. -->
+            {#if !ui.phone && encryption}
+              <EncryptionLock {encryption} />
             {/if}
             {#if showStatus}
               {#if draft.saving}
@@ -1501,6 +1509,13 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
     color={draft.color}
     background={draft.background}
   >
+    <!-- No hover on a phone: the lock's explanation is written out under the sheet's "Edited" heading. -->
+    {#if encryption}
+      <p class="sheet-encryption">
+        <Icon name={encryption === 'ENCRYPTED' ? 'lock' : 'no-encryption'} size={18} />
+        <span>{encryptionExplanation(encryption)}</span>
+      </p>
+    {/if}
     {@render sheetItem('trash', t('card.deleteNote'), deleteNote)}
     {@render sheetItem('content-copy', t('card.makeCopy'), copyNote)}
     {@render sheetItem('person-add', t('card.collaborator'), openCollaborators)}
@@ -1824,6 +1839,22 @@ import { NoteDraft } from '../editor/noteDraft.svelte';
   /* On the desktop the block is laid out as it always was, between the text and the bar. */
   .note-meta {
     display: contents;
+  }
+
+  /* Under the ⋮ sheet's "Edited" heading, inset like its rows' text and in its secondary ink. */
+  .sheet-encryption {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 26px 12px;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--note-fg-secondary, var(--keep-text-secondary));
+  }
+
+  .sheet-encryption > :global(svg) {
+    flex-shrink: 0;
+    margin-top: 1px;
   }
 
   .edited-row {

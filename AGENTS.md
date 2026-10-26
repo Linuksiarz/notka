@@ -287,6 +287,11 @@ thrown away.
   and voids the old password only after the mail server accepted the message.
 - Theme pictures are served from this origin, so they go out with a `sandbox` CSP; a theme's files
   are recognised by their bytes, as note pictures are.
+- **Private notes may be stored encrypted** (`docs/ENCRYPTION.md`), at rest and on the server — not end
+  to end. An account's key is never stored unwrapped: only wrapped by its password (PBKDF2, a salt of
+  its own), its recovery key (shown once) and each session's cookie. Nothing but the repositories opens
+  or seals a value, and access is decided **before** a note is read (`NoteAccessChecker`), because a
+  sealed note opens only with its owner's key.
 - The CSP's `script-src` carries `'wasm-unsafe-eval'` for the JPEG XL encoder and nothing more; never
   `'unsafe-eval'`. An avatar is accepted only as JPEG XL (never SVG), capped at 512 KB and 1024 px.
 
@@ -983,3 +988,12 @@ thrown away.
    cut by measuring excerpts of the document (`entity/cardExcerpt.ts`). It counts drawn lines, never
    characters or pixels, so it follows the reader's font and the card's width. A new note's composer
    scrolls its title and text inside 600px, with the bar below them.
+29. **A private note is stored encrypted when its owner asks for it** (`docs/ENCRYPTION.md`): encryption
+   on, shared with nobody, and no links the server must read for previews (or previews off). One rule
+   (`NoteSealing`) decides it, applied whenever the owner's request touches the note, so sharing,
+   unsharing, a link typed in and a changed setting all move the note between sealed and clear; the
+   client only reads the outcome (`Note.encryption`), and the editor's **lock** — just before
+   "Edited …", crossed out with the reason when the note is not encrypted, a tooltip on the desktop and
+   a line in the ⋮ sheet on a phone — explains it. Link previews are an account's own setting, on by
+   default. A password reset keeps the sealed notes only with the recovery key, and deletes them only
+   when the owner says so.

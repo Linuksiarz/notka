@@ -202,6 +202,8 @@ export const enUS = {
   'share.viewOnly': 'View only',
   'share.invite': 'Invite',
   'share.loading': 'Loading collaborators…',
+  'share.encryptionWarning':
+    'This note is encrypted. Once you share it, it is stored unencrypted, because the people you share it with read it without your password. When nobody else has it any more, it is encrypted again.',
   'share.empty':
     'Nobody else can see this note yet. Everyone you share with sees the same colour and background, and anyone with can edit access can change them for everyone.',
   'share.permissionFor': 'Permission for {name}',
@@ -346,6 +348,56 @@ export const enUS = {
   'settings.experimental': 'Experimental',
   'settings.glass': 'Liquid Glass',
   'settings.glassHint': "The editor's glass buttons from iOS on a phone. On by default on an iPhone only.",
+  'settings.encryption': 'Encryption',
+  'settings.encryptionToggle': 'Encrypt my private notes',
+  'settings.encryptionHint':
+    'Notes nobody else can see are stored encrypted with a key that only your password unlocks, so the server’s administrator cannot read them in its database. Notes you share stay unencrypted.',
+  'settings.linkPreviews': 'Show link previews',
+  'settings.linkPreviewsHint':
+    'To show a card for a link, the server reads the links in your notes, so a note with links is not encrypted while this is on.',
+  'settings.encryptionOffConfirm':
+    'Your notes will be stored unencrypted again, and your recovery key will stop working. Turn encryption off?',
+  'settings.encryptionOffAction': 'Turn off',
+  'encryption.lock.encrypted':
+    'The content of this note is encrypted with your password. The server’s administrator cannot read it in the database.',
+  'encryption.lock.shared':
+    'The content of this note is not encrypted because the note is shared: everyone with access has to be able to read it without its owner’s password.',
+  'encryption.lock.linkPreviews':
+    'The content of this note is not encrypted because the server has to generate previews for the links in it. If you want notes with links to be encrypted, turn off link previews in Settings.',
+  'encryption.lock.disabled':
+    'The content of this note is not encrypted. You can turn on encryption of your private notes in Settings.',
+  'encryption.lock.encryptedLabel': 'Encrypted',
+  'encryption.lock.notEncryptedLabel': 'Not encrypted',
+  'encryption.enableTitle': 'Turn on encryption',
+  'encryption.enableText':
+    'Your private notes, their history and their pictures will be stored encrypted with a key that only your password unlocks. The server’s administrator will not be able to read them in its database.',
+  'encryption.enableShared':
+    'Notes you share stay unencrypted, because the people you share them with read them without your password.',
+  'encryption.enableSignOut': 'Your other devices will be signed out; signing in again opens your notes there.',
+  'encryption.cancel': 'Cancel',
+  'encryption.enable': 'Turn on',
+  'encryption.enabling': 'Turning on…',
+  'encryption.recoveryTitle': 'Your recovery key',
+  'encryption.recoveryText':
+    'Write this key down and keep it somewhere safe. If you forget your password, it is the only way to keep your encrypted notes when your password is reset.',
+  'encryption.recoveryCopy': 'Copy the recovery key',
+  'encryption.recoveryCopied': 'Recovery key copied',
+  'encryption.recoveryWarning':
+    'It is shown only this once. Without it, a password reset deletes your encrypted notes, and nobody — not even the administrator — can bring them back.',
+  'encryption.disableLinkPreviews': 'Turn off link previews',
+  'encryption.disableLinkPreviewsHint':
+    'While link previews are on, the server reads the links in your notes to fetch their cards, so notes with links stay unencrypted. Turn them off to encrypt those notes too; you can change this later in Settings.',
+  'encryption.recoveryDone': 'I wrote it down',
+  'auth.recoveryKey': 'Recovery key',
+  'auth.recoveryKeyHint':
+    'Your notes are encrypted, and your old password was what unlocked them. Enter the recovery key shown when you turned encryption on to keep them.',
+  'auth.recoveryKeyLost': 'I don’t have my recovery key',
+  'auth.recoveryKeyLostWarning':
+    'Your encrypted notes will be deleted for good. Notes you share with others are kept.',
+  'auth.recoveryKeyMissing': 'Enter your recovery key, or tick the box if you don’t have it.',
+  'errors.auth.recovery_key_required': 'This account encrypts its notes: enter its recovery key.',
+  'errors.auth.recovery_key_invalid': 'This recovery key does not match. Check it letter by letter.',
+  'errors.auth.encryption_already_on': 'Encryption is already on for this account.',
   'settings.languageHint': 'Choose the language of the interface.',
   'settings.profile': 'Profile',
   'settings.displayName': 'Display name',

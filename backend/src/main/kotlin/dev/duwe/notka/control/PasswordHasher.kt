@@ -14,7 +14,7 @@ object PasswordHasher {
     private const val ALGORITHM = "PBKDF2WithHmacSHA256"
     private const val PREFIX = "pbkdf2-sha256"
     /** OWASP's figure for PBKDF2-HMAC-SHA256 (Password Storage Cheat Sheet, 2023). */
-    private const val ITERATIONS = 600_000
+    const val ITERATIONS = 600_000
     private const val KEY_LENGTH_BITS = 256
     private const val SALT_BYTES = 16
     private const val PARTS = 4
@@ -40,7 +40,8 @@ object PasswordHasher {
         return MessageDigest.isEqual(expected, derive(password, salt, iterations))
     }
 
-    private fun derive(password: String, salt: ByteArray, iterations: Int): ByteArray {
+    /** The raw PBKDF2 output; also what an account's key is wrapped with (`AccountKeys`). */
+    fun derive(password: String, salt: ByteArray, iterations: Int = ITERATIONS): ByteArray {
         val spec = PBEKeySpec(password.toCharArray(), salt, iterations, KEY_LENGTH_BITS)
         try {
             return SecretKeyFactory.getInstance(ALGORITHM).generateSecret(spec).encoded

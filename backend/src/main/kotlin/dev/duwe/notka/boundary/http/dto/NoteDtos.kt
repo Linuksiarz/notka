@@ -1,5 +1,6 @@
 package dev.duwe.notka.boundary.http.dto
 
+import dev.duwe.notka.control.AccountSettings
 import dev.duwe.notka.entity.model.NoteDocument
 import dev.duwe.notka.entity.model.UserSummary
 import kotlinx.serialization.EncodeDefault
@@ -20,8 +21,33 @@ data class UserDto(
 
 fun UserSummary.toDto(): UserDto = UserDto(id, email, username, displayName, admin, avatarAt)
 
+/** The signed-in account: what anyone may see of it, plus its own settings, which nobody else is told. */
 @Serializable
-data class AuthResponse(val user: UserDto)
+data class AccountDto(
+    val id: Int,
+    val email: String?,
+    val username: String?,
+    val displayName: String,
+    val admin: Boolean,
+    val avatarAt: Long?,
+    /** Whether the account's private notes are stored encrypted (`docs/ENCRYPTION.md`). */
+    val encryption: Boolean,
+    /** Whether the server fetches cards for the links in the account's notes. */
+    val linkPreviews: Boolean,
+)
+
+fun UserSummary.toAccountDto(settings: AccountSettings): AccountDto =
+    AccountDto(id, email, username, displayName, admin, avatarAt, settings.encryption, settings.linkPreviews)
+
+@Serializable
+data class AuthResponse(val user: AccountDto)
+
+@Serializable
+data class EnableEncryptionRequest(val password: String)
+
+/** The only answer that ever carries the recovery key. */
+@Serializable
+data class EncryptionEnabledResponse(val user: AccountDto, val recoveryKey: String)
 
 @Serializable
 data class RegisterRequest(val email: String, val displayName: String, val password: String)
@@ -34,13 +60,21 @@ data class LoginRequest(
 )
 
 @Serializable
-data class PasswordResetRequest(val token: String, val password: String)
+data class PasswordResetRequest(
+    val token: String,
+    val password: String,
+    /** For an account that encrypts its notes: what keeps them. */
+    val recoveryKey: String? = null,
+    /** For an account that encrypts its notes and lost its recovery key: delete them and reset anyway. */
+    val discardEncrypted: Boolean = false,
+)
 
 @Serializable
 data class PatchMeRequest(
     val displayName: String? = null,
     val currentPassword: String? = null,
     val newPassword: String? = null,
+    val linkPreviews: Boolean? = null,
 )
 
 /** A sample sign-in offered by a demo instance; see `DemoData`. */
@@ -141,6 +175,8 @@ data class NoteDto(
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val unseenEdit: UnseenEditDto? = null,
+    /** `ENCRYPTED`, or why the note is not: `SHARED`, `LINK_PREVIEWS` or `DISABLED`. */
+    val encryption: String = "DISABLED",
 )
 
 /** Who wrote a note's content last, and when, while the reader has not seen it. */
