@@ -39,6 +39,11 @@ services:
       NOTKA_ADMIN_EMAIL: "${NOTKA_ADMIN_EMAIL:-}"
       # The address people reach the instance at; links in e-mails are built from it.
       NOTKA_PUBLIC_URL: "${NOTKA_PUBLIC_URL:-}"
+      # Sign-in through an OpenID Connect provider, next to passwords. Empty issuer: passwords only.
+      NOTKA_OIDC_ISSUER: "${NOTKA_OIDC_ISSUER:-}"
+      NOTKA_OIDC_CLIENT_ID: "${NOTKA_OIDC_CLIENT_ID:-}"
+      NOTKA_OIDC_CLIENT_SECRET: "${NOTKA_OIDC_CLIENT_SECRET:-}"
+      NOTKA_OIDC_NAME: "${NOTKA_OIDC_NAME:-SSO}"
       # Outgoing mail, for password resets. Without NOTKA_SMTP_HOST nothing is sent.
       NOTKA_SMTP_HOST: "${NOTKA_SMTP_HOST:-}"
       NOTKA_SMTP_PORT: "${NOTKA_SMTP_PORT:-}"

@@ -60,6 +60,17 @@ object Validation {
         return raw
     }
 
+    /** An encryption passphrase, held to what a password is held to; nothing else guards the wrap it opens. */
+    fun passphrase(raw: String): String {
+        if (raw.length < PASSWORD_MIN_LENGTH || raw.length > PASSWORD_MAX_LENGTH) {
+            throw DomainException.validation(
+                ErrorKeys.AUTH_PASSPHRASE_TOO_SHORT,
+                "Passphrase must be $PASSWORD_MIN_LENGTH to $PASSWORD_MAX_LENGTH characters",
+            )
+        }
+        return raw
+    }
+
     fun labelName(raw: String): String {
         val name = raw.trim()
         if (name.isEmpty() || name.length > LABEL_NAME_MAX_LENGTH) {

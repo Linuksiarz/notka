@@ -34,16 +34,57 @@ data class AccountDto(
     val encryption: Boolean,
     /** Whether the server fetches cards for the links in the account's notes. */
     val linkPreviews: Boolean,
+    /** This device has not entered the account's secret yet; nothing but unlocking works until it has. */
+    val encryptionLocked: Boolean,
+    /** Whether the account signs in with a password; without one its key is wrapped by a passphrase. */
+    val hasPassword: Boolean,
+    /** Whether the account is connected to the identity provider. */
+    val ssoLinked: Boolean,
 )
 
-fun UserSummary.toAccountDto(settings: AccountSettings): AccountDto =
-    AccountDto(id, email, username, displayName, admin, avatarAt, settings.encryption, settings.linkPreviews)
+fun UserSummary.toAccountDto(settings: AccountSettings): AccountDto = AccountDto(
+    id, email, username, displayName, admin, avatarAt,
+    settings.encryption, settings.linkPreviews, settings.locked, settings.hasPassword, settings.ssoLinked,
+)
 
 @Serializable
 data class AuthResponse(val user: AccountDto)
 
 @Serializable
-data class EnableEncryptionRequest(val password: String)
+data class EnableEncryptionRequest(
+    /** The account's password, asked again; or, for an account without one, the [passphrase] it chooses. */
+    val password: String? = null,
+    val passphrase: String? = null,
+)
+
+@Serializable
+data class UnlockEncryptionRequest(val secret: String)
+
+/** [newPassphrase] is required of an account without a password: the old one is what was forgotten. */
+@Serializable
+data class RecoverEncryptionRequest(val recoveryKey: String, val newPassphrase: String? = null)
+
+@Serializable
+data class ChangePassphraseRequest(val currentPassphrase: String, val newPassphrase: String)
+
+/**
+ * [link] connects the signed-in account instead of signing in. [appChallenge] is Android's app asking for
+ * the answer as a code it can redeem: the base64url SHA-256 of a secret that stays in its WebView.
+ */
+@Serializable
+data class SsoStartRequest(val link: Boolean = false, val appChallenge: String? = null)
+
+/** Where the browser goes next: the provider's sign-in page. */
+@Serializable
+data class SsoStartResponse(val url: String)
+
+/** [code] came back through the app's own scheme; [verifier] is the secret behind `appChallenge`. */
+@Serializable
+data class SsoExchangeRequest(val code: String, val verifier: String)
+
+/** [linked]: the account was connected rather than signed in. */
+@Serializable
+data class SsoExchangeResponse(val user: AccountDto, val linked: Boolean)
 
 /** The only answer that ever carries the recovery key. */
 @Serializable
@@ -95,6 +136,8 @@ data class HealthResponse(
     val registrationOpen: Boolean = true,
     /** How many days a trashed note stays before it is deleted for good; the trash says so. */
     val trashRetentionDays: Long = 30,
+    /** What the sign-in button calls the identity provider; `null` when the instance has none. */
+    val ssoProvider: String? = null,
     /**
      * The sample sign-ins, empty on anything but a demo instance. The passwords are public there by
      * design, and carrying them here keeps the seeder the single place that defines them.

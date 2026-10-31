@@ -11,10 +11,14 @@ import dev.duwe.notka.boundary.http.routes.avatarRoutes
 import dev.duwe.notka.boundary.http.routes.friendRoutes
 import dev.duwe.notka.boundary.http.routes.themeRoutes
 import dev.duwe.notka.boundary.mail.SmtpAccountMail
+import dev.duwe.notka.boundary.oidc.OidcIdentityProvider
 import dev.duwe.notka.control.AccountMail
 import dev.duwe.notka.control.AdminService
 import dev.duwe.notka.control.AvatarService
 import dev.duwe.notka.control.FriendService
+import dev.duwe.notka.control.IdentityProvider
+import dev.duwe.notka.control.SsoService
+import dev.duwe.notka.entity.persistence.SsoIdentityRepository
 import dev.duwe.notka.entity.persistence.AvatarRepository
 import dev.duwe.notka.entity.persistence.FriendRepository
 import dev.duwe.notka.control.ServerSettingsService
@@ -71,6 +75,7 @@ class AppServices(
     val database: Database,
     val auth: AuthService,
     val encryption: EncryptionService,
+    val sso: SsoService,
     /** The unlocked keys of the accounts in use; in memory only. */
     val keyRing: KeyRing,
     val settings: ServerSettingsService,
@@ -111,6 +116,7 @@ class AppServices(
             clock: () -> Long = System::currentTimeMillis,
             httpClient: HttpClient = defaultHttpClient(),
             mail: AccountMail? = config.smtp?.let(::SmtpAccountMail),
+            identityProvider: IdentityProvider? = config.oidc?.let { OidcIdentityProvider(it, checkNotNull(config.publicUrl)) },
         ): AppServices {
             val pooled = Databases.connect(config.dbPath)
             val database = pooled.database
@@ -133,6 +139,7 @@ class AppServices(
             val accountKeys = AccountKeys(AccountKeyRepository(database), keyRing, notes, clock)
             val sealing = NoteSealing(notes, shares, users, accountKeys, linkPreviews)
             val auth = AuthService(users, sessions, PasswordResetRepository(database), accountKeys, config.sessionTtlMillis, clock)
+            val identities = SsoIdentityRepository(database)
             val themes = ThemeRepository(database)
             val settings = ServerSettingsService(ServerSettingsRepository(database), themes)
             val noteService = NoteService(
@@ -155,7 +162,8 @@ class AppServices(
                 config = config,
                 database = database,
                 auth = auth,
-                encryption = EncryptionService(users, sessions, accountKeys, sealing, noteService),
+                encryption = EncryptionService(users, identities, sessions, accountKeys, sealing, noteService),
+                sso = SsoService(identityProvider, identities, users, auth, settings, clock),
                 keyRing = keyRing,
                 settings = settings,
                 admin = AdminService(users, auth, mail, config.publicUrl),
@@ -220,8 +228,8 @@ fun Application.notkaModule(services: AppServices) {
     environment.log.info("Notka $NOTKA_VERSION starting with database ${services.config.dbPath}")
     configureHttpPlugins(services.config)
     routing {
-        healthRoutes(services.config, services.settings)
-        authRoutes(services.auth, services.encryption, services.settings, services.config)
+        healthRoutes(services.config, services.settings, services.sso)
+        authRoutes(services.auth, services.encryption, services.sso, services.settings, services.config)
         adminRoutes(services.auth, services.admin, services.settings, services.themes, services.config)
         themeRoutes(services.auth, services.themes)
         noteRoutes(services.notes, services.sharing, services.auth)

@@ -42,9 +42,10 @@ dev/duwe/notka/
 ├── entity/model/               ErrorKind/DomainException, entities, NoteDocument, validation
 ├── entity/persistence/         Database, Migrations, Exposed tables, *Repository
 ├── control/                    AuthService, NoteService, SharingService, LabelService,
-│                               AccountKeys, NoteSealing, EncryptionService,
+│                               AccountKeys, NoteSealing, EncryptionService, SsoService,
 │                               PasswordHasher, TrashCleanupJob
 └── boundary/config/            AppConfig (environment)
+    boundary/oidc/              OidcIdentityProvider (OpenID Connect, on Nimbus's SDK)
     boundary/http/dto/          wire DTOs and mappers
     boundary/http/plugins/      ContentNegotiation, StatusPages, CallLogging, cookies, SPA
     boundary/http/routes/       AuthRoutes, NoteRoutes, LabelRoutes, EventRoutes, HealthRoutes
@@ -100,6 +101,9 @@ container needs no configuration to boot.
 | `NOTKA_ADMIN_USERNAME`, `NOTKA_ADMIN_PASSWORD` | – | The administrator, created on the **first start** of an instance that has none (required then, and refused to start without). Ignored — with a warning in the log — on every later start |
 | `NOTKA_ADMIN_EMAIL` | – | Optional address for that administrator, read with the two above |
 | `NOTKA_PUBLIC_URL` | – | The address users reach the instance at, e.g. `https://notes.example.com`; links in e-mails are built from it, never from a request's `Host` |
+| `NOTKA_OIDC_ISSUER` | – | The OpenID Connect provider's issuer, exactly as its discovery document states it; turns on signing in through it and requires `NOTKA_PUBLIC_URL` and `NOTKA_OIDC_CLIENT_ID` |
+| `NOTKA_OIDC_CLIENT_ID`, `NOTKA_OIDC_CLIENT_SECRET` | – | The client registered at the provider. Without a secret it is a public client, which PKCE protects alone |
+| `NOTKA_OIDC_NAME` | `SSO` | What the sign-in button calls the provider |
 | `NOTKA_SMTP_HOST` | – | Outgoing mail server; without it no e-mail is sent and password resets are unavailable |
 | `NOTKA_SMTP_SECURITY` | `starttls` | `starttls` (port 587), `force_tls` (465) or `off` (25) — Vaultwarden's names |
 | `NOTKA_SMTP_PORT` | by security | |
@@ -155,7 +159,8 @@ src/
   no prop-drilling of collections. Stores never produce user-facing text — the boundary decides
   what to tell the user — which is what keeps `control` free of i18n.
 - **The router is hand-rolled** (history API + `popstate`). Routes: `/`, `/archive`, `/trash`,
-  `/reminders`, `/labels/{id}`, `/settings`, `/share`, `/login`, `/register`. Keep's well-known URLs are reproduced
+  `/reminders`, `/labels/{id}`, `/settings`, `/share`, `/login`, `/register`. A device that has not
+  opened an encrypted account's notes shows the unlock screen on every route (`UnlockView`). Keep's well-known URLs are reproduced
   (e.g. `/archive`); the Ktor SPA fallback makes them survive a hard refresh.
 - **Markdown is a two-way mapping over `NoteDocument`**, implemented once in `entity/markdown.ts`:
   `documentToMarkdown(document, headingOffset)` and `noteToMarkdown(note)` are the export feature,

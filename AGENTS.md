@@ -77,6 +77,7 @@ pnpm run e2e:live         # live collaboration between two accounts
 pnpm run e2e:concurrency  # two people typing into one note at once
 pnpm run e2e:editor       # editor interactions, stubbed API + pnpm preview
 pnpm run e2e:mobile      # the phone layout, Chromium and Firefox
+pnpm run e2e:sso          # identity provider sign-in; a server of its own (frontend/e2e/README.md)
 pnpm run screenshots      # regenerate docs/images
 
 # Android app (JDK 21 + Android SDK)
@@ -282,6 +283,11 @@ thrown away.
   `AdminService.requireAdmin` itself — the hidden menu entry is a convenience, not the guard. The
   administrator's own account cannot be deleted or reset from the server settings.
 - Sign-up starts **closed** (`server_settings`), and only the administrator opens it.
+- **Single sign-on** (`docs/API.md`) links an account on the provider's `iss` and `sub`, **never on an
+  e-mail address**: an address that is taken is refused, and an existing account connects itself from
+  inside, signed in. A new subject is a sign-up, under the same switch. The provider grants nothing: the
+  administrator stays the account from the environment, and its password always works. The protocol and
+  every check of the ID token are Nimbus's SDK (`boundary/oidc`), not ours.
 - A password reset stores only the hash of its token, puts the token in the link's **fragment**
   (never sent to a server, so never logged), is built from `NOTKA_PUBLIC_URL` (never from `Host`),
   and voids the old password only after the mail server accepted the message.
@@ -291,7 +297,10 @@ thrown away.
   to end. An account's key is never stored unwrapped: only wrapped by its password (PBKDF2, a salt of
   its own), its recovery key (shown once) and each session's cookie. Nothing but the repositories opens
   or seals a value, and access is decided **before** a note is read (`NoteAccessChecker`), because a
-  sealed note opens only with its owner's key.
+  sealed note opens only with its owner's key. **The identity provider never opens the notes**: a session
+  it started is locked until the account's passphrase, or its password, is entered on that device, and
+  `AccountKeys.unlockSession` answers for the session rather than for the `KeyRing`, which holds the key
+  of an account some other device unlocked.
 - The CSP's `script-src` carries `'wasm-unsafe-eval'` for the JPEG XL encoder and nothing more; never
   `'unsafe-eval'`. An avatar is accepted only as JPEG XL (never SVG), capped at 512 KB and 1024 px.
 

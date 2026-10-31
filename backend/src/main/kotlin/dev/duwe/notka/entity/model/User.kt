@@ -5,7 +5,8 @@ package dev.duwe.notka.entity.model
  *
  * An account signs in with its [email] or, for the administrator created from the environment,
  * with its [username]; at least one of the two is always there. Only an account with an address can
- * be shared with or sent a password reset.
+ * be shared with or sent a password reset. An account that came from the identity provider has no
+ * password at all: its [passwordHash] is [NO_PASSWORD], which no password verifies against.
  */
 data class User(
     val id: Int,
@@ -20,7 +21,13 @@ data class User(
     /** When the account last uploaded its own picture; `null` while it shows its initials. */
     val avatarAt: Long? = null,
 ) {
+    val hasPassword: Boolean get() = passwordHash != NO_PASSWORD
+
     fun toSummary(): UserSummary = UserSummary(id, email, username, displayName, admin, avatarAt)
+
+    companion object {
+        const val NO_PASSWORD: String = ""
+    }
 }
 
 /** Public view of an account: everything except the password hash and the account's own preferences. */

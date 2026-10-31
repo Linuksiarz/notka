@@ -13,6 +13,8 @@ export interface InstanceInfo {
   registrationOpen: boolean;
   /** Days a trashed note stays before it is deleted for good. */
   trashRetentionDays: number;
+  /** What the sign-in button calls the identity provider; `null` when the instance has none. */
+  ssoProvider: string | null;
 }
 
 /** What is assumed while the health endpoint has not answered, or could not be reached. */
@@ -20,7 +22,8 @@ export const DEFAULT_INSTANCE_INFO: InstanceInfo = {
   demo: false,
   demoAccounts: [],
   registrationOpen: false,
-  trashRetentionDays: 30
+  trashRetentionDays: 30,
+  ssoProvider: null
 };
 
 /**
@@ -36,6 +39,7 @@ export async function fetchInstanceInfo(): Promise<InstanceInfo> {
     trashRetentionDays:
       typeof body.trashRetentionDays === 'number'
         ? body.trashRetentionDays
-        : DEFAULT_INSTANCE_INFO.trashRetentionDays
+        : DEFAULT_INSTANCE_INFO.trashRetentionDays,
+    ssoProvider: typeof body.ssoProvider === 'string' ? body.ssoProvider : null
   };
 }

@@ -9,13 +9,14 @@
   import { backgroundThemes } from '../../control/state/backgroundThemes.svelte';
   import { serverAdmin } from '../../control/state/serverAdmin.svelte';
   import { NOTE_BACKGROUNDS } from '../../entity/api/types';
-  import { changeServer, inAndroidApp } from '../androidApp';
+  import { changeServer, inAndroidApp, openInCustomTab } from '../androidApp';
   import Avatar from './Avatar.svelte';
   import Dialog from './Dialog.svelte';
   import EncryptionDialog from './EncryptionDialog.svelte';
   import Icon from './Icon.svelte';
   import { confirmation } from './confirmation.svelte';
   import { notes } from '../../control/state/notes.svelte';
+  import { instance } from '../../control/state/instance.svelte';
 
   interface Props {
     open: boolean;
@@ -129,6 +130,54 @@
       void notes.refresh();
     } catch (caught) {
       error = tError(caught as Error);
+    }
+  }
+
+  let currentPassphrase = $state('');
+  let newPassphrase = $state('');
+
+  async function savePassphrase(): Promise<void> {
+    error = null;
+    message = null;
+    if (newPassphrase.length < 8) {
+      error = t('errors.auth.passphrase_too_short');
+      return;
+    }
+    busy = true;
+    try {
+      await session.changePassphrase(currentPassphrase, newPassphrase);
+      currentPassphrase = '';
+      newPassphrase = '';
+      message = t('settings.passphraseChanged');
+    } catch (caught) {
+      error = tError(caught as Error);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function connectSso(): Promise<void> {
+    error = null;
+    busy = true;
+    try {
+      await (inAndroidApp ? session.startSsoInApp(true, openInCustomTab) : session.startSso(true));
+    } catch (caught) {
+      error = tError(caught as Error);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function disconnectSso(): Promise<void> {
+    error = null;
+    message = null;
+    busy = true;
+    try {
+      await session.unlinkSso();
+    } catch (caught) {
+      error = tError(caught as Error);
+    } finally {
+      busy = false;
     }
   }
 
@@ -320,20 +369,59 @@
         </button>
       </section>
 
-      <section>
-        <h3>{t('settings.password')}</h3>
-        <label>
-          <span>{t('settings.currentPassword')}</span>
-          <input type="password" autocomplete="current-password" bind:value={currentPassword} />
-        </label>
-        <label>
-          <span>{t('settings.newPassword')}</span>
-          <input type="password" autocomplete="new-password" bind:value={newPassword} />
-        </label>
-        <button type="button" class="primary" disabled={busy} onclick={savePassword}>
-          {t('settings.changePassword')}
-        </button>
-      </section>
+      {#if session.user.hasPassword}
+        <section>
+          <h3>{t('settings.password')}</h3>
+          <label>
+            <span>{t('settings.currentPassword')}</span>
+            <input type="password" autocomplete="current-password" bind:value={currentPassword} />
+          </label>
+          <label>
+            <span>{t('settings.newPassword')}</span>
+            <input type="password" autocomplete="new-password" bind:value={newPassword} />
+          </label>
+          <button type="button" class="primary" disabled={busy} onclick={savePassword}>
+            {t('settings.changePassword')}
+          </button>
+        </section>
+      {/if}
+
+      {#if instance.info.ssoProvider}
+        <section>
+          <h3>{t('settings.sso')}</h3>
+          {#if session.user.ssoLinked}
+            <p class="hint">{t('settings.ssoConnected', { provider: instance.info.ssoProvider })}</p>
+            {#if session.user.hasPassword}
+              <button type="button" class="primary" disabled={busy} onclick={disconnectSso}>
+                {t('settings.ssoDisconnect')}
+              </button>
+            {/if}
+          {:else}
+            <p class="hint">{t('settings.ssoHint', { provider: instance.info.ssoProvider })}</p>
+            <button type="button" class="primary" disabled={busy} onclick={connectSso}>
+              {t('settings.ssoConnect', { provider: instance.info.ssoProvider })}
+            </button>
+          {/if}
+        </section>
+      {/if}
+
+      {#if !session.user.hasPassword && session.user.encryption}
+        <section>
+          <h3>{t('settings.passphrase')}</h3>
+          <label>
+            <span>{t('settings.currentPassphrase')}</span>
+            <input type="password" autocomplete="off" bind:value={currentPassphrase} />
+          </label>
+          <label>
+            <span>{t('settings.newPassphrase')}</span>
+            <input type="password" autocomplete="new-password" bind:value={newPassphrase} />
+          </label>
+          <p class="hint">{t('settings.passphraseHint')}</p>
+          <button type="button" class="primary" disabled={busy} onclick={savePassphrase}>
+            {t('settings.changePassphrase')}
+          </button>
+        </section>
+      {/if}
 
       <section>
         <h3>{t('settings.encryption')}</h3>

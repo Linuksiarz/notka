@@ -8,7 +8,8 @@
 
   /**
    * Turning encryption on (`docs/ENCRYPTION.md`): the password first — it is what the account's key
-   * is wrapped with — and then, once, the recovery key, with what it is for and the choice that
+   * is wrapped with, or a passphrase chosen here for an account that signs in through the identity
+   * provider and has none — and then, once, the recovery key, with what it is for and the choice that
    * decides whether notes with links are encrypted too.
    */
   interface Props {
@@ -19,6 +20,8 @@
   let { open, onClose }: Props = $props();
 
   let password = $state('');
+  let passphraseAgain = $state('');
+  const choosesPassphrase = $derived(session.user?.hasPassword === false);
   let recoveryKey = $state<string | null>(null);
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -27,16 +30,22 @@
   $effect(() => {
     if (!open) return;
     password = '';
+    passphraseAgain = '';
     recoveryKey = null;
     error = null;
   });
 
   async function enable(): Promise<void> {
-    busy = true;
     error = null;
+    if (choosesPassphrase && password !== passphraseAgain) {
+      error = t('encryption.passphraseMismatch');
+      return;
+    }
+    busy = true;
     try {
-      recoveryKey = await session.enableEncryption(password);
+      recoveryKey = await session.enableEncryption(choosesPassphrase ? { passphrase: password } : { password });
       password = '';
+      passphraseAgain = '';
       void notes.refresh();
     } catch (caught) {
       error = tError(caught as Error);
@@ -85,11 +94,24 @@
           void enable();
         }}
       >
-        <label>
-          <span>{t('settings.currentPassword')}</span>
-          <!-- svelte-ignore a11y_autofocus -->
-          <input type="password" autocomplete="current-password" required autofocus bind:value={password} />
-        </label>
+        {#if choosesPassphrase}
+          <p class="hint">{t('encryption.passphraseText')}</p>
+          <label>
+            <span>{t('encryption.passphrase')}</span>
+            <!-- svelte-ignore a11y_autofocus -->
+            <input type="password" autocomplete="new-password" required autofocus bind:value={password} />
+          </label>
+          <label>
+            <span>{t('encryption.passphraseAgain')}</span>
+            <input type="password" autocomplete="new-password" required bind:value={passphraseAgain} />
+          </label>
+        {:else}
+          <label>
+            <span>{t('settings.currentPassword')}</span>
+            <!-- svelte-ignore a11y_autofocus -->
+            <input type="password" autocomplete="current-password" required autofocus bind:value={password} />
+          </label>
+        {/if}
         <p class="hint">{t('encryption.enableSignOut')}</p>
 
         {#if error}

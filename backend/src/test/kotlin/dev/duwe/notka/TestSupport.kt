@@ -3,6 +3,7 @@ package dev.duwe.notka
 import dev.duwe.notka.boundary.config.AppConfig
 import dev.duwe.notka.control.AccountMail
 import dev.duwe.notka.control.CreateNoteCommand
+import dev.duwe.notka.control.IdentityProvider
 import dev.duwe.notka.control.ResolvedNote
 import dev.duwe.notka.control.ShareWithUser
 import dev.duwe.notka.entity.model.NoteDocument
@@ -35,6 +36,8 @@ class TestFixture(
     publicUrl: String? = "https://notes.example.com",
     /** The mail the instance would send; `null` is an instance without a mail server. */
     mail: AccountMail? = null,
+    identityProvider: IdentityProvider? = null,
+    authAttemptsPerMinute: Int = 10,
 ) {
     val directory: Path = Files.createTempDirectory("notka-test")
     var now: Long = 1_700_000_000_000L
@@ -51,7 +54,7 @@ class TestFixture(
         maxNotesPerUser = maxNotesPerUser,
         maxImageBytesPerUser = maxImageBytesPerUser,
         trustProxyHeaders = trustProxyHeaders,
-        authAttemptsPerMinute = 10,
+        authAttemptsPerMinute = authAttemptsPerMinute,
         logLevel = "ERROR",
         demo = demo,
         initialAdmin = null,
@@ -60,7 +63,7 @@ class TestFixture(
     )
 
     val services: AppServices =
-        AppServices.create(config, { now }, httpClient ?: AppServices.defaultHttpClient(), mail)
+        AppServices.create(config, { now }, httpClient ?: AppServices.defaultHttpClient(), mail, identityProvider)
             .also { if (registrationOpen) it.settings.setRegistrationOpen(true) }
 
     /** A scope for tests that drive the link fetcher themselves. */

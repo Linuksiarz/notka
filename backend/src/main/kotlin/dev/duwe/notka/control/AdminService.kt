@@ -44,6 +44,10 @@ class AdminService(
      */
     fun resetPassword(userId: Int, locale: String) {
         val account = managedAccount(userId)
+        // The identity provider is where that account signs in; a password here would be a second way in.
+        if (users.findById(userId)?.hasPassword != true) {
+            throw DomainException.conflict(ErrorKeys.ADMIN_USER_HAS_NO_PASSWORD, "Account $userId signs in through the identity provider")
+        }
         val address = account.email
             ?: throw DomainException.conflict(ErrorKeys.ADMIN_USER_HAS_NO_EMAIL, "Account $userId has no e-mail address")
         if (mail == null || publicUrl == null) {

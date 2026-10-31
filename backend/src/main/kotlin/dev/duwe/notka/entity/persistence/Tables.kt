@@ -73,6 +73,15 @@ object Sessions : Table("sessions") {
  * password, and the recovery key shown once. A row of either kind means the account encrypts its
  * private notes; the key itself is never stored unwrapped.
  */
+object SsoIdentities : Table("sso_identities") {
+    val issuer = text("issuer")
+    val subject = text("subject")
+    val userId = integer("user_id").uniqueIndex()
+    val createdAt = long("created_at")
+
+    override val primaryKey = PrimaryKey(issuer, subject)
+}
+
 object AccountKeyWraps : Table("account_key_wraps") {
     val userId = integer("user_id")
     val kind = text("kind")

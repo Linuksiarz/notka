@@ -90,14 +90,22 @@ class AuthService(
      */
     fun login(login: String, password: String): AuthResult {
         val user = findByLogin(login)
-        val verified = PasswordHasher.verify(password, user?.passwordHash ?: UNKNOWN_ACCOUNT_HASH)
-        if (user == null || !verified) {
+        // An account without a password takes as long to refuse as one that does not exist.
+        val hash = user?.passwordHash?.takeIf { user.hasPassword } ?: UNKNOWN_ACCOUNT_HASH
+        val verified = PasswordHasher.verify(password, hash)
+        if (user == null || !user.hasPassword || !verified) {
             throw DomainException.unauthorized(ErrorKeys.AUTH_INVALID_CREDENTIALS, "Invalid login or password")
         }
         val token = startSession(user.id)
         accountKeys.unlockWithPassword(user.id, password, token)
         return AuthResult(user.toSummary(), token)
     }
+
+    /**
+     * A session for an account the identity provider vouched for ([SsoService]). It holds no copy of
+     * the account's key: an account that encrypts its notes is locked here until its secret is entered.
+     */
+    fun startProviderSession(user: User): AuthResult = AuthResult(user.toSummary(), startSession(user.id))
 
     /** Idempotent. */
     fun logout(token: String?) {
@@ -119,8 +127,13 @@ class AuthService(
         return sessions.deleteExpired(now)
     }
 
-    /** Validates the session and slides its expiry; every authenticated request goes through here. */
-    fun authenticate(token: String?): UserSummary {
+    /**
+     * Validates the session and slides its expiry; every authenticated request goes through here.
+     *
+     * A session that holds no copy of the account's key is refused with `auth.encryption_locked`,
+     * except where the caller says [allowLocked]: reading who is signed in, unlocking and signing out.
+     */
+    fun authenticate(token: String?, allowLocked: Boolean = false): UserSummary {
         if (token.isNullOrEmpty()) throw DomainException.unauthorized()
         val now = clock()
         val tokenHash = hashToken(token)
@@ -132,9 +145,8 @@ class AuthService(
         }
         val user = users.findById(session.userId)
             ?: throw DomainException.unauthorized(message = "Invalid session")
-        if (!accountKeys.unlockSession(user.id, token)) {
-            sessions.delete(tokenHash)
-            throw DomainException.unauthorized(message = "The session cannot open the account's notes")
+        if (!accountKeys.unlockSession(user.id, token) && !allowLocked) {
+            throw DomainException.forbidden(ErrorKeys.AUTH_ENCRYPTION_LOCKED, "This device has not unlocked the account's notes yet")
         }
         sessions.touch(tokenHash, now + sessionTtlMillis, now)
         return user.toSummary()

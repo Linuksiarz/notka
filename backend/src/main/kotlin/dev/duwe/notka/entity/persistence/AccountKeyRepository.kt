@@ -5,11 +5,11 @@ import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
- * What may unlock an account's key. A sign-in with a password unlocks it with [PASSWORD]; the
- * recovery key, shown once, is what a forgotten password leaves. An account signing in through SSO
- * has no password to wrap it with and would need a secret of its own here.
+ * What may unlock an account's key. A sign-in with a password unlocks it with [PASSWORD]; an account
+ * from the identity provider has no password and wraps it with a [PASSPHRASE] of its own, entered on
+ * each device; the recovery key, shown once, is what a forgotten secret leaves.
  */
-enum class KeyWrapKind { PASSWORD, RECOVERY }
+enum class KeyWrapKind { PASSWORD, PASSPHRASE, RECOVERY }
 
 /** The account's key sealed by one secret; [salt] is what the secret's own key was derived with. */
 data class KeyWrap(val kind: KeyWrapKind, val salt: String?, val wrapped: String)

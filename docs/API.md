@@ -12,8 +12,8 @@ Every response carries a strict `Content-Security-Policy` (scripts from this ori
 framing; `'wasm-unsafe-eval'` lets the page compile the JPEG XL encoder it loads from this origin for
 avatars, and allows no `eval` of script). A `POST`, `PUT`, `PATCH` or `DELETE` whose `Sec-Fetch-Site` is anything but `same-origin` or
 `none` is refused with `403 request.cross_site`; a client that sends no `Sec-Fetch-Site` (not a
-browser) is unaffected. `POST /api/auth/login`, `/register` and `/password-reset` are limited to 10 attempts a minute
-per client address (`429 request.too_many`). A request body larger than twice
+browser) is unaffected. `POST /api/auth/login`, `/register`, `/password-reset`, the `/me/encryption` routes and
+`/sso` are limited to 10 attempts a minute per client address (`429 request.too_many`). A request body larger than twice
 `NOTKA_MAX_NOTE_BYTES` plus 64 KiB is refused with `413 request.too_large` (a picture's upload may
 be 10 MB, a theme's 30 MB).
 
@@ -58,6 +58,9 @@ Every non-2xx response has this body:
 | `request.too_large`, `request.too_many`, `request.cross_site` | – |
 | `auth.invalid_credentials`, `auth.username_invalid`, `auth.admin_required`, `auth.reset_invalid` | – |
 | `auth.recovery_key_required` (`409`), `auth.recovery_key_invalid`, `auth.encryption_already_on` (`409`) | – |
+| `auth.encryption_locked` (`403`), `auth.encryption_secret_invalid`, `auth.passphrase_too_short` | – |
+| `auth.sso_not_configured` (`404`), `auth.sso_unavailable` (`503`), `auth.sso_failed`, `auth.sso_denied` (`403`), `auth.sso_email_required`, `auth.sso_email_taken` (`409`), `auth.sso_identity_taken` (`409`), `auth.sso_already_linked` (`409`), `auth.sso_password_required` (`409`) | – |
+| `admin.user_has_no_password` (`409`) | – |
 | `auth.email_taken`, `auth.email_invalid` | `email` |
 | `auth.registration_disabled`, `auth.display_name_invalid`, `auth.password_too_short`, `auth.invalid_current_password` | – |
 | `note.not_found`, `note.forbidden` | `noteId` |
@@ -101,10 +104,11 @@ one. `admin` is `true` for the instance's administrator alone. `avatarAt` is whe
 changed its own picture, `null` while it has none (the client draws the initials); the picture is at
 `GET /api/users/{id}/avatar?v={avatarAt}`.
 
-The signed-in account itself — every `{ "user": … }` the `/api/auth` routes answer with — carries two
-more fields, which nobody else is told: `encryption` (its private notes are stored encrypted,
-`docs/ENCRYPTION.md`) and `linkPreviews` (the server fetches cards for the links in its notes; `true`
-by default).
+The signed-in account itself — every `{ "user": … }` the `/api/auth` routes answer with — carries more
+fields, which nobody else is told: `encryption` (its private notes are stored encrypted,
+`docs/ENCRYPTION.md`), `linkPreviews` (the server fetches cards for the links in its notes; `true` by
+default), `encryptionLocked` (this session has not entered the account's secret yet), `hasPassword`
+(`false` for an account from the identity provider) and `ssoLinked` (it is connected to the provider).
 
 ### `Label`
 
@@ -234,7 +238,9 @@ notes with links can be encrypted); `true` brings the cards back.
 
 ### `POST /api/auth/me/encryption`
 
-Request: `{ "password": "…" }` — asked again, because it is what the account's key is wrapped with.
+Request: `{ "password": "…" }` — asked again, because it is what the account's key is wrapped with. An
+account without a password sends `{ "passphrase": "…" }` instead, which it chooses here (8..200 chars,
+`400 auth.passphrase_too_short`).
 Response `201`: `{ "user": { …, "encryption": true }, "recoveryKey": "PW7H-F365-PDY3-TGEC-HY55-SVMD-MJ35-X3PS" }`
 — the only answer that ever carries the recovery key. The account's private notes are sealed before
 it is sent, and every other session of the account is signed out. `400 auth.invalid_current_password`,
@@ -244,6 +250,99 @@ it is sent, and every other session of the account is signed out. `400 auth.inva
 
 Response `200`: `{ "user": { …, "encryption": false } }`. Every note of the account is stored in the
 clear again and the key is forgotten; the recovery key stops working.
+
+### `POST /api/auth/me/encryption/unlock`
+
+Request: `{ "secret": "…" }`, the account's passphrase, or its password when it has one. This session
+holds the key from now on. Response `200`: `{ "user": { …, "encryptionLocked": false } }`;
+`400 auth.encryption_secret_invalid`.
+
+While a session has not done this, `GET /api/auth/me`, the routes in this section, `POST /api/auth/logout`
+and `/logout-all` work, and every other authenticated route answers `403 auth.encryption_locked`.
+
+### `POST /api/auth/me/encryption/recover`
+
+Request: `{ "recoveryKey": "…", "newPassphrase": "…" }`. Opens this session with the recovery key. An
+account without a password must set a new passphrase here, and its other sessions are signed out; an
+account with one leaves `newPassphrase` out and keeps its password. `400 auth.recovery_key_invalid`.
+
+### `POST /api/auth/me/encryption/discard`
+
+Only for a locked account without a password, `403 auth.encryption_locked` otherwise. The sealed notes
+are deleted for good and the account continues without encryption. Response `200`: `{ "user": { … } }`.
+
+### `POST /api/auth/me/encryption/passphrase`
+
+Request: `{ "currentPassphrase": "…", "newPassphrase": "…" }`. The same key under a new passphrase;
+every other session is signed out. `400 auth.encryption_secret_invalid`.
+
+### Signing in through an identity provider
+
+OpenID Connect's authorization code flow with PKCE (S256), a `state` and a `nonce`, against the provider
+in `NOTKA_OIDC_*` (`docs/ARCHITECTURE.md`). The provider's discovery document says where everything is,
+and the ID token is verified against its published keys (signature, `iss`, `aud`, `exp`, `nonce`). The
+address to register at the provider is `<NOTKA_PUBLIC_URL>/api/auth/sso/callback`.
+
+- **An account is the provider's `iss` and `sub`**, never its e-mail address.
+- **A subject seen for the first time is a sign-up**, under the administrator's switch: while sign-up is
+  closed it ends in `auth.registration_disabled`, and a known subject still signs in. The new account
+  takes its address and name from the provider once (both are its own to change afterwards) and has no
+  password. No address ends in `auth.sso_email_required`. `email_verified` is not required: the address is
+  never what links an account, and a password sign-up does not verify its address either.
+- **An address another account already has is refused** (`auth.sso_email_taken`), and is never linked. An
+  existing account joins from inside, signed in, with `"link": true`.
+- **The provider never grants anything.** The administrator stays the account from
+  `NOTKA_ADMIN_USERNAME`, whose password sign-in always works, so a provider that is down cannot lock the
+  instance out. The administrator may connect that account like any other and stays the administrator.
+- **Changing `NOTKA_OIDC_ISSUER` makes every identity a new one**: an account with a password disconnects
+  and connects again; one without has no way back in.
+
+#### `POST /api/auth/sso/start`
+
+Request: `{ "link": false }`. `true` connects the signed-in account instead of signing in, and needs a
+session. Android's app also sends `"appChallenge"` (see below), and then no cookie is set. Response `200`: `{ "url": "https://id.example.com/authorize?…" }`, where the page sends the
+browser next, plus a cookie that holds the attempt for ten minutes: `HttpOnly`, `SameSite=Lax`, `Path=/`,
+`Secure` and named `__Host-notka_sso` when `NOTKA_COOKIE_SECURE=true`, so a sibling subdomain cannot plant
+one. `404 auth.sso_not_configured`, `503 auth.sso_unavailable`.
+
+#### `GET /api/auth/sso/callback`
+
+Where the provider sends the browser back: `?code=…&state=…` or `?error=…`. It always answers `302`:
+to `/` with a session cookie after a sign-in, to `/?sso=linked` after connecting, and to
+`/?ssoError=<error key>` on any failure, which the page localizes. A `state` that does not match this
+browser's attempt is `auth.sso_failed`. A `state` of an attempt Android's app started goes to the app
+instead: `dev.duwe.notka://sso?ssoCode=<code>` or `?ssoError=<error key>`.
+
+#### Android's app
+
+The provider's page opens in a Custom Tab, because a WebView has neither the browser's sign-in at the
+provider nor its passkeys, and a Custom Tab's cookies are not the WebView's. So the attempt stays on the
+server (in memory, ten minutes), and what binds the answer to the device is a secret of the WebView's,
+the way PKCE does it (RFC 8252, 7636):
+
+1. The page makes a random `verifier`, keeps it in `localStorage` and sends its base64url SHA-256 as
+   `appChallenge` to `POST /api/auth/sso/start`.
+2. The callback, in the Custom Tab, signs nobody in and does not contact the provider. It stands a code in
+   for the provider's answer, valid for **one minute and one try**, and redirects to the app's scheme.
+3. The app opens `/?ssoCode=<code>` in the WebView, and the page redeems the code with the verifier.
+
+A scheme can be claimed by any app, and the provider's page can be opened from anybody's link, so nothing
+happens before step 3: a code without the verifier is worthless, and a `link` attempt connects nothing.
+The remaining exposure is a hostile app on the reader's phone **and** a reader who completes a sign-in
+started by that app's owner from a link: the same one every app with a custom scheme and PKCE has.
+
+#### `POST /api/auth/sso/exchange`
+
+Request: `{ "code": "…", "verifier": "…" }`. Response `200`: `{ "user": { … }, "linked": false }`, with a
+session cookie as after any sign-in; an account with sealed notes then has `encryptionLocked: true`.
+`"linked": true` when the attempt connected the signed-in account, which needs that session (`401`
+without it). A code that is unknown, used, expired or given the wrong verifier is `400 auth.sso_failed`,
+and is used up by that try. Otherwise the failures of signing in or connecting above.
+
+#### `DELETE /api/auth/me/sso`
+
+Disconnects the account. `409 auth.sso_password_required` for an account with no password to sign in
+with. Response `200`: `{ "user": { …, "ssoLinked": false } }`.
 
 ### `PUT /api/auth/me/avatar`
 
@@ -601,10 +700,11 @@ Response `200`:
 ```json
 {
   "status": "ok",
-  "version": "1.0.0-rc8",
+  "version": "1.0.0-rc9",
   "demo": false,
   "registrationOpen": true,
   "trashRetentionDays": 30,
+  "ssoProvider": "Pocket ID",
   "demoAccounts": []
 }
 ```
@@ -612,7 +712,8 @@ Response `200`:
 `registrationOpen` says whether `POST /api/auth/register` would accept a sign-up right now — the
 administrator's switch in the server settings, `false` until they open it; the sign-in screen hides
 its "Create an account" link otherwise. `trashRetentionDays` is
-`NOTKA_TRASH_RETENTION_DAYS`, which the trash states.
+`NOTKA_TRASH_RETENTION_DAYS`, which the trash states. `ssoProvider` is `NOTKA_OIDC_NAME` while an identity
+provider is configured and `null` otherwise; the sign-in screen offers it only then.
 
 No authentication required. `demoAccounts` lists the sample sign-ins a demo instance offers, and is
 always empty unless the server was started with `DEMO=true`; it exists so the sign-in screen can
@@ -719,7 +820,7 @@ admin.cannot_change_admin`.
 Response `204`. E-mails the account a link to choose a new password (valid 24 hours, once), and
 only once the mail server has accepted it voids the old password and signs every device out. The
 e-mail is written in the language of the administrator's `Accept-Language` (`pl`, or English).
-`409 mail.not_configured`, `409 admin.user_has_no_email`, `503 mail.send_failed` — in every failure
+`409 mail.not_configured`, `409 admin.user_has_no_email`, `409 admin.user_has_no_password` (the account signs in through the identity provider), `503 mail.send_failed` — in every failure
 the account stays as it was.
 
 ### `POST /api/admin/themes`

@@ -20,8 +20,9 @@ private const val SALT_BYTES = 16
 
 /**
  * An account's own key (`docs/ENCRYPTION.md`). It is made when the account turns encryption on and
- * stored only wrapped: by a key derived from the password (PBKDF2, like the password's hash but with
- * a salt of its own, so the stored hash does not open it), by the recovery key, and — for each
+ * stored only wrapped: by a key derived from the password or, for an account without one, a passphrase
+ * (PBKDF2, like the password's hash but with a salt of its own, so the stored hash does not open it),
+ * by the recovery key, and — for each
  * session — by a key derived from the session's cookie, which only the browser has. A request unlocks
  * it from its session into the [KeyRing], where the repositories find it.
  */
@@ -62,8 +63,8 @@ class AccountKeys(
 
         private fun recoveryKey(bytes: ByteArray): SecretKey = hmacKey(bytes, "notka recovery key")
 
-        private fun passwordKey(password: String, salt: ByteArray): SecretKey =
-            Sealing.keyOf(PasswordHasher.derive(password, salt))
+        private fun secretKey(secret: String, salt: ByteArray): SecretKey =
+            Sealing.keyOf(PasswordHasher.derive(secret, salt))
 
         private fun place(userId: Int, kind: String) = "account_key:$userId:$kind"
     }
@@ -74,14 +75,15 @@ class AccountKeys(
     fun unlocked(userId: Int): SecretKey? = ring[userId]
 
     /**
-     * Makes the account's key, wraps it for [password] and for a new recovery key, and unlocks it in
-     * the session of [token]. Returns the recovery key — the only time it ever exists outside a wrap.
+     * Makes the account's key, wraps it for [secret] — its password, or the passphrase of an account
+     * without one — and for a new recovery key, and unlocks it in the session of [token]. Returns the
+     * recovery key — the only time it ever exists outside a wrap.
      */
-    fun create(userId: Int, password: String, token: String): String {
+    fun create(userId: Int, kind: KeyWrapKind, secret: String, token: String): String {
         check(!keys.hasKey(userId)) { "Account $userId already has a key" }
         val key = Sealing.newKey()
         val recovery = ByteArray(RECOVERY_KEY_BYTES).also(random::nextBytes)
-        keys.putWrap(userId, passwordWrap(userId, key, password), clock())
+        keys.putWrap(userId, secretWrap(userId, kind, key, secret), clock())
         keys.putWrap(userId, KeyWrap(KeyWrapKind.RECOVERY, null, wrap(recoveryKey(recovery), key, place(userId, "RECOVERY"))), clock())
         intoSession(userId, key, token)
         return formatRecoveryKey(recovery)
@@ -96,28 +98,70 @@ class AccountKeys(
     /** After a sign-in with a verified [password]: the new session of [token] holds the key. */
     fun unlockWithPassword(userId: Int, password: String, token: String) {
         val wrap = keys.wraps(userId)[KeyWrapKind.PASSWORD] ?: return
-        val salt = Base64.getDecoder().decode(checkNotNull(wrap.salt) { "A password wrap carries its salt" })
-        intoSession(userId, unwrap(passwordKey(password, salt), wrap.wrapped, place(userId, "PASSWORD")), token)
+        intoSession(userId, openWrap(userId, wrap, password), token)
     }
 
     /**
-     * Every request: unlocks the key from the session of [token] unless it is unlocked already.
+     * A session that came from the identity provider holds no key until the account's own secret is
+     * entered on that device: the provider vouches for who is asking, and never opens the notes.
      *
-     * @return false for a session of an account with a key that holds none — it cannot read the
-     *   account's notes, and is signed out.
+     * @return false when [secret] does not open the key.
+     */
+    fun unlockWithSecret(userId: Int, secret: String, token: String): Boolean {
+        val wrap = keys.wraps(userId).let { it[KeyWrapKind.PASSPHRASE] ?: it[KeyWrapKind.PASSWORD] } ?: return false
+        val key = try {
+            openWrap(userId, wrap, secret)
+        } catch (_: AEADBadTagException) {
+            return false
+        }
+        intoSession(userId, key, token)
+        return true
+    }
+
+    /**
+     * Every request: whether the session of [token] may read the account's notes, and the key in
+     * memory when it may. The answer is the session's own, never the [KeyRing]'s, which holds the key
+     * of an account some other device unlocked.
+     *
+     * @return false for a session of an account with a key that holds none — it stays locked until
+     *   the account's secret is entered ([unlockWithSecret]).
      */
     fun unlockSession(userId: Int, token: String): Boolean {
-        if (ring[userId] != null) return true
         val wrapped = keys.sessionKey(AuthService.hashToken(token)) ?: return !keys.hasKey(userId)
-        ring.hold(userId, unwrap(sessionKey(token), wrapped, place(userId, "SESSION")))
+        if (ring[userId] == null) ring.hold(userId, unwrap(sessionKey(token), wrapped, place(userId, "SESSION")))
         return true
     }
 
     /** A changed password wraps the same key; the recovery key and the sessions' copies stay. */
     fun rewrapPassword(userId: Int, newPassword: String) {
         if (!keys.hasKey(userId)) return
-        keys.putWrap(userId, passwordWrap(userId, ring.require(userId), newPassword), clock())
+        keys.putWrap(userId, secretWrap(userId, KeyWrapKind.PASSWORD, ring.require(userId), newPassword), clock())
     }
+
+    /** Whether [passphrase] is the one that wraps the account's key. */
+    fun passphraseMatches(userId: Int, passphrase: String): Boolean {
+        val wrap = keys.wraps(userId)[KeyWrapKind.PASSPHRASE] ?: return false
+        return try {
+            openWrap(userId, wrap, passphrase)
+            true
+        } catch (_: AEADBadTagException) {
+            false
+        }
+    }
+
+    /** A changed passphrase wraps the same key, as a changed password does. */
+    fun rewrapPassphrase(userId: Int, newPassphrase: String) {
+        keys.putWrap(userId, secretWrap(userId, KeyWrapKind.PASSPHRASE, ring.require(userId), newPassphrase), clock())
+    }
+
+    /** After the recovery key opened [key]: a new passphrase wraps it, and the session of [token] holds it. */
+    fun adoptPassphrase(userId: Int, key: SecretKey, newPassphrase: String, token: String) {
+        keys.putWrap(userId, secretWrap(userId, KeyWrapKind.PASSPHRASE, key, newPassphrase), clock())
+        intoSession(userId, key, token)
+    }
+
+    /** After the recovery key opened [key] on an account whose password still stands. */
+    fun adoptIntoSession(userId: Int, key: SecretKey, token: String) = intoSession(userId, key, token)
 
     /** The account's key opened with a written-down recovery key, or `null` when it does not open it. */
     fun openWithRecoveryKey(userId: Int, recoveryKey: String): SecretKey? {
@@ -132,7 +176,7 @@ class AccountKeys(
 
     /** After a reset with the recovery key: the new password wraps [key], and the session of [token] holds it. */
     fun adoptPassword(userId: Int, key: SecretKey, newPassword: String, token: String) {
-        keys.putWrap(userId, passwordWrap(userId, key, newPassword), clock())
+        keys.putWrap(userId, secretWrap(userId, KeyWrapKind.PASSWORD, key, newPassword), clock())
         intoSession(userId, key, token)
     }
 
@@ -155,13 +199,18 @@ class AccountKeys(
         ring.hold(userId, key)
     }
 
-    private fun passwordWrap(userId: Int, key: SecretKey, password: String): KeyWrap {
+    private fun secretWrap(userId: Int, kind: KeyWrapKind, key: SecretKey, secret: String): KeyWrap {
         val salt = ByteArray(SALT_BYTES).also(random::nextBytes)
         return KeyWrap(
-            KeyWrapKind.PASSWORD,
+            kind,
             Base64.getEncoder().encodeToString(salt),
-            wrap(passwordKey(password, salt), key, place(userId, "PASSWORD")),
+            wrap(secretKey(secret, salt), key, place(userId, kind.name)),
         )
+    }
+
+    private fun openWrap(userId: Int, wrap: KeyWrap, secret: String): SecretKey {
+        val salt = Base64.getDecoder().decode(checkNotNull(wrap.salt) { "A ${wrap.kind} wrap carries its salt" })
+        return unwrap(secretKey(secret, salt), wrap.wrapped, place(userId, wrap.kind.name))
     }
 
     private fun wrap(wrapping: SecretKey, key: SecretKey, place: String): String =

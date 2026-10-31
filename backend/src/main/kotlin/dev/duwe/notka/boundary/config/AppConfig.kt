@@ -44,11 +44,14 @@ data class AppConfig(
     val initialAdmin: InitialAdmin?,
     /**
      * The address this instance is reached at from the outside, e.g. `https://notes.example.com`.
-     * Links in e-mails are built from it — never from a request's `Host`, which the client chooses.
+     * Links in e-mails and the address an identity provider sends people back to are built from it —
+     * never from a request's `Host`, which the client chooses.
      */
     val publicUrl: String?,
     /** The outgoing mail server; without one the instance sends no e-mail. */
     val smtp: SmtpConfig?,
+    /** The external identity provider people may sign in through; without one, passwords only. */
+    val oidc: OidcConfig? = null,
 ) {
     val sessionTtlMillis: Long get() = sessionTtlDays * MILLIS_PER_DAY
     val sessionTtlSeconds: Long get() = sessionTtlDays * MILLIS_PER_DAY / 1000L
@@ -83,7 +86,40 @@ data class AppConfig(
                 }
             },
             smtp = SmtpConfig.fromEnvironment(env),
-        )
+            oidc = OidcConfig.fromEnvironment(env),
+        ).also { config ->
+            require(config.oidc == null || config.publicUrl != null) {
+                "NOTKA_PUBLIC_URL is required with NOTKA_OIDC_ISSUER: the address the provider sends people back to is built from it"
+            }
+        }
+    }
+}
+
+/**
+ * The OpenID Connect provider, from `NOTKA_OIDC_*`. [clientSecret] is absent for a public client,
+ * which PKCE alone protects. [name] is what the sign-in button calls it.
+ */
+data class OidcConfig(
+    val issuer: String,
+    val clientId: String,
+    val clientSecret: String?,
+    val name: String,
+) {
+    override fun toString(): String = "OidcConfig(issuer=$issuer, clientId=$clientId, name=$name)"
+
+    companion object {
+        fun fromEnvironment(env: (String) -> String?): OidcConfig? {
+            val issuer = env.value("NOTKA_OIDC_ISSUER") ?: return null
+            require(issuer.startsWith("https://") || issuer.startsWith("http://")) {
+                "NOTKA_OIDC_ISSUER must start with https:// or http://"
+            }
+            return OidcConfig(
+                issuer = issuer,
+                clientId = requireNotNull(env.value("NOTKA_OIDC_CLIENT_ID")) { "NOTKA_OIDC_CLIENT_ID is required with NOTKA_OIDC_ISSUER" },
+                clientSecret = env("NOTKA_OIDC_CLIENT_SECRET")?.takeIf { it.isNotEmpty() },
+                name = env.value("NOTKA_OIDC_NAME") ?: "SSO",
+            )
+        }
     }
 }
 

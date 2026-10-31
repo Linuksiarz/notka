@@ -6,6 +6,7 @@ import dev.duwe.notka.boundary.http.dto.DemoAccountDto
 import dev.duwe.notka.boundary.http.dto.HealthResponse
 import dev.duwe.notka.control.ServerSettingsService
 import dev.duwe.notka.control.DemoData
+import dev.duwe.notka.control.SsoService
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -14,7 +15,7 @@ import io.ktor.server.routing.get
  * Liveness probe plus what the sign-in screen and the trash need to know about this instance. No
  * authentication; the only database access is reading whether sign-up is open.
  */
-fun Route.healthRoutes(config: AppConfig, settings: ServerSettingsService) {
+fun Route.healthRoutes(config: AppConfig, settings: ServerSettingsService, sso: SsoService) {
     get("/api/health") {
         call.respond(
             HealthResponse(
@@ -23,6 +24,7 @@ fun Route.healthRoutes(config: AppConfig, settings: ServerSettingsService) {
                 demo = config.demo,
                 registrationOpen = settings.registrationOpen(),
                 trashRetentionDays = config.trashRetentionDays,
+                ssoProvider = sso.providerName,
                 demoAccounts = if (config.demo) {
                     DemoData.ACCOUNTS.map { DemoAccountDto(email = it.email, password = it.password) }
                 } else {

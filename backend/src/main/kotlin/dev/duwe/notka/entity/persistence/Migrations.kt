@@ -72,6 +72,15 @@ object Migrations {
         )
         """.trimIndent(),
         """
+        CREATE TABLE IF NOT EXISTS sso_identities (
+            issuer     TEXT    NOT NULL,
+            subject    TEXT    NOT NULL,
+            user_id    INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (issuer, subject)
+        )
+        """.trimIndent(),
+        """
         CREATE TABLE IF NOT EXISTS account_key_wraps (
             user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             kind       TEXT    NOT NULL,

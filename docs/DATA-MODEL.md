@@ -41,12 +41,24 @@ query that reads a missing column.
 | `email` | TEXT UNIQUE | stored lowercase, trimmed; every signed-up account has one |
 | `username` | TEXT UNIQUE COLLATE NOCASE | only the administrator created from `NOTKA_ADMIN_USERNAME` has one |
 | `display_name` | TEXT NOT NULL | |
-| `password_hash` | TEXT NOT NULL | `pbkdf2-sha256$<iterations>$<salt-b64>$<hash-b64>` |
+| `password_hash` | TEXT NOT NULL | `pbkdf2-sha256$<iterations>$<salt-b64>$<hash-b64>`, or empty for an account from the identity provider, which has no password and which no password verifies against |
 | `is_admin` | INTEGER NOT NULL DEFAULT 0 | the instance's administrator |
 | `background_theme` | TEXT | the account's own background theme; `NULL` follows the server default |
 | `created_at` | INTEGER NOT NULL | epoch millis |
 
 `CHECK (email IS NOT NULL OR username IS NOT NULL)`: an account always has something to sign in with.
+
+### `sso_identities`
+
+Which account an identity provider's subject is. `iss` and `sub` are the whole key: an address can be
+changed or given to somebody else, so it is never what links an account (`docs/API.md`).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `issuer` | TEXT NOT NULL | `NOTKA_OIDC_ISSUER` when the row was written; PK with `subject` |
+| `subject` | TEXT NOT NULL | the ID token's `sub` |
+| `user_id` | INTEGER NOT NULL UNIQUE | FK `users(id)` ON DELETE CASCADE; an account has one identity at most |
+| `created_at` | INTEGER NOT NULL | |
 
 ### `user_avatars`
 
@@ -136,8 +148,8 @@ An account's own key and its settings about what the server may read (`docs/ENCR
 
 | Table | Column | Notes |
 | --- | --- | --- |
-| `account_key_wraps` | `user_id`, `kind` | PK; FK `users(id)` ON DELETE CASCADE. `kind` is `PASSWORD` or `RECOVERY`; a row of either means the account encrypts its private notes |
-| | `salt` | Base64; the password wrap's own PBKDF2 salt, `NULL` for the recovery wrap |
+| `account_key_wraps` | `user_id`, `kind` | PK; FK `users(id)` ON DELETE CASCADE. `kind` is `PASSWORD`, `PASSPHRASE` or `RECOVERY`; a row of any means the account encrypts its private notes |
+| | `salt` | Base64; the password or passphrase wrap's own PBKDF2 salt, `NULL` for the recovery wrap |
 | | `wrapped` | the account's key sealed (AES-GCM) by the key derived from that secret |
 | | `created_at` | |
 | `session_keys` | `token` | PK; FK `sessions(token)` ON DELETE CASCADE, so every way a session ends takes its copy with it |

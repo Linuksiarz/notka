@@ -17,7 +17,7 @@ android {
         applicationId = "dev.duwe.notka"
         minSdk = rootProject.extra["minSdkVersion"] as Int
         targetSdk = rootProject.extra["targetSdkVersion"] as Int
-        versionCode = 8
+        versionCode = 9
         versionName = packageVersion
     }
 

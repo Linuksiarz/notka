@@ -26,6 +26,7 @@
   import NotesView from './routes/NotesView.svelte';
   import RegisterView from './routes/RegisterView.svelte';
   import ResetPasswordView from './routes/ResetPasswordView.svelte';
+  import UnlockView from './routes/UnlockView.svelte';
   import ServerSettingsDialog from './components/ServerSettingsDialog.svelte';
   import { serverAdmin } from '../control/state/serverAdmin.svelte';
   import { pendingWrites } from '../control/state/pendingWrites.svelte';
@@ -88,14 +89,17 @@
     void instance.load();
     const params = new URLSearchParams(window.location.search);
     const wantsList = params.get('compose') === 'list';
-    void Promise.all([session.restore(), backgroundThemes.restore()]).finally(() => {
-      booted = true;
-      if (wantsList && session.isAuthenticated) ui.openEditor(null, 'LIST');
-    });
+    reportSsoOutcome(params);
+    void finishSsoInApp(params)
+      .then(() => Promise.all([session.restore(), backgroundThemes.restore()]))
+      .finally(() => {
+        booted = true;
+        if (wantsList && session.isAuthenticated) ui.openEditor(null, 'LIST');
+      });
   });
 
   $effect(() => {
-    if (!booted) return;
+    if (!booted || session.status === 'locked') return;
     const signedOutRoute = route.name === 'login' || route.name === 'register' || route.name === 'resetPassword';
     if (!authenticated && !signedOutRoute) {
       router.navigate('/login', { replace: true });
@@ -118,6 +122,34 @@
     if (owner === undefined) return;
     untrack(() => (owner === null ? signedOut() : signedIn(owner)));
   });
+
+  /**
+   * The trip to the identity provider ends with a redirect to `/`, and what became of it rides in the
+   * query, once: taken off the address so a reload does not say it again.
+   */
+  function reportSsoOutcome(params: URLSearchParams): void {
+    const failure = params.get('ssoError');
+    const linked = params.get('sso') === 'linked';
+    if (failure === null && !linked) return;
+    if (failure !== null) toast.error(tError({ name: 'SsoError', key: failure, message: '' } as Error));
+    else toast.success(t('settings.ssoLinked'));
+    window.history.replaceState(window.history.state, '', window.location.pathname);
+  }
+
+  /**
+   * Android's app came back from the provider's page with a code (`MainActivity`), which is traded for
+   * the session before anything asks who is signed in. Off the address first: it works only once.
+   */
+  async function finishSsoInApp(params: URLSearchParams): Promise<void> {
+    const code = params.get('ssoCode');
+    if (code === null) return;
+    window.history.replaceState(window.history.state, '', window.location.pathname);
+    try {
+      if (await session.finishSsoInApp(code)) toast.success(t('settings.ssoLinked'));
+    } catch (caught) {
+      toast.error(tError(caught as Error));
+    }
+  }
 
   function signedOut(): void {
     notes.reset();
@@ -209,6 +241,8 @@
     <span class="spinner" aria-hidden="true"></span>
     <span class="visually-hidden">{t('app.name')}</span>
   </div>
+{:else if session.status === 'locked'}
+  <UnlockView />
 {:else if !authenticated}
   {#if route.name === 'register'}
     <RegisterView onNavigate={navigate} />
@@ -306,9 +340,11 @@
   {#if session.user?.admin}
     <ServerSettingsDialog open={ui.serverSettingsOpen} onClose={() => (ui.serverSettingsOpen = false)} />
   {/if}
-  <ConfirmDialog />
-  <Toaster position="bottom-left" theme="dark" closeButton />
 {/if}
+
+<!-- Outside the branches: the sign-in and unlock screens ask and report too. -->
+<ConfirmDialog />
+<Toaster position="bottom-left" theme="dark" closeButton />
 
 <!-- Before anything else, on the sign-in screen too: a browser without JPEG XL hears it at start. -->
 <BrowserNotice />

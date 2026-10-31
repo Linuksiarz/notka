@@ -126,6 +126,8 @@ Every setting has a working default except the first administrator. Put them in 
 | `NOTKA_ADMIN_USERNAME`, `NOTKA_ADMIN_PASSWORD` | | The administrator, created on the first start of an empty instance and ignored afterwards. |
 | `NOTKA_ADMIN_EMAIL` | | The administrator's address, so notes can be shared with them. |
 | `NOTKA_PUBLIC_URL` | | The address people reach the instance at. Password-reset links are built from it. |
+| `NOTKA_OIDC_ISSUER`, `NOTKA_OIDC_CLIENT_ID` | | Sign-in through an OpenID Connect provider, see below. |
+| `NOTKA_OIDC_CLIENT_SECRET`, `NOTKA_OIDC_NAME` | , `SSO` | The client's secret (none for a public client), and what the sign-in button calls the provider. |
 | `NOTKA_SMTP_HOST`, `NOTKA_SMTP_FROM` | | Outgoing mail server and sender, for password resets. Without them nothing is sent. |
 | `NOTKA_SMTP_SECURITY`, `NOTKA_SMTP_PORT` | `starttls` | `starttls` (587), `force_tls` (465) or `off` (25). |
 | `NOTKA_SMTP_USERNAME`, `NOTKA_SMTP_PASSWORD` | | Login at the mail server, when it needs one. |
@@ -140,6 +142,31 @@ Every setting has a working default except the first administrator. Put them in 
 | `NOTKA_COOKIE_SECURE`, `NOTKA_TRUST_PROXY_HEADERS` | `true` | Keep both on behind a reverse proxy on the same host. |
 | `NOTKA_LOG_LEVEL` | `INFO` | Log level. |
 | `DEMO` | `false` | Start as a demo with two sample accounts (see below). |
+
+### Single sign-on
+
+Notka can sign people in through an OpenID Connect provider such as [Pocket ID](https://pocket-id.org),
+next to its own passwords. Register a client at the provider with the callback
+`https://notes.example.com/api/auth/sso/callback` and PKCE enabled, then set:
+
+```bash
+NOTKA_PUBLIC_URL=https://notes.example.com
+NOTKA_OIDC_ISSUER=https://id.example.com
+NOTKA_OIDC_CLIENT_ID=the-client-id
+NOTKA_OIDC_CLIENT_SECRET=the-client-secret
+NOTKA_OIDC_NAME=Pocket ID
+```
+
+- **Accounts follow the provider's subject, never the e-mail address.** Somebody new gets an account
+  only while sign-up is open, so open it in *Server settings* when they first sign in. To limit who may
+  sign in at all, use the provider's own groups.
+- **An existing account connects itself** in *Settings → Single sign-on*, while signed in. An account
+  whose address is already taken is never joined automatically.
+- **The administrator stays the account from `NOTKA_ADMIN_USERNAME`**, and its password keeps working if
+  the provider is down. The provider never makes anybody an administrator.
+- **Encrypted notes stay closed to the provider.** An account from the provider chooses an encryption
+  passphrase and enters it once on each device; a connected account uses its password
+  ([`docs/ENCRYPTION.md`](docs/ENCRYPTION.md)).
 
 ### Administration
 

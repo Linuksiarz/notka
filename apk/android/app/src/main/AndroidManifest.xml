@@ -25,6 +25,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Back from the identity provider's page. A scheme, because the server is the reader's own (apk/README.md). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dev.duwe.notka" android:host="sso" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

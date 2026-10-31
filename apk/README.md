@@ -38,6 +38,24 @@ Capacitor's `errorPath`, with *Try again* and *Change server*.
 Only `https://` addresses are accepted — plus `http://localhost` in a debug build, for a development
 server forwarded with `adb reverse`.
 
+## Signing in through an identity provider
+
+The provider's page opens in a Custom Tab (`@capacitor/browser`): a plain WebView has no passkeys and
+none of the browser's sign-in at the provider. A Custom Tab's cookies are not the WebView's, so the
+session cannot be set there. The server answers it with a redirect to the app's scheme,
+`dev.duwe.notka://sso?ssoCode=…`, and `MainActivity` opens `/?ssoCode=…` in the WebView, where the page
+trades the code for the session (`POST /api/auth/sso/exchange`, `docs/API.md`). Connecting an account from
+Settings takes the same trip. An account with encrypted notes then asks for its passphrase once, as on any
+new device.
+
+It is a scheme and not an app link because an app link needs the host named in the app, and the server is
+the reader's own. Any app can claim a scheme, so the code is worthless without the secret kept in the
+WebView that started the sign-in. The trip survives the system ending the app while the tab is open.
+
+To try it on an emulator, run the server with `frontend/e2e/oidc-provider.mjs` as its provider
+(`frontend/e2e/README.md`, `sso.mjs`) and forward both ports: `adb reverse tcp:8091 tcp:8091`, and the same
+for `8092`. Connect the app to `http://localhost:8091`.
+
 ## Building
 
 Needs JDK 21 and the Android SDK (`ANDROID_HOME`, or `android/local.properties` with `sdk.dir`).

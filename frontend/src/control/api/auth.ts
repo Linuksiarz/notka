@@ -1,10 +1,14 @@
 import { api } from './client';
 import type {
+  ChangePassphraseRequest,
   EnableEncryptionRequest,
   EncryptionEnabledResponse,
   LoginRequest,
   PasswordResetRequest,
+  RecoverEncryptionRequest,
   RegisterRequest,
+  SsoExchangeResponse,
+  SsoStartResponse,
   UpdateProfileRequest,
   UserResponse
 } from '../../entity/api/types';
@@ -24,7 +28,17 @@ export const authApi = {
   /** Answers with the recovery key, the one time it is ever sent. */
   enableEncryption: (body: EnableEncryptionRequest) =>
     api.post<EncryptionEnabledResponse>('/auth/me/encryption', body),
-  disableEncryption: () => api.delete<UserResponse>('/auth/me/encryption')
+  disableEncryption: () => api.delete<UserResponse>('/auth/me/encryption'),
+  /** This device enters the account's passphrase, or its password when it has one. */
+  unlockEncryption: (secret: string) => api.post<UserResponse>('/auth/me/encryption/unlock', { secret }),
+  recoverEncryption: (body: RecoverEncryptionRequest) => api.post<UserResponse>('/auth/me/encryption/recover', body),
+  discardEncryption: () => api.post<UserResponse>('/auth/me/encryption/discard'),
+  changePassphrase: (body: ChangePassphraseRequest) => api.post<UserResponse>('/auth/me/encryption/passphrase', body),
+  /** Answers with the provider's page to send the browser to. */
+  startSso: (link: boolean, appChallenge?: string) => api.post<SsoStartResponse>('/auth/sso/start', { link, appChallenge }),
+  /** Android's app, back from the Custom Tab: trades the code it was sent for the session. */
+  exchangeSso: (code: string, verifier: string) => api.post<SsoExchangeResponse>('/auth/sso/exchange', { code, verifier }),
+  unlinkSso: () => api.delete<UserResponse>('/auth/me/sso')
 };
 /** Where an account's picture is; the `v` is its `avatarAt`, so a new picture is a new address. */
 export function avatarUrl(userId: number, avatarAt: number): string {

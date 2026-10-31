@@ -44,7 +44,7 @@ class NoteEncryptionTest {
 
     private fun encrypting(email: String = "ada@example.com"): Pair<AuthResult, String> {
         val account = register(email)
-        return account to fixture.services.encryption.enable(account.user.id, PASSWORD, account.token)
+        return account to fixture.services.encryption.enable(account.user.id, PASSWORD, null, account.token)
     }
 
     private fun secretNote(ownerId: Int, document: NoteDocument = text(SECRET)) =
@@ -96,7 +96,7 @@ class NoteEncryptionTest {
         assertTrue(SECRET in stored())
 
         // when
-        fixture.services.encryption.enable(ada.user.id, PASSWORD, ada.token)
+        fixture.services.encryption.enable(ada.user.id, PASSWORD, null, ada.token)
 
         // then
         assertFalse(SECRET in stored())
@@ -115,7 +115,7 @@ class NoteEncryptionTest {
         }
 
         // when
-        fixture.services.encryption.enable(ada.user.id, PASSWORD, ada.token)
+        fixture.services.encryption.enable(ada.user.id, PASSWORD, null, ada.token)
         transaction(fixture.services.database) { exec("PRAGMA wal_checkpoint(TRUNCATE)") }
 
         // then: neither the rows nor the pages they were freed from hold it
@@ -224,7 +224,7 @@ class NoteEncryptionTest {
         val phone = fixture.services.auth.login("ada@example.com", PASSWORD)
 
         // when
-        fixture.services.encryption.enable(ada.user.id, PASSWORD, ada.token)
+        fixture.services.encryption.enable(ada.user.id, PASSWORD, null, ada.token)
 
         // then
         assertFailsWith<DomainException> { fixture.services.auth.authenticate(phone.token) }
@@ -237,7 +237,7 @@ class NoteEncryptionTest {
         val ada = register()
 
         // when
-        val failure = assertFailsWith<DomainException> { fixture.services.encryption.enable(ada.user.id, "not the password", ada.token) }
+        val failure = assertFailsWith<DomainException> { fixture.services.encryption.enable(ada.user.id, "not the password", null, ada.token) }
 
         // then
         assertEquals(ErrorKeys.AUTH_INVALID_CURRENT_PASSWORD, failure.key)

@@ -82,6 +82,12 @@ export interface Account extends User {
   encryption: boolean;
   /** Whether the server fetches cards for the links in the account's notes. */
   linkPreviews: boolean;
+  /** This device has not entered the account's secret yet: nothing but unlocking works until it has. */
+  encryptionLocked: boolean;
+  /** An account from the identity provider has none, and a passphrase wraps its key instead. */
+  hasPassword: boolean;
+  /** Whether the account is connected to the identity provider. */
+  ssoLinked: boolean;
 }
 
 /** A named set of the reader's friends; picking it in the share dialog adds every member. */
@@ -303,8 +309,31 @@ export interface UpdateProfileRequest {
   linkPreviews?: boolean;
 }
 
+/** The password of an account that has one; the [passphrase] it chooses otherwise. */
 export interface EnableEncryptionRequest {
-  password: string;
+  password?: string;
+  passphrase?: string;
+}
+
+/** [newPassphrase] is required of an account without a password: the old one is what was forgotten. */
+export interface RecoverEncryptionRequest {
+  recoveryKey: string;
+  newPassphrase?: string;
+}
+
+export interface ChangePassphraseRequest {
+  currentPassphrase: string;
+  newPassphrase: string;
+}
+
+export interface SsoStartResponse {
+  url: string;
+}
+
+/** `linked`: the account was connected rather than signed in. */
+export interface SsoExchangeResponse {
+  user: Account;
+  linked: boolean;
 }
 
 /** The only answer that ever carries the recovery key. */

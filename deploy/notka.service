@@ -38,7 +38,8 @@ Environment=NOTKA_LOG_LEVEL=INFO
 Environment=NOTKA_PUBLIC_URL=https://notes.example.com
 # The administrator and the mail server's password belong in a file only root can read:
 #   /etc/notka/notka.env with NOTKA_ADMIN_USERNAME=…, NOTKA_ADMIN_PASSWORD=… (first start only) and
-#   NOTKA_SMTP_HOST, NOTKA_SMTP_FROM, NOTKA_SMTP_USERNAME, NOTKA_SMTP_PASSWORD.
+#   NOTKA_SMTP_HOST, NOTKA_SMTP_FROM, NOTKA_SMTP_USERNAME, NOTKA_SMTP_PASSWORD, and for single sign-on
+#   NOTKA_OIDC_ISSUER, NOTKA_OIDC_CLIENT_ID, NOTKA_OIDC_CLIENT_SECRET, NOTKA_OIDC_NAME.
 EnvironmentFile=-/etc/notka/notka.env
 
 # Hardening

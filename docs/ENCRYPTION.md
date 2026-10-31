@@ -11,7 +11,7 @@ a backup. Against that, a sealed note's title, body, history, step log and pictu
 ciphertext, and the key that opens them is not in the file.
 
 It is **not** end-to-end encryption. The server encrypts and decrypts, so it holds an account's key in
-memory while the account is in use, and it sees the password at sign-in. An administrator who changes
+memory while the account is in use, and it sees the password, or the passphrase, when it is entered. An administrator who changes
 the server's code, reads its memory or logs its requests can read the notes; so could one who serves a
 different frontend. Data in transit is TLS's business, not this feature's. What stays readable in the
 file is the notes' **metadata**: owner, kind, colour, background, pin, archive and trash state, reminder,
@@ -45,13 +45,15 @@ row or note does not open. Sealing and opening a note rewrite all of it in one t
 | --- | --- | --- |
 | The account's key (AES-256) | never stored unwrapped | each row of `account_key_wraps`, and each session |
 | Password wrap | `account_key_wraps`, `PASSWORD` | PBKDF2-HMAC-SHA256 of the password, 600 000 rounds, its own salt (not the login hash's) |
+| Passphrase wrap | `account_key_wraps`, `PASSPHRASE` | PBKDF2-HMAC-SHA256 of the encryption passphrase, like the password wrap; only an account without a password has one |
 | Recovery wrap | `account_key_wraps`, `RECOVERY` | HMAC-SHA256 of the recovery key: 160 random bits shown **once**, as Crockford base32 in groups of four |
 | Session copy | `session_keys`, by the session's token hash | HMAC-SHA256 of the session cookie, which only the browser holds |
 | In memory | `KeyRing`, by account | — let go after an hour unused (`SessionCleanupJob`) |
 
 A request authenticates as before; `AccountKeys.unlockSession` then opens the account's key from the
 session's copy into the `KeyRing`, where the repositories find it. A server restart therefore signs
-nobody out. Sign-in with the password writes the session's copy. Turning encryption on asks for the
+nobody out. **The answer is the session's own**: the `KeyRing` holds the key of an account some other
+device unlocked, and a session without a copy is refused however recently that happened. Sign-in with the password writes the session's copy. Turning encryption on asks for the
 password again (it is what the key is wrapped with), writes both wraps and this session's copy, and
 signs the other devices out: their sessions hold no copy, and signing in again gives them one.
 
@@ -62,9 +64,33 @@ A changed password re-wraps the same key; the recovery key and the sessions keep
 sealed notes, which nobody can open any more, are deleted, and the account starts without encryption.
 Shared notes were never sealed and stay.
 
-**SSO.** An account signing in through an identity provider has no password to wrap the key with. It
-would get a wrap of its own — a separate encryption passphrase entered once per device after the
-provider's sign-in — next to the recovery key, and nothing else here changes.
+### SSO
+
+The identity provider says who is asking; **it never opens the notes**. A session it started holds no
+copy of the key, so an account that encrypts its notes is **locked** on that device: `GET /api/auth/me`
+says `encryptionLocked: true`, every other route answers `403 auth.encryption_locked` (only signing out
+and unlocking work), and the app shows nothing but the unlock screen. Whoever gets into the provider
+therefore still does not get the notes.
+
+- **An account from the provider has no password**, so turning encryption on asks it to choose an
+  **encryption passphrase**. That is its own wrap (`PASSPHRASE`) next to the recovery key. It is held to
+  a password's length, 8 to 200 characters, and is never sent to the provider.
+- **An account with a password that connected to the provider** has no passphrase: its password is what
+  unlocks a device that signed in through the provider.
+- **It is entered once per device**: the session keeps its copy as a password sign-in's does, for as long
+  as the session lasts, across reloads and server restarts. Signing out, or a session expiring, asks again.
+- **A changed passphrase** (Settings, the current one first) wraps the same key and signs the other
+  devices out, as a new password does.
+- **A forgotten passphrase** takes the recovery key (`POST /api/auth/me/encryption/recover`), which also
+  sets a new one and signs the other devices out. An account with a password only gets this device open;
+  its password stays, and the administrator's reset is what replaces that.
+- **Neither left**: a locked account without a password may give the sealed notes up
+  (`POST /api/auth/me/encryption/discard`, deleted for good, shared notes stay). An account with a
+  password cannot do this from a session the provider started: that would hand anyone inside the
+  provider a way to destroy notes they cannot read, and it has the administrator's reset instead.
+
+Someone who controls the provider can still destroy the sealed notes of an account **without** a
+password, because signing in is all that account has. They cannot read them.
 
 ## Old copies in the file
 

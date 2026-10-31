@@ -27,6 +27,7 @@ import io.ktor.server.plugins.ContentTransformationException
 import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.bodylimit.RequestBodyLimit
 import io.ktor.server.plugins.calllogging.CallLogging
+import io.ktor.server.plugins.calllogging.processingTimeMillis
 import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.conditionalheaders.ConditionalHeaders
 import io.ktor.server.plugins.compression.deflate
@@ -129,6 +130,8 @@ fun Application.configureHttpPlugins(config: AppConfig) {
     install(CallLogging) {
         level = Level.INFO
         filter { call -> call.request.path().startsWith("/api") }
+        // Ktor's own format adds a redirect's target, and the sign-in's redirect to Android's app carries a code.
+        format { call -> "${call.response.status()}: ${call.request.httpMethod.value} - ${call.request.path()} in ${call.processingTimeMillis()}ms" }
     }
     install(SSE)
     // `HEAD` answers like `GET` without the body: uptime monitors and proxies ask that way, and every

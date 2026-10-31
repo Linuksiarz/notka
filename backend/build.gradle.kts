@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "dev.duwe.notka"
-version = "1.0.0-rc8"
+version = "1.0.0-rc9"
 
 kotlin {
     jvmToolchain(21)
@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.jsoup)
     implementation(libs.angus.mail)
+    implementation(libs.nimbus.oidc)
     implementation(libs.kotlin.logging)
     implementation(libs.logback.classic)
 
