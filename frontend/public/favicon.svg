@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-  <g>
-    <path d="M12 4H30L42 16V40A4 4 0 0 1 38 44H12A4 4 0 0 1 8 40V8A4 4 0 0 1 12 4Z" fill="#12a594"/>
-    <path d="M30 4V13A3 3 0 0 0 33 16H42Z" fill="#0b6e63"/>
-    <polyline points="17,35 17,22 31,35 31,22" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="48" height="48">
+  <style>
+    .sheet { fill: #0c447c; }
+    .fold { fill: #378add; }
+    @media (prefers-color-scheme: dark) {
+      .sheet { fill: #1f6bb8; }
+      .fold { fill: #85b7eb; }
+    }
+  </style>
+  <path class="sheet" d="M22 0H74L108 34V110A10 10 0 0 1 98 120H22A10 10 0 0 1 12 110V10A10 10 0 0 1 22 0Z"/>
+  <path class="fold" d="M74 0V28A6 6 0 0 0 80 34H108Z"/>
+  <path d="M34 62H86M34 88H48" fill="none" stroke="#e6f1fb" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="66" cy="88" r="7" fill="#fac775"/>
+  <circle cx="82" cy="88" r="5.5" fill="#fac775"/>
 </svg>

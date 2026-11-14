@@ -1,18 +1,18 @@
 [versions]
 kotlin = "2.4.21"
-ktor = "3.6.0"
-exposed = "1.6.0"
-sqliteJdbc = "3.53.4.0"
+ktor = "3.6.1"
+exposed = "1.6.1"
+sqliteJdbc = "3.54.1.0"
 hikari = "6.3.0"
-kotlinxSerialization = "1.12.0"
+kotlinxSerialization = "1.13.0"
 kotlinxCoroutines = "1.11.0"
-kotlinLogging = "8.0.4"
-logback = "1.6.6"
+kotlinLogging = "8.0.7"
+logback = "1.6.7"
 junit = "6.1.3"
 shadow = "9.6.1"
-jsoup = "1.23.2"
+jsoup = "1.24.1"
 angusMail = "2.0.5"
-nimbusOidc = "11.38.2"
+nimbusOidc = "11.39"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

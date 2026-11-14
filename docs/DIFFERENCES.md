@@ -35,7 +35,7 @@ When a change makes Notka differ from the original, add it here.
 | **Settings** | Theme, animations, language, display name and password. | Item placement, link preview, reminder defaults and sharing options. |
 | **A phone is the Android app** | Below 600px the chrome is the original's Android app's — the search pill with the layout and sort switches, the drawer with its Settings, one "+" with a menu of kinds of note, bottom sheets, cards without action bars picked by a held finger — and the system bar wears the colour at the top of the screen. | The web app on a phone is the desktop layout, narrowed. |
 | **Sorting** | The sort sheet of the Android app — custom, date created, date modified — on a phone, remembered per device. | The Android app has it; the web app does not. |
-| **Backgrounds** | The same nine, drawn by Notka's own CC0 artwork; the original's illustrations are an optional theme the administrator can upload, anyone can make another (`THEMES.md`), and every account picks its own. | Its own nine illustrations, fixed. |
+| **Backgrounds** | The same nine, drawn by Notka's own AGPL-3.0 artwork; the original's illustrations are an optional theme the administrator can upload, anyone can make another (`THEMES.md`), and every account picks its own. | Its own nine illustrations, fixed. |
 
 ## What Notka leaves out
 

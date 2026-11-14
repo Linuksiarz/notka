@@ -36,7 +36,7 @@ const BUILT_IN: ThemeSummary = {
   id: BUILT_IN_THEME_ID,
   name: 'Notka',
   author: 'Notka',
-  license: 'CC0 1.0',
+  license: 'AGPL-3.0',
   builtIn: true,
   previews: Object.fromEntries(NOTE_BACKGROUNDS.map((id) => [id, `/backgrounds/${id}-light.svg`]))
 };

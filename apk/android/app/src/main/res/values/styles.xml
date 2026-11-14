@@ -11,7 +11,7 @@
 
     <!-- The system's own splash screen (Android 12+): the icon on its colour. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/notka_teal</item>
+        <item name="windowSplashScreenBackground">@color/notka_navy</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>

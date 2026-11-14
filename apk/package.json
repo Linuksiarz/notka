@@ -1,6 +1,6 @@
 {
   "name": "notka-android",
-  "version": "1.0.0-rc9",
+  "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -10,12 +10,12 @@
     "build:release": "cap sync android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
-    "@capacitor/android": "8.5.3",
+    "@capacitor/android": "8.6.2",
     "@capacitor/browser": "8.0.5",
-    "@capacitor/core": "8.5.3",
+    "@capacitor/core": "8.6.2",
     "@capacitor/status-bar": "8.0.4"
   },
   "devDependencies": {
-    "@capacitor/cli": "8.5.3"
+    "@capacitor/cli": "8.6.2"
   }
 }

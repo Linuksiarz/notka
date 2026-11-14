@@ -1,4 +1,4 @@
-"""Generates Notka's built-in background artwork (CC0): nine scenes, a light and a dark variant.
+"""Generates Notka's built-in background artwork (AGPL-3.0, as the rest of Notka): nine scenes, a light and a dark variant.
 
 usage: python3 tools/generate-backgrounds.py frontend/public/backgrounds
 
@@ -13,10 +13,14 @@ Every picture is 1000x1000, drawn for how the app crops it (`palette.css`, `Note
   picture is one flat colour, its tint (`--theme-tint-<id>` in `palette.css`), and detail starts
   well below it.
 
-The colours are one family around Notka's sea green (`--keep-brand` #12a594, `--keep-brand-fold`
-#0b6e63): every scene carries those teals, set against a sky of its own — sand, peach, aqua, apricot,
-mist, mint, sky, butter, coral — and the dark variants the same scenes at dusk.
+The colours are the eDuwe.pl family's: navy and its blues carry every scene,
+amber is the accent, coral the warm second voice, and each scene stands on a pale sky of its own.
+The dark variants are the same scenes at dusk, computed from the light ones (`dusk`); only what
+gives light — a lamp, a flame, a lit window — keeps its colour.
+
+Running it prints each scene's tint and tonal step, for `palette.css` and `docs/THEMES.md`.
 """
+import colorsys
 import math
 import os
 import random
@@ -24,6 +28,56 @@ import sys
 
 W = 1000
 CALM = 300  # above this line every picture is its flat tint
+FLOOR = 850
+
+BASE = dict(
+    navy9='#042C53', navy='#0C447C', blue6='#1F6BB8', blue4='#378ADD', blue2='#85B7EB', ice='#E6F1FB',
+    white='#FFFFFF', amber3='#FAC775', amber='#EF9F27', amber7='#C97F14', coral='#E8735A', coral2='#F29A85',
+    red='#D9482B', red2='#B93A22', cream='#FFF4DF', cream2='#F3E2C4', kraft='#D9B98A', kraft2='#C19E6C',
+    wood='#DDA869', wood2='#BF8650', wood3='#7A5234', green='#4E9F6A', green2='#7DBF7F', green3='#2F7A57',
+    yellow='#F7D154', steel='#A9B8C8', copper='#D98A4B', copper2='#B96C34', bread='#E3A85E', bread2='#C2823E',
+    crust='#E8B36A', crust2='#C98A42', cheese='#FFD98A', cheese2='#FFE9B5',
+)
+# What gives light keeps its colour at dusk.
+LIT = dict(glow='#FFF1C2', flame='#FFC24A', lamp='#FFE08A')
+
+
+def rgb(color):
+    return tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def mix(a, b, t):
+    return '#' + ''.join(f'{round(x + (y - x) * t):02x}' for x, y in zip(rgb(a), rgb(b)))
+
+
+def dusk(color):
+    """The colour as it looks after sunset: darker, a little greyer, leaning to night blue."""
+    hue, light, sat = colorsys.rgb_to_hls(*(v / 255 for v in rgb(color)))
+    r, g, b = colorsys.hls_to_rgb(hue, .25 + .33 * light, sat * .8)
+    return mix('#' + ''.join(f'{round(v * 255):02x}' for v in (r, g, b)), '#141c33', .16)
+
+
+class Palette:
+    def __init__(self, sky, dark):
+        self.sky, self.dark = sky, dark
+
+    def __getitem__(self, name):
+        if name == 'sky':
+            return self.sky
+        if name == 'floor':
+            return mix(self.sky, '#000000', .2) if self.dark else mix(self.sky, BASE['navy'], .1)
+        if name in LIT:
+            return LIT[name]
+        return dusk(BASE[name]) if self.dark else BASE[name]
+
+    def tone(self, amount, name='navy'):
+        """A quiet step away from the sky, for what stands in the distance."""
+        if self.dark:
+            return mix(self.sky, '#ffffff' if name == 'navy' else self[name], amount * .8)
+        return mix(self.sky, BASE[name], amount)
+
+    def window(self, lit):
+        return LIT['glow'] if self.dark and lit else self['navy']
 
 
 def num(v):
@@ -31,12 +85,14 @@ def num(v):
     return s[:-2] if s.endswith('.0') else s
 
 
-def attrs(fill=None, stroke=None, width=None, op=None, cap='round', tf=None):
+def attrs(fill=None, stroke=None, width=None, op=None, cap='round', tf=None, dash=None):
     out = []
     if fill is not None:
         out.append(f'fill="{fill}"')
     if stroke:
         out.append(f'stroke="{stroke}" stroke-width="{num(width)}" stroke-linecap="{cap}" stroke-linejoin="round"')
+    if dash:
+        out.append(f'stroke-dasharray="{dash}"')
     if op is not None and op < 1:
         out.append(f'opacity="{op}"')
     if tf:
@@ -44,8 +100,8 @@ def attrs(fill=None, stroke=None, width=None, op=None, cap='round', tf=None):
     return ' '.join(out)
 
 
-def P(d, fill='none', stroke=None, width=0, op=None, cap='round', tf=None):
-    return f'<path d="{d}" {attrs(fill, stroke, width, op, cap, tf)}/>'
+def P(d, fill='none', stroke=None, width=0, op=None, cap='round', tf=None, dash=None):
+    return f'<path d="{d}" {attrs(fill, stroke, width, op, cap, tf, dash)}/>'
 
 
 def C(cx, cy, r, fill='none', stroke=None, width=0, op=None):
@@ -80,619 +136,469 @@ def leaf(x, y, length, width, angle, fill, op=None):
     return P(d, fill, op=op, tf=f'translate({num(x)} {num(y)}) rotate({num(angle)})')
 
 
-def frond(x, y, length, angle, droop, fill, leaflets=12, size=1.0):
-    """A palm frond: a curved rib with leaflets hanging from it."""
-    a = math.radians(angle)
-    ex, ey = x + length * math.cos(a), y + length * math.sin(a)
-    cx, cy = (x + ex) / 2, (y + ey) / 2 - droop
-    out = [P(f'M{num(x)} {num(y)}Q{num(cx)} {num(cy)} {num(ex)} {num(ey)}', stroke=fill, width=5 * size)]
-    for i in range(1, leaflets + 1):
-        t = i / (leaflets + 1)
-        px = (1 - t) ** 2 * x + 2 * (1 - t) * t * cx + t * t * ex
-        py = (1 - t) ** 2 * y + 2 * (1 - t) * t * cy + t * t * ey
-        tx = 2 * (1 - t) * (cx - x) + 2 * t * (ex - cx)
-        ty = 2 * (1 - t) * (cy - y) + 2 * t * (ey - cy)
-        direction = math.degrees(math.atan2(ty, tx))
-        ln = (70 - 40 * t) * size
-        for side in (-1, 1):
-            out.append(leaf(px, py, ln, 13 * size, direction + 90 + side * 55 + 30, fill))
-    return out
+def polar(cx, cy, r, degrees):
+    a = math.radians(degrees)
+    return cx + r * math.cos(a), cy + r * math.sin(a)
 
 
-def canopy(blobs, base, light, shade=None):
-    """A tree's crown: overlapping discs, a lighter cap on each."""
-    out = [C(x, y, r, base) for x, y, r in blobs]
-    out += [C(x - r * .25, y - r * .3, r * .62, light) for x, y, r in blobs]
-    if shade:
-        out += [P(f'M{num(x - r)} {num(y)}A{num(r)} {num(r)} 0 0 0 {num(x + r)} {num(y)}Z', shade, op=.55) for x, y, r in blobs[:2]]
-    return out
+def wedge(cx, cy, r, a0, a1, fill, op=None):
+    (x0, y0), (x1, y1) = polar(cx, cy, r, a0), polar(cx, cy, r, a1)
+    return P(f'M{num(cx)} {num(cy)}L{num(x0)} {num(y0)}A{num(r)} {num(r)} 0 0 1 {num(x1)} {num(y1)}Z', fill, op=op)
 
 
-def sky(p, haze_from=.42, haze_to=.78):
-    """The flat tint, warming towards the horizon only below the calm band."""
-    if 'haze' not in p:
-        return [R(0, 0, W, W, p['sky'])]
-    return [
-        f'<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">'
-        f'<stop offset="{haze_from}" stop-color="{p["sky"]}"/><stop offset="{haze_to}" stop-color="{p["haze"]}"/>'
-        f'</linearGradient></defs>',
-        R(0, 0, W, W, 'url(#sky)'),
-    ]
+def shine(x, y, r, c):
+    return C(x - r * .35, y - r * .35, r * .22, c['white'], op=.55)
 
 
-def scatter(seed, n, box, draw, avoid=None):
-    rnd = random.Random(seed)
-    out = []
-    for _ in range(n):
-        x, y = rnd.uniform(box[0], box[2]), rnd.uniform(box[1], box[3])
-        if avoid and avoid(x, y):
-            continue
-        out.append(draw(rnd, x, y))
-    return out
+def steam(x, y, h, c):
+    return P(f'M{num(x)} {num(y)}c-18 {num(-h * .25)} 18 {num(-h * .5)} 0 {num(-h * .75)}s-14 {num(-h * .2)} 0 {num(-h * .25)}',
+             stroke=c['white'], width=7, op=.6)
 
 
-def grass(seed, x0, x1, y, color, n=40, height=26):
-    rnd = random.Random(seed)
-    d = []
-    for _ in range(n):
-        x = rnd.uniform(x0, x1)
-        h = rnd.uniform(height * .5, height)
-        lean = rnd.uniform(-8, 8)
-        d.append(f'M{num(x - 3)} {num(y)}Q{num(x + lean * .3)} {num(y - h * .6)} {num(x + lean)} {num(y - h)}Q{num(x + 1)} {num(y - h * .5)} {num(x + 3)} {num(y)}Z')
-    return [P(''.join(d), color)]
+def star(x, y, r, fill, op=None):
+    """A four-pointed sparkle."""
+    k = r * .22
+    return P(f'M{num(x)} {num(y - r)}Q{num(x + k)} {num(y - k)} {num(x + r)} {num(y)}Q{num(x + k)} {num(y + k)} {num(x)} {num(y + r)}'
+             f'Q{num(x - k)} {num(y + k)} {num(x - r)} {num(y)}Q{num(x - k)} {num(y - k)} {num(x)} {num(y - r)}Z', fill, op=op)
+
+
+def ground(c):
+    return [R(0, 0, W, W, c['sky']), R(0, FLOOR, W, W - FLOOR, c['floor'])]
 
 
 # ------------------------------------------------------------------------------------------ scenes
 
-def groceries(p):
-    """A wooden crate of produce on the ground, greens and a paper bag reaching up the right."""
-    out = sky(p)
-    out += [
-        P('M0 760C180 735 360 748 560 732C740 718 880 724 1000 712L1000 1000L0 1000Z', p['far']),
-        P('M0 820C220 800 420 812 640 798C800 788 900 792 1000 786L1000 1000L0 1000Z', p['ground']),
-    ]
-    out += grass(11, 0, 1000, 822, p['far'], n=70, height=22)
-    # the greens behind the crate: carrot tops, leek and chard leaves rising up the right side
-    rnd = random.Random(3)
-    for i in range(11):
-        bx = 640 + i * 32 + rnd.uniform(-8, 8)
-        ln = rnd.uniform(200, 360)
-        out.append(leaf(bx, 780, ln, rnd.uniform(60, 96), rnd.uniform(-30, 28), p['green2' if i % 3 else 'green3']))
-    for i in range(9):
-        bx = 700 + i * 30
-        out.append(leaf(bx, 790, rnd.uniform(150, 250), 52, rnd.uniform(-24, 24), p['green1']))
-    # veins on the large leaves
-    out += [P(f'M{x} 780Q{x + 6} 640 {x + s} {y}', stroke=p['vein'], width=3, op=.6) for x, s, y in ((760, -30, 520), (850, 20, 470), (930, 26, 560))]
-    # the paper bag on the right edge, a baguette and celery out of it
-    out += [
-        P('M905 600L1000 590L1000 1000L890 1000Z', p['bag']),
-        P('M905 600L1000 590L1000 616L912 628Z', p['bag2']),
-        P('M928 600C930 520 950 430 972 380C980 366 996 370 992 388C978 452 962 526 958 600Z', p['bread']),
-        *[P(f'M{938 + i * 4} {560 - i * 46}l18 -10', stroke=p['bread2'], width=5) for i in range(4)],
-        *[leaf(975 + i * 8, 600, 160 + i * 26, 22, 10 + i * 6, p['green3']) for i in range(3)],
-    ]
-    # the crate: teal slats with the produce heaped on top
-    produce = [
-        (600, 770, 46, 'orange'), (690, 754, 50, 'apple'), (780, 762, 46, 'orange'),
-        (860, 772, 42, 'apple'), (645, 735, 40, 'lemon'), (740, 722, 44, 'apple'),
-        (822, 730, 40, 'orange'), (560, 790, 36, 'lemon'),
-    ]
-    for x, y, r, kind in produce:
-        out += [C(x, y, r, p[kind]), C(x - r * .35, y - r * .35, r * .32, p['shine'], op=.45)]
-        if kind == 'apple':
-            out += [P(f'M{x} {y - r + 4}q4 -20 14 -26', stroke=p['stem'], width=5), leaf(x + 8, y - r - 8, 30, 14, 60, p['green1'])]
-        if kind == 'orange':
-            out += [C(x, y - r + 8, 4, p['stem'])]
-    out += [
-        R(520, 790, 400, 210, p['crate'], rx=6),
-        *[R(520, 800 + i * 58, 400, 40, p['crate2'], rx=4) for i in range(3)],
-        *[L(540, 820 + i * 58, 900, 820 + i * 58, p['crate'], 2, op=.5) for i in range(3)],
-        R(520, 790, 26, 210, p['crate3']), R(894, 790, 26, 210, p['crate3']),
-        *[C(533, 812 + i * 58, 4, p['crate']) for i in range(3)],
-        *[C(907, 812 + i * 58, 4, p['crate']) for i in range(3)],
-        R(560, 860, 150, 64, p['label'], rx=4),
-        P('M580 880h100M580 900h70', stroke=p['crate'], width=6),
-    ]
-    # loose produce on the ground to the left, a pear and a bunch of radishes
-    out += [
-        P('M420 900C384 900 376 852 400 828C406 802 432 800 440 826C466 852 458 900 420 900Z', p['lemon']),
-        P('M420 806q2 -16 10 -24', stroke=p['stem'], width=5),
-        *[C(300 + i * 34, 920 - (i % 2) * 10, 20, p['apple']) for i in range(3)],
-        *[leaf(300 + i * 34, 902 - (i % 2) * 10, 70, 18, -20 + i * 20, p['green1']) for i in range(3)],
-        E(180, 930, 70, 16, p['shadow'], op=.5), C(170, 906, 26, p['orange']), C(206, 912, 22, p['lemon']),
-    ]
-    out += scatter(5, 26, (0, 860, 1000, 990), lambda r, x, y: E(x, y, r.uniform(3, 7), 2.5, p['far']))
+def groceries(c):
+    """A full shopping cart in a supermarket aisle, the shelves rising up the right edge."""
+    out = ground(c)
+    # the aisle's shelves, quiet in the distance
+    out.append(R(800, 350, 200, 500, c.tone(.07)))
+    rnd = random.Random(5)
+    for y in (450, 550, 650, 750):
+        out.append(R(790, y - 8, 210, 10, c.tone(.2)))
+        x = 812
+        while x < 985:
+            w, h = rnd.choice((22, 28, 34)), rnd.uniform(44, 76)
+            fill = rnd.choice((c.tone(.14), c.tone(.22), c.tone(.4, 'coral'), c.tone(.45, 'amber3')))
+            if rnd.random() < .4:
+                out += [R(x, y - 8 - h * .7, w, h * .7, fill, rx=6), R(x + w / 2 - 5, y - 8 - h, 10, h * .4, fill, rx=3)]
+            else:
+                out.append(R(x, y - 8 - h, w, h, fill, rx=3))
+            x += w + 8
+    out.append(R(790, 842, 210, 10, c.tone(.2)))
+    out.append(E(640, 884, 235, 12, c.tone(.2)))
+    # what stands out of the cart: a paper bag with a baguette and leeks, milk, a bottle, cereal
+    out += [L(505, 520, 462, 372, c['bread'], 36)]
+    out += [L(480 - i * 9, 470 - i * 30, 498 - i * 9, 462 - i * 30, c['bread2'], 5) for i in range(3)]
+    out += [leaf(548, 500, 190, 38, 6, c['green']), leaf(566, 500, 160, 32, 22, c['green2']), leaf(534, 500, 150, 30, -10, c['green3'])]
+    out += [poly([(470, 478), (590, 470), (596, 650), (476, 650)], c['kraft']), poly([(562, 472), (590, 470), (596, 650), (568, 650)], c['kraft2'])]
+    out += [poly([(612, 506), (674, 506), (662, 474), (624, 474)], c['ice']), R(612, 506, 62, 150, c['white']),
+            R(612, 548, 62, 40, c['blue4']), R(635, 462, 16, 14, c['blue4'], rx=3)]
+    out += [R(702, 414, 16, 72, c['green3'], rx=4), R(690, 474, 40, 180, c['green3'], rx=9), R(700, 402, 20, 16, c['amber'], rx=3),
+            R(690, 536, 40, 52, c['cream'])]
+    out.append(G([R(0, 0, 76, 160, c['coral'], rx=4), C(38, 62, 23, c['amber3']), R(14, 104, 48, 10, c['cream'], rx=5),
+                  R(14, 122, 32, 8, c['cream'], rx=4)], tf='translate(742 486) rotate(5)'))
+    out.append(P('M556 600Q610 566 664 606Q610 590 562 614Z', c['yellow']))
+    for x, y, r, name in ((500, 706, 30, 'red'), (560, 720, 32, 'amber'), (626, 706, 30, 'green2'), (692, 718, 32, 'red'),
+                          (746, 708, 27, 'yellow'), (530, 654, 27, 'amber'), (598, 652, 26, 'red'), (664, 656, 27, 'green'),
+                          (724, 656, 25, 'amber')):
+        out += [C(x, y, r, c[name]), shine(x, y, r, c)]
+    # the cart itself, drawn over its load
+    out.append(poly([(440, 575), (800, 575), (772, 770), (478, 770)], c['ice'], op=.22))
+    for i in range(13):
+        t = i / 12
+        out.append(L(440 + 360 * t, 575, 478 + 294 * t, 770, c['navy'], 4))
+    for y in (622, 668, 714):
+        t = (y - 575) / 195
+        out.append(L(440 + 38 * t, y, 800 - 28 * t, y, c['navy'], 4))
+    out += [L(430, 575, 812, 575, c['navy'], 13), L(478, 770, 772, 770, c['navy'], 10),
+            P('M800 575L852 520L884 520', stroke=c['navy'], width=12), L(850, 520, 886, 520, c['amber'], 17),
+            P('M478 770L500 836L790 836L772 770', stroke=c['navy'], width=10)]
+    for x in (522, 768):
+        out += [C(x, 860, 24, c['navy9']), C(x, 860, 9, c['ice'])]
+    # an orange that got away
+    out += [C(400, 868, 21, c['amber']), shine(400, 868, 21, c), leaf(400, 849, 16, 9, 40, c['green'])]
     return out
 
 
-def food(p):
-    """A teal bowl of noodles on the right edge, chopsticks lifting a strand, steam rising."""
-    out = sky(p)
-    out += [
-        P('M0 820L1000 770L1000 1000L0 1000Z', p['table']),
-        P('M0 820L1000 770L1000 782L0 834Z', p['table2']),
-        *[L(0, 870 + i * 44, 1000, 822 + i * 44, p['table2'], 2, op=.5) for i in range(4)],
-    ]
-    # steam: soft curls up the right side
-    out += [P(f'M{x} 700C{x - 40} 640 {x + 40} 590 {x} 530C{x - 36} 480 {x + 30} 430 {x + 6} {y}', stroke=p['steam'], width=w, op=.55)
-            for x, y, w in ((700, 380, 14), (790, 340, 18), (880, 400, 14))]
-    # chopsticks lifting a noodle
-    out += [
-        L(760, 760, 980, 360, p['stick'], 13), L(800, 770, 1000, 400, p['stick2'], 13),
-        P('M832 520C820 600 860 640 840 720M850 530C846 600 880 650 862 740M866 520C878 600 900 650 884 732', stroke=p['noodle'], width=7),
-        P('M832 520C820 600 860 640 840 720', stroke=p['noodle2'], width=2),
-    ]
-    # the bowl, cropped by the right edge as the original's is
-    out += [
-        E(780, 975, 300, 30, p['shadow'], op=.45),
-        P('M470 790L1090 790C1090 900 980 980 780 980C580 980 470 900 470 790Z', p['bowl']),
-        P('M520 840C560 920 660 960 780 962', stroke=p['bowl2'], width=10, op=.6),
-        *[P(f'M{520 + i * 60} 860c10 20 30 20 40 0', stroke=p['bowl2'], width=6, op=.7) for i in range(9)],
-        E(780, 790, 310, 46, p['bowl3']),
-        E(780, 792, 292, 38, p['broth']),
-    ]
-    # noodles heaped in the bowl
+def food(c):
+    """A pizza seen from above on the corner of a round table, one slice already on its way."""
+    out = [R(0, 0, W, W, c['sky']), C(900, 1000, 582, c['wood2']), C(900, 1000, 566, c['wood'])]
+    out += [P(f'M{num(900 - r)} 1000A{r} {r} 0 0 1 900 {num(1000 - r)}', stroke=c['wood2'], width=3, op=.35) for r in (470, 370, 270)]
+    # a checked napkin with the cutlery on it
+    checks = [R(-56 + i * 28, -112 + j * 28, 28, 28, c['ice'], op=.22) for i in range(4) for j in range(8) if (i + j) % 2]
+    out.append(G([R(-56, -112, 112, 224, c['navy'], rx=6)] + checks + [
+        P('M-26 -92C-10 -80 -10 -24 -18 -2L-18 92Q-23 98 -28 92Z', c['ice']),
+        R(13, -6, 10, 100, c['ice'], rx=5), R(4, -92, 6, 70, c['ice'], rx=3), R(15, -92, 6, 70, c['ice'], rx=3),
+        R(26, -92, 6, 70, c['ice'], rx=3), R(4, -34, 28, 34, c['ice'], rx=10)], tf='translate(505 880) rotate(-24)'))
+    # the board, then the pizza on it
+    out.append(G([R(-36, -318, 72, 130, c['wood3'], rx=30), C(0, -280, 11, c['wood'])], tf='translate(750 790) rotate(8)'))
+    out += [C(750, 790, 226, c['wood3']), C(750, 790, 216, c['wood2'])]
+    cx, cy = 750, 790
+
+    def toppings(parts, spots, rnd):
+        for kind, x, y in spots:
+            if kind == 'p':
+                parts += [C(x, y, 24, c['red2']), C(x - 7, y - 6, 4.5, c['red'], op=.8), C(x + 8, y + 5, 4, c['red'], op=.8)]
+            elif kind == 'o':
+                parts.append(C(x, y, 8, stroke=c['navy9'], width=6))
+            else:
+                angle = rnd.uniform(0, 360)
+                parts += [leaf(x, y, 46, 26, angle, c['green']), leaf(x, y, 40, 3, angle, c['green3'])]
+
     rnd = random.Random(8)
-    d = []
-    for _ in range(46):
-        x = rnd.uniform(520, 1040)
-        y = rnd.uniform(740, 800)
-        w = rnd.uniform(40, 90)
-        d.append(f'M{num(x)} {num(y)}c{num(w * .3)} {num(-30)} {num(w * .7)} {num(-30)} {num(w)} 0')
-    out += [P(''.join(d), stroke=p['noodle'], width=7), P(''.join(d[::3]), stroke=p['noodle2'], width=2)]
-    # toppings: an egg, greens, coral slices, sesame
-    out += [
-        E(640, 752, 46, 32, p['egg']), E(646, 756, 22, 18, p['yolk']),
-        *[leaf(700 + i * 40, 760, 60, 20, -50 + i * 25, p['green']) for i in range(5)],
-        *[E(860 + i * 44, 748 + (i % 2) * 14, 28, 12, p['slice'], tf=f'rotate({-10 + i * 8} {860 + i * 44} {748 + (i % 2) * 14})') for i in range(4)],
-        *[E(860 + i * 44, 748 + (i % 2) * 14, 18, 6, p['slice2'], tf=f'rotate({-10 + i * 8} {860 + i * 44} {748 + (i % 2) * 14})') for i in range(4)],
-        *scatter(9, 20, (600, 735, 1000, 790), lambda r, x, y: E(x, y, 3, 1.6, p['sesame'])),
-    ]
-    # a small dish of sauce and a folded napkin to the left
-    out += [
-        P('M200 880L420 852L460 900L236 930Z', p['napkin']),
-        P('M236 930L460 900L462 912L238 942Z', p['napkin2']),
-        E(310, 830, 90, 22, p['shadow'], op=.4),
-        P('M222 800L398 800C398 836 360 852 310 852C260 852 222 836 222 800Z', p['dish']),
-        E(310, 800, 88, 14, p['dish2']), E(310, 801, 74, 10, p['sauce']),
-    ]
+    out += [C(cx, cy, 190, c['crust']), C(cx, cy, 190, stroke=c['crust2'], width=5, op=.45), C(cx, cy, 164, c['red']), C(cx, cy, 156, c['cheese'])]
+    for _ in range(16):
+        x, y = polar(cx, cy, rnd.uniform(20, 128), rnd.uniform(0, 360))
+        out.append(C(x, y, rnd.uniform(14, 28), c['cheese2'], op=.75))
+    spots = [('p', *polar(cx, cy, d, a)) for d, a in ((0, 0), (78, 20), (82, 95), (74, 150), (126, 60), (128, 128), (124, 325), (120, 180), (84, 290))]
+    spots += [('o', *polar(cx, cy, d, a)) for d, a in ((44, 58), (112, 96), (48, 190), (126, 20), (104, 300), (40, 320))]
+    spots += [('b', *polar(cx, cy, d, a)) for d, a in ((118, 158), (46, 128), (100, 350), (60, 250))]
+    toppings(out, spots, rnd)
+    for a in (22.5, 67.5, 112.5, 157.5):
+        (x0, y0), (x1, y1) = polar(cx, cy, 186, a), polar(cx, cy, 186, a + 180)
+        out.append(L(x0, y0, x1, y1, c['crust2'], 3, op=.5))
+    # the slice that left: the board shows through, strings of cheese still hold on
+    a0, a1 = 202.5, 247.5
+    out.append(wedge(cx, cy, 197, a0 - .6, a1 + .6, c['wood2']))
+    dx, dy = polar(0, 0, 62, 225)
+    for a in (212, 225, 238):
+        (x0, y0), (x1, y1) = polar(cx, cy, 60, a), polar(cx + dx, cy + dy, 40, a)
+        out.append(L(x0, y0, x1, y1, c['cheese'], 5, op=.9))
+    sx, sy = cx + dx, cy + dy
+    piece = [wedge(sx, sy, 190, a0, a1, c['crust']), wedge(sx, sy, 164, a0 + 2, a1 - 2, c['red']), wedge(sx, sy, 156, a0 + 3, a1 - 3, c['cheese'])]
+    toppings(piece, [('p', *polar(sx, sy, 112, 228)), ('o', *polar(sx, sy, 66, 219)), ('b', *polar(sx, sy, 134, 212))], rnd)
+    out += piece
+    # around it: lemonade, chili oil, tomatoes and basil
+    out += [C(945, 560, 60, c['ice'], op=.9), C(945, 560, 48, c['amber3']), C(928, 548, 23, c['yellow']), C(928, 548, 16, c['cream'], op=.6),
+            R(950, 560, 22, 22, c['white'], op=.45, rx=4, tf='rotate(20 961 571)'), L(956, 572, 1000, 506, c['coral'], 9)]
+    for x, y, r in ((640, 546, 19), (672, 520, 16), (868, 478, 18)):
+        out += [C(x, y, r, c['red']), shine(x, y, r, c), leaf(x, y - r + 4, 12, 7, 30, c['green3']), leaf(x, y - r + 4, 12, 7, -40, c['green3'])]
+    out += [leaf(840, 530, 44, 24, 60, c['green']), leaf(840, 530, 40, 22, 120, c['green2']), leaf(600, 566, 38, 20, -30, c['green'])]
     return out
 
 
-def music(p):
-    """A record setting into the sea like a sun, notes flying over it like birds, headphones on the shore."""
-    out = sky(p, .38, .72)
-    # the record, half sunk behind the horizon
-    cx, cy, r = 760, 720, 230
-    grooves = ''.join(f'M{num(cx - rr)} {cy}A{rr} {rr} 0 0 1 {num(cx + rr)} {cy}' for rr in range(90, r - 8, 14))
-    out += [
-        C(cx, cy, r + 26, p['glow'], op=.5),
-        P(f'M{cx - r} {cy}A{r} {r} 0 0 1 {cx + r} {cy}Z', p['record']),
-        P(grooves, stroke=p['groove'], width=2.5, op=.8),
-        P(f'M{cx - 150} {cy - 100}A180 180 0 0 1 {cx - 40} {cy - 170}', stroke=p['shine'], width=10, op=.5),
-        P(f'M{cx - 80} {cy}A80 80 0 0 1 {cx + 80} {cy}Z', p['label']),
-        P(f'M{cx - 52} {cy}A52 52 0 0 1 {cx + 52} {cy}', stroke=p['label2'], width=6),
-        P(f'M{cx - 10} {cy}A10 10 0 0 1 {cx + 10} {cy}Z', p['sky']),
-    ]
-    # the sea and the record's reflection
-    out += [P('M0 720L1000 720L1000 1000L0 1000Z', p['sea'])]
+def note(x, y, size, fill, double=False):
+    parts = [E(0, 0, 13, 9.5, fill, tf='rotate(-22)'), R(9, -62, 5, 62, fill)]
+    if double:
+        parts += [E(46, -10, 13, 9.5, fill, tf='rotate(-22 46 -10)'), R(55, -72, 5, 62, fill), poly([(9, -62), (60, -72), (60, -57), (9, -47)], fill)]
+    else:
+        parts.append(P('M14 -62C30 -52 36 -40 30 -20C30 -34 24 -42 14 -46Z', fill))
+    return G(parts, tf=f'translate({num(x)} {num(y)}) scale({size})')
+
+
+def music(c):
+    """A guitar leaning on an amplifier, a record out of its sleeve, the notes rising up the right."""
+    out = ground(c)
+    out += [P(f'M{860 - r} 700A{r} {r} 0 0 1 860 {700 - r}', stroke=c.tone(.1), width=12) for r in (200, 265, 330)]
+    out.append(E(690, 884, 300, 12, c.tone(.2)))
+    # the record and its sleeve
+    out.append(G([C(46, -6, 100, c['navy9'])] + [C(46, -6, r, stroke=c['blue6'], width=2, op=.7) for r in (86, 72, 58)] + [
+        C(46, -6, 36, c['amber']), C(46, -6, 6, c['navy9']),
+        R(-108, -108, 216, 216, c['coral'], rx=6), C(0, 0, 66, c['amber3']), C(0, 0, 40, c['coral2']), C(0, 0, 14, c['navy'])],
+        tf='translate(672 760) rotate(-7)'))
+    # the amplifier, a metronome and two cassettes on it
+    out += [R(790, 566, 84, 24, c['coral'], rx=3), R(798, 544, 70, 22, c['amber3'], rx=3), R(812, 550, 42, 10, c['cream'], rx=5),
+            poly([(900, 590), (960, 590), (942, 492), (918, 492)], c['wood3']), L(930, 584, 950, 508, c['ice'], 4), R(936, 524, 16, 12, c['amber'], rx=2)]
+    out += [R(760, 590, 222, 272, c['navy9'], rx=14), R(774, 604, 194, 52, c['navy'], rx=8), R(778, 668, 186, 180, c['navy'], rx=8),
+            C(871, 758, 76, c['navy9']), C(871, 758, 62, c['blue6'], op=.55), C(871, 758, 25, c['navy9']), C(863, 750, 7, c['blue2'], op=.6),
+            R(774, 862, 30, 10, c['navy9'], rx=3), R(938, 862, 30, 10, c['navy9'], rx=3)]
+    for i in range(5):
+        out += [C(800 + i * 36, 630, 10, c['amber']), L(800 + i * 36, 630, 800 + i * 36 + (i - 2) * 3, 621, c['navy9'], 3)]
+    # the guitar
+    body = [E(0, 0, 112, 102, c['amber7']), E(0, -128, 84, 80, c['amber7']), R(-66, -104, 132, 76, c['amber7']),
+            E(0, 0, 102, 92, c['amber']), E(0, -128, 74, 70, c['amber']), R(-58, -106, 116, 82, c['amber']),
+            P('M34 -64C74 -54 84 -8 54 22C44 -8 38 -36 34 -64Z', c['coral']),
+            C(0, -76, 40, stroke=c['wood3'], width=4), C(0, -76, 32, c['navy9']), R(-40, 22, 80, 14, c['navy9'], rx=4),
+            R(-14, -402, 28, 300, c['wood3'])]
+    body += [L(-14, y, 14, y, c['amber3'], 2) for y in range(-392, -130, 28)]
+    body.append(poly([(-22, -400), (22, -400), (27, -470), (-27, -470)], c['navy9']))
+    body += [C(side * 35, -416 - i * 20, 7, c['ice']) for side in (-1, 1) for i in range(3)]
+    body += [L(-10 + i * 4, -462, -15 + i * 6, 28, c['cream'], 1.6, op=.9) for i in range(6)]
+    out.append(G(body, tf='translate(530 770) rotate(10)'))
+    # headphones on the floor
+    out += [P('M336 874A48 48 0 0 1 432 874', stroke=c['navy9'], width=10), R(323, 852, 26, 44, c['coral'], rx=10), R(419, 852, 26, 44, c['coral'], rx=10)]
+    out += [note(820, 480, 1.5, c['navy']), note(880, 420, 1.35, c['blue4'], True), note(742, 426, 1.2, c['amber']),
+            note(950, 548, 1.2, c['coral']), note(800, 350, 1.0, c['blue6'])]
+    return out
+
+
+def recipes(c):
+    """A kitchen counter mid-recipe: the open book, the board, a pot on the boil, the rail above."""
+    out = [R(0, 0, W, W, c['sky'])]
+    out += [L(x, 400, x, 770, c.tone(.06), 2) for x in range(20, 1001, 70)]
+    out += [L(0, y, 1000, y, c.tone(.06), 2) for y in range(400, 771, 74)]
+    out += [R(0, 770, W, 34, c['cream']), R(0, 800, W, 6, c['cream2']), R(0, 806, W, 194, c['navy'])]
+    for x in (30, 280, 530, 780):
+        out += [R(x, 828, 226, 150, c['blue6'], op=.4, rx=6), R(x + 92, 842, 42, 8, c['amber'], rx=4)]
+    # the rail and what hangs from it
+    out.append(L(560, 430, 1000, 430, c['navy9'], 8))
+    out += [P(f'M{x} 420a8 8 0 0 1 0 16', stroke=c['navy9'], width=4) for x in (620, 692, 762, 850, 946)]
+    out += [L(620, 436, 620, 566, c['steel'], 7), P('M594 566A26 26 0 0 0 646 566Z', c['steel'])]
+    out.append(L(692, 436, 692, 506, c['wood3'], 10))
+    out += [P(f'M692 506C{692 + dx * 1.7} 546 {692 + dx * 1.7} 586 692 616', stroke=c['steel'], width=3) for dx in (-18, -9, 0, 9, 18)]
+    out += [L(762, 436, 762, 536, c['wood3'], 10), R(743, 536, 38, 74, c['coral'], rx=7)]
+    out += [R(751 + i * 9, 550, 4, 40, c['sky'], rx=2) for i in range(3)]
+    out += [L(850, 436, 850, 524, c['wood3'], 11), C(850, 580, 60, c['copper']), C(850, 580, 48, c['copper2'])]
+    out.append(L(946, 436, 946, 470, c['kraft2'], 3))
+    out += [leaf(946, 466, 100, 26, a, c[name]) for a, name in ((180, 'green'), (163, 'green2'), (197, 'green3'), (148, 'green'), (212, 'green2'))]
+    out.append(R(934, 462, 24, 10, c['kraft2'], rx=3))
+    # the cookbook on its stand
+    out += [poly([(408, 648), (482, 660), (482, 760), (408, 748)], c['cream']), poly([(482, 660), (556, 648), (556, 748), (482, 760)], c['cream2']),
+            poly([(418, 664), (472, 673), (472, 708), (418, 699)], c['coral2'])]
+    out += [L(418, 712 + i * 12, 470, 720 + i * 12, c['navy'], 3, op=.5) for i in range(3)]
+    out += [L(494, 676 + i * 13, 546 - (i % 3) * 8, 668 + i * 13, c['navy'], 3, op=.5) for i in range(6)]
+    out += [R(398, 754, 168, 10, c['wood3'], rx=3), poly([(470, 764), (494, 764), (500, 770), (464, 770)], c['wood3'])]
+    # the board: tomatoes, a lemon, chopped herbs, the knife
+    out.append(R(584, 752, 252, 18, c['wood'], rx=7))
+    out += [C(626, 727, 26, c['red']), shine(626, 727, 26, c), leaf(626, 703, 14, 8, 35, c['green3']), leaf(626, 703, 14, 8, -35, c['green3']),
+            P('M660 752A25 25 0 0 1 710 752Z', c['red']), P('M667 752A18 18 0 0 1 703 752Z', c['coral2']),
+            P('M716 752A19 19 0 0 1 754 752Z', c['yellow']), P('M722 752A13 13 0 0 1 748 752Z', c['cream'])]
     rnd = random.Random(4)
-    for i in range(12):
-        y = 736 + i * 16
-        half = (r - i * 15) * rnd.uniform(.75, 1)
-        out.append(L(cx - half, y, cx + half, y, p['reflect'], 7 - i * .35, op=.85 - i * .05))
-    out += scatter(6, 34, (0, 740, 1000, 990), lambda r_, x, y: L(x, y, x + r_.uniform(20, 60), y, p['wave'], 3, op=.6),
-                   avoid=lambda x, y: abs(x - cx) < 200)
-    # a distant island on the left
-    out += [P('M0 720C40 690 90 676 150 684C200 650 260 654 300 700C330 706 350 712 360 720Z', p['island'])]
-    # notes flying up the right side like a flock
-    def note(x, y, s, color, double=False):
-        if double:
-            return G([E(0, 0, 13, 9, color, tf='rotate(-20)'), E(40, -10, 13, 9, color, tf='rotate(-20 40 -10)'),
-                      L(11, -3, 11, -60, color, 5), L(51, -13, 51, -70, color, 5), P('M11 -60L51 -70L51 -56L11 -46Z', color)],
-                     tf=f'translate({num(x)} {num(y)}) scale({s})')
-        return G([E(0, 0, 13, 9, color, tf='rotate(-20)'), L(11, -3, 11, -62, color, 5),
-                  P('M11 -62q20 10 22 32', stroke=color, width=5)], tf=f'translate({num(x)} {num(y)}) scale({s})')
-    out += [note(620, 440, 1.1, p['note1'], True), note(760, 380, .9, p['note2']), note(870, 450, 1.2, p['note1']),
-            note(540, 540, .7, p['note2']), note(930, 340, .7, p['note2'], True), note(450, 470, .55, p['note1'])]
-    # the shore with headphones on it
-    out += [
-        P('M520 1000C600 930 760 900 1000 880L1000 1000Z', p['sand']),
-        P('M600 1000C680 950 820 930 1000 924L1000 1000Z', p['sand2']),
-        *grass(21, 900, 1000, 890, p['dune'], n=18, height=60),
-        E(830, 985, 120, 14, p['dune'], op=.35),
-        P('M730 950C720 830 940 830 930 950', stroke=p['phones2'], width=16),
-        P('M730 950C720 830 940 830 930 950', stroke=p['phones'], width=8),
-        E(724, 952, 34, 40, p['phones2'], tf='rotate(-12 724 952)'), E(936, 952, 34, 40, p['phones2'], tf='rotate(12 936 952)'),
-        E(730, 950, 22, 30, p['phones'], tf='rotate(-12 730 950)'), E(930, 950, 22, 30, p['phones'], tf='rotate(12 930 950)'),
-    ]
+    out += [E(rnd.uniform(596, 612), rnd.uniform(742, 750), 5, 2.5, c['green'], tf=None) for _ in range(6)]
+    out += [poly([(762, 750), (812, 750), (812, 737), (776, 737)], c['steel']), R(810, 736, 46, 14, c['navy9'], rx=5)]
+    # the pot
+    out += [steam(896, 612, 90, c), steam(934, 606, 110, c), R(866, 766, 100, 6, c['wood3'], rx=2),
+            R(838, 692, 20, 12, c['navy9'], rx=4), R(972, 692, 20, 12, c['navy9'], rx=4), R(856, 660, 118, 106, c['coral'], rx=12),
+            R(850, 654, 130, 14, c['coral2'], rx=7), R(870, 690, 12, 56, c['coral2'], op=.6, rx=6)]
+    out.append(G([P('M-64 0A64 24 0 0 1 64 0Z', c['coral2']), C(0, -26, 9, c['navy9'])], tf='translate(908 648) rotate(-13)'))
     return out
 
 
-def recipes(p):
-    """An open cookbook on a wooden table, ingredients tossed up out of it along the right side."""
-    out = sky(p)
-    out += [
-        P('M0 760L1000 700L1000 1000L0 1000Z', p['table']),
-        *[P(f'M0 {800 + i * 60}L1000 {740 + i * 60}', stroke=p['table2'], width=3, op=.6) for i in range(5)],
-        *scatter(12, 30, (0, 760, 1000, 1000), lambda r, x, y: P(f'M{num(x)} {num(y)}q30 -4 60 -2', stroke=p['table2'], width=2, op=.5)),
-    ]
-    # a cutting board with a knife at the left, a plate cropped at the right
-    out += [
-        P('M60 880L330 820L380 900L110 965Z', p['board']), P('M110 965L380 900L382 914L112 980Z', p['board2']),
-        C(84, 890, 12, p['table']),
-        P('M150 905L300 870L304 882L156 918Z', p['blade']), P('M300 870L360 856L364 870L304 882Z', p['handle']),
-        
-    ]
-    # the open book: a teal cover and cream pages, lying a little askew
-    book = [
-        R(-250, -10, 500, 200, p['cover'], rx=10),
-        P('M-236 0C-160 -24 -60 -20 -4 8L-4 182C-60 158 -160 154 -236 176Z', p['page2']),
-        P('M236 0C160 -24 60 -20 4 8L4 182C60 158 160 154 236 176Z', p['page2']),
-        P('M-228 -8C-156 -32 -60 -28 -2 0L-2 172C-60 146 -156 144 -228 166Z', p['page']),
-        P('M228 -8C156 -32 60 -28 2 0L2 172C60 146 156 144 228 166Z', p['page']),
-        L(0, 0, 0, 174, p['spine'], 3),
-        *[P(f'M-206 {num(18 + i * 22)}C-150 {num(2 + i * 22)} -80 {num(4 + i * 22)} -28 {num(24 + i * 22)}', stroke=p['ink'], width=3, op=.5) for i in range(6)],
-        P('M-200 20h70', stroke=p['cover'], width=6),
-        *[P(f'M120 {num(110 + i * 20)}C150 {num(100 + i * 20)} 190 {num(98 + i * 20)} 212 {num(104 + i * 20)}', stroke=p['ink'], width=3, op=.5) for i in range(3)],
-        C(110, 50, 44, p['lemon2'], op=.35), C(110, 50, 36, p['lemon'], op=.8), leaf(140, 22, 40, 18, 40, p['basil']),
-        P('M28 20h60M28 40h50', stroke=p['ink'], width=3, op=.5),
-    ]
-    out += [E(720, 930, 280, 34, p['table2'], op=.6), G(book, tf='translate(720 770) rotate(-6) scale(1 .78)')]
-    # a whisk resting by the book
-    # ingredients tossed up out of the book along the right side
-    def lemon_slice(x, y, r, a):
-        return G([C(0, 0, r, p['lemon2']), C(0, 0, r * .84, p['lemon']),
-                  P(''.join(f'M0 0L{num(r * .78 * math.cos(math.radians(k * 45)))} {num(r * .78 * math.sin(math.radians(k * 45)))}' for k in range(8)), stroke=p['lemon2'], width=2.5)],
-                 tf=f'translate({x} {y}) rotate({a}) scale(1 .45)')
-
-    def tomato_slice(x, y, r, a):
-        return G([C(0, 0, r, p['tomato']), C(0, 0, r * .8, p['tomato2']),
-                  *[E(r * .45 * math.cos(math.radians(k * 120)), r * .45 * math.sin(math.radians(k * 120)), r * .18, r * .12, p['seed']) for k in range(3)]],
-                 tf=f'translate({x} {y}) rotate({a}) scale(1 .5)')
-
-    def onion(x, y, r, a):
-        return G([C(0, 0, r, 'none', p['onion'], 5), C(0, 0, r * .62, 'none', p['onion'], 4)], tf=f'translate({x} {y}) rotate({a}) scale(1 .5)')
-
-    out += [
-        lemon_slice(640, 660, 46, 20), tomato_slice(790, 620, 52, -30), leaf(880, 560, 90, 40, 40, p['basil']),
-        onion(700, 540, 44, 60), lemon_slice(900, 450, 44, -40), tomato_slice(790, 420, 42, 10),
-        leaf(960, 360, 80, 34, -20, p['basil']), onion(940, 650, 38, -20), leaf(650, 470, 70, 30, 70, p['basil2']),
-        leaf(560, 600, 60, 26, 120, p['basil2']), tomato_slice(560, 700, 34, 40), lemon_slice(700, 380, 32, 70),
-        *scatter(14, 30, (520, 340, 1000, 740), lambda r, x, y: C(x, y, r.uniform(4, 8), p['pepper'])),
-        *[P(f'M{x} {y}q10 -12 22 -6', stroke=p['herb'], width=4) for x, y in ((600, 520), (760, 500), (860, 360), (980, 520), (860, 700), (640, 400))],
-    ]
-    out += [L(330, 990, 400, 950, p['handle'], 10)] + [P(f'M400 950C{430 + k * 6} {910 - k * 4} {490 + k * 4} {910 + k * 6} 470 {940 + k * 3}C450 {966 + k * 2} 420 960 400 950', stroke=p['whisk'], width=2.5) for k in range(4)]
-    out += [E(990, 990, 150, 50, p['plate2']), E(990, 982, 140, 42, p['plate']), E(990, 982, 96, 26, p['plate2'], op=.35),
-            *[C(950 + k * 26, 976 - (k % 2) * 8, 14, p['tomato']) for k in range(3)]]
+def notes(c):
+    """A writing desk in the evening: a typewriter with a page in it, a lamp, notes pinned above."""
+    out = [R(0, 0, W, W, c['sky'])]
+    for x, y, name, turn in ((560, 356, 'amber3', -6), (654, 342, 'coral2', 5), (748, 368, 'blue2', -3), (602, 452, 'ice', 4), (700, 458, 'amber3', 8)):
+        lines = [L(12, 30 + i * 14, 66 - (i % 2) * 18, 30 + i * 14, c['navy'], 3, op=.45) for i in range(3)]
+        out.append(G([R(0, 0, 80, 80, c[name], rx=3)] + lines + [C(40, 9, 5.5, c['coral' if name != 'coral2' else 'navy'])],
+                     tf=f'translate({x} {y}) rotate({turn})'))
+    out += [R(0, 800, W, 26, c['wood']), R(0, 826, W, 174, c['wood3']), R(690, 848, 270, 122, c['wood2'], op=.45, rx=6), C(825, 909, 9, c['amber'])]
+    # the lamp's light, under everything it falls on
+    out.append(poly([(868, 522), (940, 575), (806, 800), (500, 800)], c['lamp'], op=.3))
+    # books, glasses on top
+    out += [R(376, 760, 172, 40, c['navy'], rx=4), R(388, 770, 30, 20, c['amber3'], rx=2), R(388, 724, 150, 36, c['coral'], rx=4),
+            R(500, 724, 10, 36, c['cream']), R(380, 692, 160, 32, c['blue4'], rx=4), R(394, 700, 60, 8, c['ice'], rx=4),
+            C(436, 676, 15, stroke=c['navy9'], width=4), C(484, 676, 15, stroke=c['navy9'], width=4), L(451, 676, 469, 676, c['navy9'], 4)]
+    # the typewriter: the page first, then the machine in front of it
+    out.append(R(610, 436, 152, 214, c['white'], rx=3))
+    widths = (112, 96, 118, 84, 108, 100, 60)
+    out += [L(628, 466 + i * 22, 628 + w, 466 + i * 22, c['navy'], 5, op=.65) for i, w in enumerate(widths[:-1])]
+    out += [L(628, 598, 628 + widths[-1], 598, c['navy'], 5, op=.65), C(704, 598, 4.5, c['amber']), C(718, 598, 3.5, c['amber'])]
+    out += [L(792, 632, 828, 602, c['steel'], 6), C(828, 602, 8, c['steel']), R(566, 628, 240, 22, c['navy9'], rx=11),
+            P('M586 650L786 650L814 800L558 800Z', c['navy']), R(598, 652, 176, 42, c['blue6'], rx=6),
+            P('M622 692A64 38 0 0 1 750 692', stroke=c['navy9'], width=6)]
+    for y, n, x0, x1 in ((722, 9, 594, 778), (752, 10, 586, 786)):
+        out += [C(x0 + (x1 - x0) * i / (n - 1), y, 9.5, c['ice']) for i in range(n)]
+    out.append(R(628, 776, 116, 10, c['ice'], rx=5))
+    # a mug, and the lamp
+    out += [steam(850, 736, 70, c), P('M878 756a17 17 0 0 1 0 32', stroke=c['coral'], width=8), R(822, 742, 58, 58, c['coral'], rx=8)]
+    out += [E(945, 800, 52, 11, c['navy9']), P('M945 795L900 600L960 480', stroke=c['navy9'], width=10), C(900, 600, 10, c['amber']),
+            poly([(950, 455), (985, 482), (940, 575), (868, 522)], c['navy']), E(904, 548, 46, 12, c['lamp'], tf='rotate(36 904 548)')]
     return out
 
 
-def notes(p):
-    """Layered hills in the mist, a pencil drawing the path that winds through them."""
-    out = sky(p, .36, .75)
-    out += [C(330, 600, 70, p['sun'], op=.8)]
-    layers = [
-        (p['hill1'], 'M0 640C120 600 220 560 330 590C430 520 520 500 620 560C720 520 820 500 1000 560L1000 1000L0 1000Z'),
-        (p['hill2'], 'M0 700C160 660 260 680 380 650C500 620 600 660 720 640C820 620 900 610 1000 630L1000 1000L0 1000Z'),
-        (p['hill3'], 'M0 760C140 730 300 760 420 730C560 700 680 740 820 714C900 700 960 700 1000 704L1000 1000L0 1000Z'),
-        (p['hill4'], 'M0 830C200 800 340 830 500 806C640 786 780 810 1000 780L1000 1000L0 1000Z'),
-        (p['hill5'], 'M0 910C220 880 420 906 600 884C760 866 880 880 1000 870L1000 1000L0 1000Z'),
-    ]
-    out += [P(d, c) for c, d in layers]
-    # trees along the ridges
-    def pine(x, y, h, c):
-        return P(f'M{num(x)} {num(y - h)}L{num(x + h * .28)} {num(y)}L{num(x - h * .28)} {num(y)}Z', c)
-    rnd = random.Random(2)
-    out += [pine(x, 712 + rnd.uniform(-6, 6), rnd.uniform(28, 46), p['tree1']) for x in range(560, 1000, 26)]
-    out += [pine(x, 792 + rnd.uniform(-6, 6), rnd.uniform(36, 60), p['tree2']) for x in range(40, 380, 30)]
-    out += [pine(x, 880 + rnd.uniform(-4, 4), rnd.uniform(50, 80), p['tree3']) for x in (600, 640, 676, 720)]
-    # the path the pencil draws, from its tip back across the hills
-    out += [
-        P('M752 830C700 860 600 850 540 830C460 806 420 840 360 820C300 800 260 760 200 770', stroke=p['line'], width=6, op=.9),
-        P('M200 770C160 776 130 750 90 752', stroke=p['line'], width=5, op=.6, cap='round'),
-    ]
-    # birds
-    out += [P(f'M{x} {y}q10 -10 20 0q10 -10 20 0', stroke=p['bird'], width=3) for x, y in ((560, 470), (600, 440), (640, 486), (470, 520))]
-    # the pencil, laid diagonally across the lower right corner
-    out += [G([
-        R(0, -26, 470, 52, p['pencil']),
-        R(0, -26, 470, 17, p['pencil2']), R(0, 9, 470, 17, p['pencil3']),
-        P('M0 -26L-90 0L0 26Z', p['wood']), P('M-62 -8L-90 0L-62 8Z', p['lead']),
-        R(470, -26, 46, 52, p['ferrule']), *[L(480 + i * 12, -26, 480 + i * 12, 26, p['ferrule2'], 3) for i in range(3)],
-        R(516, -26, 70, 52, p['eraser'], rx=6),
-    ], tf='translate(752 830) rotate(-38)')]
-    # wildflowers in the foreground
-    out += grass(31, 0, 1000, 1000, p['hill4'], n=60, height=40)
-    out += scatter(17, 22, (20, 930, 980, 990), lambda r, x, y: C(x, y, r.uniform(4, 7), p['flower']))
+def house(c, x, w, h, wall, roof, kind, rnd, shop=False):
+    top = FLOOR - h
+    parts = [R(x, top, w, h, c[wall])]
+    if kind == 0:
+        parts.append(poly([(x - 4, top), (x + w + 4, top), (x + w / 2, top - w * .55)], c[roof]))
+    elif kind == 1:
+        step = w * .15
+        parts += [R(x + i * step, top - (i + 1) * step, w - 2 * i * step, step + 1, c[wall]) for i in range(3)]
+        parts += [R(x + i * step - 3, top - (i + 1) * step - 5, w - 2 * i * step + 6, 6, c[roof]) for i in range(3)]
+    elif kind == 2:
+        parts += [P(f'M{num(x)} {num(top)}C{num(x)} {num(top - w * .6)} {num(x + w)} {num(top - w * .6)} {num(x + w)} {num(top)}Z', c[wall]),
+                  C(x + w / 2, top - w * .14, w * .1, c.window(True))]
+    else:
+        parts.append(R(x - 5, top - 12, w + 10, 14, c[roof]))
+    columns = 2 if w < 112 else 3
+    for floor in range(int((h - 96) / 68)):
+        y = top + 22 + floor * 68
+        for k in range(columns):
+            wx = x + w * (k + .5) / columns - 13
+            parts += [R(wx, y, 26, 40, c.window(rnd.random() < .55), rx=3), L(wx + 13, y + 2, wx + 13, y + 38, c[wall], 2),
+                      R(wx - 4, y + 40, 34, 5, c['cream'], rx=2)]
+    if shop:
+        stripe = (w - 8) / 6
+        parts += [R(x + 10, FLOOR - 66, w - 20, 66, c['navy9'], rx=4), R(x + 16, FLOOR - 58, w - 32, 36, c.window(True), rx=3)]
+        parts += [R(x + 4 + i * stripe, FLOOR - 92, stripe, 26, c['coral' if i % 2 else 'cream']) for i in range(6)]
+    else:
+        parts += [R(x + w / 2 - 16, FLOOR - 62, 32, 62, c['navy9'], rx=14), R(x + w / 2 - 16, FLOOR - 30, 32, 30, c['navy9']),
+                  C(x + w / 2 + 8, FLOOR - 28, 2.5, c['amber'])]
+    return parts
+
+
+def places(c):
+    """A row of old-town houses climbing to a clock tower, a pin dropped on one of them."""
+    out = ground(c)
+    out.append(poly([(330, 850), (330, 640), (372, 600), (414, 640), (414, 610), (470, 610), (470, 560), (505, 520), (540, 560), (540, 600), (620, 600),
+                     (620, 540), (700, 540), (700, 500), (760, 450), (820, 500), (820, 560), (900, 560), (900, 480), (1000, 480), (1000, 850)], c.tone(.09)))
+    rnd = random.Random(12)
+    for x in range(0, 1000, 46):
+        out.append(E(x + rnd.uniform(0, 30), rnd.uniform(872, 985), 16, 5, c.tone(.2), op=.6))
+    out += [R(940, 420, 80, 430, c['blue4']), poly([(934, 420), (1000, 420), (1000, 330), (978, 304)], c['navy']), C(978, 500, 24, c['cream']),
+            L(978, 500, 978, 484, c['navy9'], 3), L(978, 500, 990, 506, c['navy9'], 3), R(962, 560, 30, 46, c.window(True), rx=15),
+            R(962, 650, 30, 46, c.window(False), rx=15)]
+    for x, w, h, wall, roof, kind, shop in ((396, 106, 236, 'cream', 'coral', 0, False), (502, 122, 322, 'coral2', 'navy', 1, True),
+                                           (624, 104, 268, 'amber3', 'coral', 2, False), (728, 126, 356, 'blue2', 'navy', 0, False),
+                                           (854, 90, 292, 'ice', 'amber7', 3, False)):
+        out += house(c, x, w, h, wall, roof, kind, rnd, shop)
+    # the street: a lamp, a tree in a planter, a cafe table
+    out += [L(712, 850, 712, 748, c['navy9'], 6), R(700, 728, 24, 26, c['lamp'], rx=5), R(696, 722, 32, 8, c['navy9'], rx=3)]
+    out += [R(840, 822, 44, 28, c['wood3'], rx=4), L(862, 822, 862, 780, c['wood3'], 6), C(862, 752, 34, c['green3']), C(850, 742, 22, c['green'])]
+    out += [L(470, 850, 470, 816, c['navy9'], 4), E(470, 814, 26, 5, c['navy9']), R(432, 826, 16, 24, c['coral'], rx=3), R(492, 826, 16, 24, c['coral'], rx=3)]
+    out += [P('M563 478C528 428 516 408 516 386A47 47 0 1 1 610 386C610 408 598 428 563 478Z', c['coral']), C(563, 386, 18, c['cream']),
+            E(563, 492, 16, 4, c['navy9'], op=.25)]
+    out += [P(f'M{x} {y}q9 -9 18 0q9 -9 18 0', stroke=c['navy'], width=3, op=.5) for x, y in ((790, 380), (840, 350), (690, 410))]
     return out
 
 
-def places(p):
-    """A city park: a skyline in the haze, trees, a lamp and a bench, and a pin over the lower right."""
-    out = sky(p, .4, .78)
-    # the skyline, two rows deep
-    rnd = random.Random(6)
-    x = 0
-    while x < 1000:
-        w = rnd.uniform(50, 90)
-        h = rnd.uniform(120, 260) + (x > 500) * 60
-        out.append(R(x, 780 - h, w - 6, h + 20, p['city1']))
-        x += w
-    x = 20
-    while x < 1000:
-        w = rnd.uniform(60, 100)
-        h = rnd.uniform(80, 200) + (x > 600) * 80
-        top = 790 - h
-        out.append(R(x, top, w - 8, h + 20, p['city2']))
-        out += [R(x + 8 + c * 16, top + 14 + rr * 22, 9, 12, p['window'], op=.85)
-                for rr in range(int(h // 22) - 1) for c in range(int((w - 20) // 16)) if rnd.random() < .7]
-        x += w + rnd.uniform(10, 40)
-    out += [R(800, 420, 6, 60, p['city2']), C(803, 418, 6, p['pin'])]
-    # the park
-    out += [
-        P('M0 800C200 780 420 800 640 776C800 760 900 764 1000 756L1000 1000L0 1000Z', p['lawn']),
-        P('M0 880C240 850 460 880 700 852C840 836 920 840 1000 832L1000 1000L0 1000Z', p['lawn2']),
-        P('M380 1000C440 940 560 900 700 880C800 866 900 870 1000 866L1000 900C900 900 820 904 740 916C620 934 520 960 470 1000Z', p['walk']),
-    ]
-    out += canopy([(90, 760, 50), (150, 740, 60), (210, 770, 44)], p['tree1'], p['tree1b'])
-    out += [R(146, 780, 10, 40, p['trunk'])]
-    out += canopy([(420, 790, 40), (470, 770, 50), (520, 795, 38)], p['tree1'], p['tree1b'])
-    out += [R(466, 805, 9, 30, p['trunk'])]
-    # the big tree on the right, reaching up the side
-    out += [P('M880 1000C890 900 870 820 840 740L870 730C900 800 920 880 930 1000Z', p['trunk']),
-            P('M870 790C900 760 940 740 980 730', stroke=p['trunk'], width=12),
-            P('M856 760C820 730 790 700 760 690', stroke=p['trunk'], width=10)]
-    out += canopy([(760, 620, 90), (880, 560, 120), (980, 640, 100), (840, 690, 80), (960, 480, 90), (820, 500, 70)], p['tree2'], p['tree2b'])
-    # a lamp post and a bench
-    out += [
-        R(640, 760, 8, 160, p['iron']), R(628, 744, 32, 24, p['iron'], rx=4), C(644, 756, 10, p['lamp']),
-        R(700, 880, 130, 12, p['bench']), R(700, 858, 130, 10, p['bench']), R(706, 892, 8, 30, p['iron']), R(816, 892, 8, 30, p['iron']),
-    ]
-    out += grass(41, 0, 1000, 1000, p['lawn'], n=80, height=30)
-    out += scatter(19, 30, (0, 900, 1000, 990), lambda r, x, y: C(x, y, r.uniform(3, 6), p['flower']))
-    # the pin
-    out += [
-        E(600, 902, 30, 8, p['shadow'], op=.5),
-        P('M600 896C566 840 540 806 540 770A60 60 0 0 1 660 770C660 806 634 840 600 896Z', p['pin']),
-        C(600, 770, 24, p['pin2']),
-    ]
+def travel(c):
+    """Packed and ready: suitcases stacked by a globe, mountains behind, a plane already on its way."""
+    out = [R(0, 0, W, W, c['sky']), C(610, 590, 74, c['glow'], op=.75),
+           poly([(360, 850), (520, 650), (590, 720), (720, 540), (850, 730), (930, 640), (1000, 700), (1000, 850)], c.tone(.12)),
+           poly([(720, 540), (756, 590), (734, 584), (716, 602), (694, 578)], c['white'], op=.6),
+           poly([(300, 850), (430, 730), (520, 790), (640, 700), (780, 800), (900, 740), (1000, 790), (1000, 850)], c.tone(.2)),
+           R(0, FLOOR, W, W - FLOOR, c['floor']), E(720, 884, 300, 12, c.tone(.22))]
+    out.append(P('M440 590C500 440 610 540 690 450S800 340 866 372', stroke=c['navy'], width=5, op=.55, dash='2 16'))
+    out.append(G([poly([(-4, 0), (-28, -42), (-10, -42), (18, 0)], c['blue6']), poly([(-4, 0), (-28, 42), (-10, 42), (18, 0)], c['blue6']),
+                  poly([(-44, 0), (-58, -22), (-46, -22), (-32, 0)], c['blue6']), P('M-48 0C-48 -10 30 -12 48 0C30 12 -48 10 -48 0Z', c['navy'])],
+                 tf='translate(904 356) rotate(-22)'))
+    # the upright case
+    out += [P('M470 620L470 556L532 556L532 620', stroke=c['steel'], width=7), R(444, 620, 114, 232, c['blue4'], rx=14)]
+    out += [L(472 + i * 29, 640, 472 + i * 29, 832, c['blue6'], 5) for i in range(3)]
+    out += [C(466, 860, 10, c['navy9']), C(536, 860, 10, c['navy9'])]
+    # the stack: trunk, case, vanity case, a hat and a camera on top
+    out += [R(580, 690, 362, 172, c['navy'], rx=16), R(650, 690, 26, 172, c['amber']), R(846, 690, 26, 172, c['amber']),
+            R(652, 762, 22, 28, c['amber7'], rx=4), R(848, 762, 22, 28, c['amber7'], rx=4)]
+    out += [R(x, y, 26, 26, c['navy9'], rx=8) for x in (580, 916) for y in (690, 836)]
+    out += [C(760, 756, 32, c['coral']), star(760, 756, 20, c['cream']), R(700, 806, 74, 36, c['cream'], rx=4, tf='rotate(-6 737 824)'),
+            L(712, 820, 760, 816, c['navy'], 3, op=.5), C(806, 818, 21, c['amber3']), C(806, 818, 12, c['blue4'])]
+    out += [R(615, 585, 282, 105, c['coral'], rx=14), R(615, 628, 282, 14, c['coral2']), R(662, 618, 22, 32, c['cream'], rx=3), R(828, 618, 22, 32, c['cream'], rx=3)]
+    out += [R(660, 505, 182, 80, c['amber3'], rx=12), R(660, 536, 182, 10, c['cream']), R(742, 528, 18, 26, c['navy'], rx=3)]
+    out += [E(750, 505, 98, 13, c['kraft']), P('M704 503C704 452 796 452 796 503Z', c['kraft']), P('M705 494Q750 482 795 494L795 503L705 503Z', c['navy'])]
+    out += [R(852, 552, 46, 33, c['navy9'], rx=5), R(858, 545, 13, 9, c['navy9'], rx=2), C(876, 569, 12, c['blue2']), C(876, 569, 6, c['navy'])]
+    # the globe
+    out += [E(966, 854, 36, 7, c['wood3']), R(961, 820, 10, 34, c['wood3']), P('M906 778A62 62 0 0 0 990 826', stroke=c['wood3'], width=6),
+            C(962, 766, 54, c['blue4']), P('M930 740C950 722 972 730 968 748C990 752 986 776 966 772C956 790 934 782 940 764C926 760 922 748 930 740Z', c['green2']),
+            P('M980 786C992 780 1006 790 1000 802C990 808 978 800 980 786Z', c['green2']), shine(962, 766, 54, c)]
     return out
 
 
-def travel(p):
-    """A beach on the right with a palm and an umbrella, a sailboat at sea, a plane high on the right."""
-    out = sky(p, .4, .7)
-    out += [C(230, 640, 60, p['sun'], op=.9)]
-    # clouds low on the horizon
-    def cloud(x, y, s):
-        return P(f'M{x} {y}h{num(200 * s)}a{num(40 * s)} {num(40 * s)} 0 0 0 -{num(50 * s)} -{num(40 * s)}a{num(56 * s)} {num(56 * s)} 0 0 0 -{num(100 * s)} -{num(10 * s)}a{num(40 * s)} {num(40 * s)} 0 0 0 -{num(50 * s)} {num(50 * s)}Z', p['cloud'])
-    out += [cloud(60, 700, .9), cloud(440, 690, .6), cloud(700, 690, 1.1)]
-    # the plane and its trail
-    out += [
-        P('M420 470C560 440 680 410 820 400', stroke=p['trail'], width=4, op=.8),
-        G([P('M0 0L50 -4L58 0L50 4Z', p['plane']), P('M24 -2L14 -20L22 -20L36 -2Z', p['plane']), P('M24 2L14 20L22 20L36 2Z', p['plane']), P('M2 -1L-6 -10L0 -10L8 -1Z', p['plane'])],
-          tf='translate(820 400) rotate(-6)'),
-    ]
-    # the sea, its waves and a sailboat
-    out += [P('M0 710L1000 710L1000 1000L0 1000Z', p['sea']),
-            P('M0 780L1000 760L1000 1000L0 1000Z', p['sea2'])]
-    out += scatter(7, 40, (0, 720, 1000, 980), lambda r, x, y: P(f'M{num(x)} {num(y)}q10 -6 20 0q10 -6 20 0', stroke=p['wave'], width=3, op=.7))
-    out += [
-        P('M330 730L470 730L450 752L350 752Z', p['hull']),
-        P('M400 724L400 580L470 720Z', p['sail']), P('M394 724L394 610L340 720Z', p['sail2']),
-        L(398, 726, 398, 576, p['hull'], 4), P('M398 578l22 8l-22 8Z', p['flag']),
-    ]
-    # the beach, the palm and the umbrella
-    out += [
-        P('M440 1000C560 900 760 860 1000 820L1000 1000Z', p['sand']),
-        P('M440 1000C560 900 760 860 1000 820', stroke=p['foam'], width=10, op=.9),
-        P('M600 1000C700 940 840 910 1000 900L1000 1000Z', p['sand2']),
-    ]
-    out += [P('M930 900C920 800 900 700 860 560', stroke=p['palm'], width=22)]
-    out += [P(f'M{930 - k * 5} {880 - k * 40}l18 -6', stroke=p['palm2'], width=4) for k in range(8)]
-    out += frond(860, 560, 160, 200, 50, p['frond'], 12) + frond(860, 560, 170, -20, 60, p['frond2'], 12)
-    out += frond(860, 560, 150, 240, 30, p['frond2'], 10) + frond(860, 560, 140, -60, 30, p['frond'], 10)
-    out += frond(860, 560, 120, 150, 40, p['frond'], 9)
-    out += [C(856, 572, 12, p['coconut']), C(872, 578, 11, p['coconut']), C(860, 588, 10, p['coconut'])]
-    # umbrella: coral and white stripes, a chair under it
-    cx, cy, r = 700, 840, 110
+def video(c):
+    """A night at the pictures: popcorn, a clapperboard, a reel whose film curls up the right side."""
+    out = ground(c)
+    out += [star(x, y, r, c['amber3' if i % 2 else 'white'], op=.9) for i, (x, y, r) in enumerate(
+        ((600, 380, 16), (700, 340, 11), (780, 420, 20), (640, 500, 10), (840, 330, 13), (540, 450, 9), (745, 520, 12)))]
+    out.append(E(680, 884, 320, 12, c.tone(.2)))
+    # the film, behind the reel it runs off
+    film = 'M915 700C1016 600 800 540 884 440S996 384 950 318'
+    out += [P(film, stroke=c['navy9'], width=48, cap='butt'), P(film, stroke=c['blue2'], width=24, cap='butt', dash='24 14'),
+            P(film, stroke=c['ice'], width=3, cap='butt', dash='5 8', tf='translate(-19 0)', op=.7),
+            P(film, stroke=c['ice'], width=3, cap='butt', dash='5 8', tf='translate(19 0)', op=.7)]
+    out += [C(915, 765, 96, c['navy9']), C(915, 765, 87, stroke=c['blue6'], width=3)]
+    out += [C(*polar(915, 765, 53, k * 72 - 90), 22, c['sky']) for k in range(5)]
+    out += [C(915, 765, 15, c['amber']), C(915, 765, 5, c['navy9'])]
+    # a soda
+    out += [L(650, 630, 670, 540, c['navy'], 9), poly([(600, 642), (686, 642), (674, 862), (612, 862)], c['coral']),
+            poly([(604, 720), (682, 720), (679, 770), (607, 770)], c['cream'], op=.55), R(592, 628, 102, 16, c['cream'], rx=7)]
+    # the popcorn
+    blobs = [(722, 640, 22), (756, 628, 24), (792, 622, 26), (830, 628, 24), (862, 640, 22), (740, 604, 22), (776, 592, 24), (814, 592, 24),
+             (848, 606, 21), (760, 566, 21), (796, 558, 23), (830, 568, 20), (786, 530, 18), (700, 560, 15), (880, 548, 15), (850, 500, 14), (742, 492, 13)]
+    for x, y, r in blobs:
+        out += [C(x, y, r, c['cream']), C(x + r * .3, y + r * .3, r * .45, c['amber3'], op=.7)]
+    top, bottom = (700, 884), (728, 856)
     for i in range(6):
-        a0, a1 = math.pi + i * math.pi / 6, math.pi + (i + 1) * math.pi / 6
-        out.append(P(f'M{cx} {cy}L{num(cx + r * math.cos(a0))} {num(cy + r * .55 * math.sin(a0))}A{r} {num(r * .55)} 0 0 1 {num(cx + r * math.cos(a1))} {num(cy + r * .55 * math.sin(a1))}Z', p['umb1'] if i % 2 else p['umb2']))
-    out += [L(cx, cy - 60, cx + 10, 960, p['pole'], 6),
-            P('M720 940L800 940L830 900', stroke=p['chair'], width=8), P('M730 940L760 980M790 940L770 980', stroke=p['pole'], width=5),
-            E(780, 975, 70, 10, p['shadow'], op=.4)]
-    out += scatter(13, 16, (620, 920, 1000, 990), lambda r, x, y: E(x, y, 4, 2, p['shell']))
-    out += [G([P('M0 0l8 -18l8 18l18 0l-14 10l6 18l-18 -12l-18 12l6 -18l-14 -10Z', p['star'])], tf='translate(920 950) scale(.8)')]
+        a, b = i / 6, (i + 1) / 6
+        out.append(poly([(top[0] + (top[1] - top[0]) * a, 650), (top[0] + (top[1] - top[0]) * b, 650),
+                         (bottom[0] + (bottom[1] - bottom[0]) * b, 862), (bottom[0] + (bottom[1] - bottom[0]) * a, 862)], c['cream' if i % 2 else 'navy']))
+    out += [R(692, 642, 200, 16, c['navy'], rx=8), C(792, 760, 36, c['amber']), star(792, 760, 24, c['cream'])]
+    # the clapperboard
+    stripes = lambda y: [poly([(8 + i * 42, y), (30 + i * 42, y), (18 + i * 42, y + 30), (-4 + i * 42, y + 30)], c['ice']) for i in range(5)]
+    out.append(G([R(0, 0, 212, 142, c['navy9'], rx=8), L(14, 48, 198, 48, c['ice'], 3, op=.5), L(14, 94, 198, 94, c['ice'], 3, op=.5),
+                  L(106, 48, 106, 142, c['ice'], 3, op=.5), L(24, 26, 96, 26, c['ice'], 5, op=.8), L(24, 72, 80, 72, c['ice'], 5, op=.8),
+                  L(122, 72, 176, 72, c['ice'], 5, op=.8), L(24, 118, 70, 118, c['amber3'], 5), R(0, -34, 212, 30, c['navy9'], rx=4)] + stripes(-34)
+                 + [G([R(0, -66, 212, 30, c['navy9'], rx=4)] + stripes(-66) + [C(10, -38, 6, c['amber'])], tf='rotate(-15 0 -36)')],
+                 tf='translate(398 720)'))
+    # two tickets
+    for x, y, turn, name in ((874, 892, -8, 'amber'), (902, 918, 6, 'amber3')):
+        out.append(G([R(0, 0, 112, 46, c[name], rx=6), C(0, 23, 8, c['floor']), C(112, 23, 8, c['floor']),
+                      L(32, 6, 32, 40, c['navy'], 2, op=.5), star(70, 23, 13, c['cream'])], tf=f'translate({x} {y}) rotate({turn})'))
     return out
 
 
-def video(p):
-    """A fairground at the lower right: a ferris wheel cropped by the edge, a striped tent, lights."""
-    out = sky(p, .42, .8)
-    out += [P('M0 860C240 840 520 856 760 836C880 826 960 830 1000 826L1000 1000L0 1000Z', p['ground'])]
-    # the wheel
-    cx, cy, r = 820, 640, 290
-    spokes = ''.join(f'M{cx} {cy}L{num(cx + r * math.cos(math.radians(a)))} {num(cy + r * math.sin(math.radians(a)))}' for a in range(0, 360, 20))
-    braces = ''.join(f'M{num(cx + r * math.cos(math.radians(a)))} {num(cy + r * math.sin(math.radians(a)))}L{num(cx + r * .82 * math.cos(math.radians(a + 20)))} {num(cy + r * .82 * math.sin(math.radians(a + 20)))}' for a in range(0, 360, 20))
-    out += [
-        P(f'M{cx} {cy}L{cx - 170} 1000M{cx} {cy}L{cx + 170} 1000', stroke=p['frame2'], width=20),
-        C(cx, cy, r, stroke=p['frame'], width=10), C(cx, cy, r * .82, stroke=p['frame'], width=6),
-        P(spokes, stroke=p['frame'], width=4), P(braces, stroke=p['frame'], width=3, op=.7),
-        C(cx, cy, 36, p['frame2']), C(cx, cy, 16, p['hub']),
-    ]
-    for i, a in enumerate(range(10, 370, 20)):
-        gx, gy = cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a))
-        out += [L(gx, gy, gx, gy + 18, p['frame'], 3),
-                P(f'M{num(gx - 22)} {num(gy + 18)}h44v18a14 14 0 0 1 -14 14h-16a14 14 0 0 1 -14 -14Z', p['cab1'] if i % 2 else p['cab2']),
-                R(gx - 22, gy + 14, 44, 8, p['roof'], rx=3)]
-    out += [C(cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a)), 5, p['bulb']) for a in range(0, 360, 10)]
-    # the tent with a pennant
-    out += [
-        P('M300 860L300 760L380 700L460 760L460 860Z', p['tent1']),
-        *[P(f'M{300 + i * 40} 860L{300 + i * 40} 760L380 700L{320 + i * 40} 760L{320 + i * 40} 860Z', p['tent2']) for i in range(4)],
-        P('M290 762L380 690L470 762Z', p['tentroof']),
-        *[P(f'M{290 + i * 30} 762q15 20 30 0', p['tentroof']) for i in range(6)],
-        P('M360 860L360 800A20 20 0 0 1 400 800L400 860Z', p['door']),
-        L(380, 690, 380, 640, p['frame2'], 4), P('M380 640l34 10l-34 10Z', p['flag']),
-    ]
-    # a string of lights from the tent to the wheel
-    out += [P('M380 700C460 760 540 760 620 720', stroke=p['frame2'], width=2)]
-    out += [C(380 + t * 240, 700 + 4 * 46 * t * (1 - t) * 1.6 - 20 * t, 6, p['bulb2'] if i % 2 else p['bulb']) for i, t in enumerate(k / 8 for k in range(1, 8))]
-    # a ticket booth and a popcorn cart, small, at the left
-    out += [
-        R(110, 800, 90, 70, p['booth']), P('M100 800L210 800L196 776L114 776Z', p['tent2']), R(130, 816, 50, 26, p['door']),
-        R(520, 870, 60, 50, p['cab2']), P('M514 870L586 870L576 846L524 846Z', p['tent2']),
-        *[C(530 + k * 10, 842 - (k % 2) * 6, 7, p['popcorn']) for k in range(5)],
-        C(530, 924, 9, p['frame2']), C(574, 924, 9, p['frame2']),
-    ]
-    out += scatter(23, 18, (0, 880, 1000, 990), lambda r, x, y: E(x, y, 6, 2, p['ground2']))
-    return out
-
-
-def celebration(p):
-    """Balloons rising from a stack of presents on the right, bunting across, confetti and fireworks."""
-    out = sky(p, .42, .82)
-    # fireworks, kept below the calm band
-    def burst(x, y, r, color, n=18):
-        d = ''.join(f'M{num(x + r * .3 * math.cos(a))} {num(y + r * .3 * math.sin(a))}L{num(x + r * math.cos(a))} {num(y + r * math.sin(a))}'
-                    for a in (k * 2 * math.pi / n for k in range(n)))
-        dots = [C(x + r * 1.12 * math.cos(a), y + r * 1.12 * math.sin(a), 3, color) for a in (k * 2 * math.pi / n for k in range(n))]
-        return [P(d, stroke=color, width=3, op=.8), *dots]
-    out += burst(260, 470, 70, p['fw1']) + burst(470, 400, 50, p['fw2'], 14) + burst(140, 620, 40, p['fw2'], 12)
-    out += [P('M260 470L280 760', stroke=p['fw1'], width=2, op=.3)]
-    out += [P('M0 880C260 860 560 876 1000 840L1000 1000L0 1000Z', p['ground'])]
+def celebration(c):
+    """A birthday table: the cake with its candles lit, presents, balloons up the right side."""
+    out = ground(c)
+    rnd = random.Random(21)
+    names = ('navy', 'blue4', 'amber', 'coral', 'blue2', 'amber3')
+    for _ in range(170):
+        x, y = rnd.uniform(380, 1000), rnd.uniform(320, 838)
+        if rnd.random() < .1 + .9 * (x - 380) / 620:
+            out.append(R(x, y, 11, 5, c[rnd.choice(names)], rx=1, op=.85, tf=f'rotate({rnd.randint(0, 180)} {num(x)} {num(y)})'))
     # bunting
-    flags = []
-    pts = [(t, 120 + 760 * t, 560 + 180 * t * (1 - t) * 1.4) for t in (k / 13 for k in range(14))]
-    for i, (t, x, y) in enumerate(pts[:-1]):
-        _, nx, ny = pts[i + 1]
-        flags.append(P(f'M{num(x)} {num(y)}L{num(nx)} {num(ny)}L{num((x + nx) / 2)} {num((y + ny) / 2 + 48)}Z', p[('flag1', 'flag2', 'flag3')[i % 3]]))
-    out += [P('M120 560Q500 760 880 560', stroke=p['string'], width=3)] + flags
-    # presents at the lower right
-    def present(x, y, w, h, box, ribbon):
-        return [R(x, y, w, h, box), R(x - 6, y - 16, w + 12, 22, box), R(x + w / 2 - 8, y - 16, 16, h + 16, ribbon),
-                P(f'M{num(x + w / 2)} {num(y - 16)}c-30 -30 -50 -6 -30 4M{num(x + w / 2)} {num(y - 16)}c30 -30 50 -6 30 4', stroke=ribbon, width=7)]
-    out += present(720, 860, 150, 120, p['box1'], p['ribbon1']) + present(880, 800, 130, 180, p['box2'], p['ribbon2']) + present(640, 920, 90, 70, p['box3'], p['ribbon2'])
-    # balloons rising from the presents
-    balloons = [(760, 520, 52, 'b1'), (850, 440, 58, 'b2'), (930, 560, 50, 'b3'), (700, 630, 44, 'b2'), (960, 400, 46, 'b1'), (820, 640, 40, 'b3')]
-    for x, y, r, c in balloons:
-        out.append(P(f'M{x} {y + r * 1.2}C{x - 20} {y + r * 1.2 + 80} {x + 30} {y + 200} 800 {860 - 16}', stroke=p['string'], width=2.5))
-    for x, y, r, c in balloons:
-        out += [E(x, y, r, r * 1.2, p[c]), P(f'M{x - 8} {num(y + r * 1.2 + 10)}L{x} {num(y + r * 1.2 - 2)}L{x + 8} {num(y + r * 1.2 + 10)}Z', p[c]),
-                E(x - r * .35, y - r * .45, r * .2, r * .32, p['shine'], op=.5, tf=f'rotate(-25 {num(x - r * .35)} {num(y - r * .45)})')]
-    # confetti and streamers
-    colors = [p['flag1'], p['flag2'], p['flag3'], p['b1'], p['b3']]
-    out += scatter(29, 70, (0, 340, 1000, 980), lambda r, x, y: R(x, y, 14, 6, r.choice(colors), rx=2, tf=f'rotate({r.randint(0, 180)} {num(x)} {num(y)})'),
-                   avoid=lambda x, y: x < 600 and y < 420)
-    out += [P(f'M{x} {y}c20 -20 30 20 50 0s30 20 50 0', stroke=c, width=5) for x, y, c in ((520, 920, p['flag2']), (300, 950, p['flag1']), (80, 910, p['b3']))]
+    out.append(P('M380 392Q590 520 800 372', stroke=c['navy9'], width=3))
+    for i in range(1, 9):
+        t = i / 9
+        x = (1 - t) ** 2 * 380 + 2 * (1 - t) * t * 590 + t * t * 800
+        y = (1 - t) ** 2 * 392 + 2 * (1 - t) * t * 520 + t * t * 372
+        out.append(poly([(x - 17, y - 2), (x + 17, y - 2), (x, y + 40)], c[names[i % 4]]))
+    # balloons, tied to the big present
+    for x, y, r, name in ((884, 416, 58, 'blue4'), (954, 500, 52, 'amber'), (812, 496, 50, 'coral'), (902, 566, 44, 'navy')):
+        out += [P(f'M{x} {y + r * 1.15}Q{x - 10} {(y + 745) / 2} 914 745', stroke=c['navy9'], width=2, op=.6),
+                E(x, y, r, r * 1.15, c[name]), poly([(x - 7, y + r * 1.15 + 9), (x + 7, y + r * 1.15 + 9), (x, y + r * 1.15 - 2)], c[name]),
+                E(x - r * .35, y - r * .4, r * .16, r * .28, c['white'], op=.5, tf=f'rotate(20 {num(x - r * .35)} {num(y - r * .4)})')]
+    out.append(E(700, 884, 300, 12, c.tone(.2)))
+    # presents
+    out += [R(850, 745, 132, 117, c['navy'], rx=6), R(905, 745, 22, 117, c['amber']), R(850, 792, 132, 18, c['amber']),
+            E(898, 738, 21, 12, c['amber'], tf='rotate(-24 898 738)'), E(934, 738, 21, 12, c['amber'], tf='rotate(24 934 738)'), C(916, 742, 8, c['amber7']),
+            R(790, 800, 70, 62, c['coral'], rx=5), R(818, 800, 14, 62, c['cream']), R(790, 824, 70, 12, c['cream'])]
+    # the cake on its stand
+    out += [E(640, 866, 62, 9, c['blue2']), poly([(626, 822), (654, 822), (670, 866), (610, 866)], c['blue2']), E(640, 814, 152, 15, c['ice'])]
+    out += [R(525, 690, 230, 120, c['blue4'], rx=10), R(525, 686, 230, 26, c['cream'], rx=11)]
+    out += [R(x, 700, 16, 16 + (i * 37) % 30, c['cream'], rx=8) for i, x in enumerate(range(538, 742, 26))]
+    out += [C(545 + i * 38, 772 + (i % 2) * 14, 5, c['amber3' if i % 2 else 'ice']) for i in range(6)]
+    out += [R(570, 590, 140, 100, c['coral'], rx=10), R(570, 586, 140, 22, c['cream'], rx=10)]
+    out += [R(x, 598, 15, 14 + (i * 29) % 24, c['cream'], rx=7.5) for i, x in enumerate(range(580, 700, 24))]
+    out += [C(584 + i * 28, 664, 4.5, c['cream']) for i in range(5)]
+    for i, x in enumerate((598, 624, 650, 676)):
+        out += [C(x, 536, 18, c['glow'], op=.4), R(x - 4, 548, 8, 40, c['amber3' if i % 2 else 'blue2'], rx=2),
+                P(f'M{x} 518C{x + 9} 532 {x + 7} 546 {x} 546C{x - 7} 546 {x - 9} 532 {x} 518Z', c['flame'])]
+    # a party hat that somebody took off
+    out += [poly([(428, 868), (502, 868), (465, 766)], c['amber']), poly([(441, 832), (489, 832), (482, 812), (448, 812)], c['navy']),
+            C(465, 764, 10, c['coral']), E(465, 868, 37, 6, c['amber7'])]
     return out
 
 
-# ------------------------------------------------------------------------------------------ colours
-
+# name -> (scene, the light sky, the dark sky)
 ART = {
-    'groceries': (groceries, dict(
-        sky='#f4ecdb', far='#e6dcc0', ground='#ddd0ae', green1='#3e9f7f', green2='#5cb894', green3='#2b8a74', vein='#d7f0e3',
-        bag='#d9b98a', bag2='#c5a171', bread='#e9b16f', bread2='#c98a4c', orange='#f2994a', apple='#ec6f5a', lemon='#f5cf5b',
-        shine='#ffffff', stem='#6d5a3c', crate='#0b6e63', crate2='#12a594', crate3='#0e5c53', label='#f4ecdb', shadow='#b8a77f',
-    ), dict(
-        sky='#2a3a2b', far='#2f4232', ground='#344a37', green1='#2c7a63', green2='#3b8c72', green3='#21665a', vein='#5ea88d',
-        bag='#7a6448', bag2='#685339', bread='#946a3c', bread2='#6f4b26', orange='#a85f2a', apple='#9c4638', lemon='#a68a37',
-        shine='#ffffff', stem='#4a3c28', crate='#0a4842', crate2='#0f7266', crate3='#093c37', label='#2f4232', shadow='#1f2a20',
-    )),
-    'food': (food, dict(
-        sky='#fadfd0', table='#f3c8b0', table2='#e8b498', steam='#ffffff', stick='#c98a5a', stick2='#b37748', noodle='#fff3dc', noodle2='#e8c894',
-        bowl='#0b6e63', bowl2='#12a594', bowl3='#139a8a', broth='#f2b276', egg='#ffffff', yolk='#f6a93b', green='#4cae7c', slice='#e36f5c',
-        slice2='#f39a86', sesame='#fff6e6', shadow='#d9a084', napkin='#5fc4b4', napkin2='#3fa898', dish='#ffffff', dish2='#f3e6dc', sauce='#a8492e',
-    ), dict(
-        sky='#3a2b29', table='#47332f', table2='#553d37', steam='#a99189', stick='#7a5233', stick2='#664328', noodle='#c9b48e', noodle2='#9e8457',
-        bowl='#0f5c54', bowl2='#178074', bowl3='#14786c', broth='#8a5a32', egg='#d8d0c6', yolk='#b07422', green='#2f7a55', slice='#9a4436',
-        slice2='#b0604f', sesame='#c9bba6', shadow='#271c1b', napkin='#257a6f', napkin2='#1c6359', dish='#bdb2aa', dish2='#a2968d', sauce='#5e2718',
-    )),
-    'music': (music, dict(
-        sky='#d3ebe8', haze='#f6dcc4', glow='#fbe2cc', record='#0b6e63', groove='#12a594', shine='#7fd6c8', label='#f28a6c', label2='#f8b49c',
-        sea='#5fbcb0', reflect='#f5c6a6', wave='#d7f1ec', island='#8fcfc3', note1='#0b6e63', note2='#2a8f99',
-        sand='#f1dcbc', sand2='#e7caa0', dune='#7fbf9f', phones='#ec7b5e', phones2='#28323a',
-    ), dict(
-        sky='#2a2b48', haze='#4a3550', glow='#5a3e58', record='#0d1c26', groove='#1f5c58', shine='#2d8077', label='#b45a48', label2='#d07a62',
-        sea='#1c4a55', reflect='#9a5a52', wave='#2f6a72', island='#26404f', note1='#4fbcae', note2='#7c84c4',
-        sand='#3a3550', sand2='#443e5a', dune='#2f5a55', phones='#b15c46', phones2='#11151c',
-    )),
-    'recipes': (recipes, dict(
-        sky='#fcdcc0', table='#e6a978', table2='#cf8c5c', board='#f2c48f', board2='#d9a46c', blade='#d8e4e2', handle='#0b6e63',
-        plate='#ffffff', plate2='#e8dccf', cover='#0b6e63', page='#fff8ec', page2='#efdcc4', spine='#c9b08e', ink='#7a6650',
-        lemon='#f6cf55', lemon2='#e6b23a', tomato='#e2563f', tomato2='#f07a62', seed='#ffe3b8', onion='#f6e7f0', basil='#2f9a74', basil2='#55b88c',
-        pepper='#5a4130', herb='#12a594', whisk='#9fb3b0',
-    ), dict(
-        sky='#4a2c25', table='#5a352a', table2='#6a4031', board='#7a5636', board2='#654428', blade='#8a9896', handle='#0f6a5f',
-        plate='#b8aca0', plate2='#988b7e', cover='#0d5b52', page='#cbbba6', page2='#ab9a84', spine='#857059', ink='#5a4a3a',
-        lemon='#ad8c2c', lemon2='#8f7020', tomato='#963526', tomato2='#ad4b38', seed='#c6a483', onion='#bca5b4', basil='#21705a', basil2='#2f8a6a',
-        pepper='#24170f', herb='#1b8a7a', whisk='#6c7b79',
-    )),
-    'notes': (notes, dict(
-        sky='#d8e5ea', haze='#eadfe4', sun='#fbf0e6', hill1='#b8d3d6', hill2='#94c4c2', hill3='#6db3a9', hill4='#3e9a8a', hill5='#1f7f70',
-        tree1='#7fbcb1', tree2='#3e9a8a', tree3='#14695f', line='#f6efe2', bird='#5d7f8a',
-        pencil='#f2b04f', pencil2='#f7c66e', pencil3='#d9933a', wood='#f3d8b0', lead='#3a3a40', ferrule='#a9b9bb', ferrule2='#8a9ea0',
-        eraser='#ef8a7a', flower='#fff3e0',
-    ), dict(
-        sky='#263452', haze='#3a3a5c', sun='#e6dcc8', hill1='#2d4560', hill2='#2a5160', hill3='#225a5a', hill4='#1a5450', hill5='#124540',
-        tree1='#2c5468', tree2='#1d5752', tree3='#0e3c38', line='#b8b4a6', bird='#8090b0',
-        pencil='#a87a32', pencil2='#bf8f44', pencil3='#8c6426', wood='#a08868', lead='#141418', ferrule='#6a7880', ferrule2='#56636a',
-        eraser='#a85a50', flower='#b8c4c8',
-    )),
-    'places': (places, dict(
-        sky='#dcefe6', haze='#f3ead8', city1='#c2e2d7', city2='#9fd2c4', window='#e4f5ef', lawn='#7cc4a4', lawn2='#5bb193', walk='#f1e5cc',
-        tree1='#3f9e80', tree1b='#62b896', tree2='#12a594', tree2b='#3fc0ac', trunk='#7a6248', iron='#24524c', lamp='#fbe4a0',
-        bench='#e07a5f', flower='#fff6e8', pin='#ef6f55', pin2='#ffffff', shadow='#3d8a70',
-    ), dict(
-        sky='#1c3a36', haze='#2c3a44', city1='#23443f', city2='#2a504a', window='#e2c77a', lawn='#1f5446', lawn2='#1a4a3d', walk='#3f4a42',
-        tree1='#1a5c4b', tree1b='#22705a', tree2='#0f6e62', tree2b='#178276', trunk='#3e3228', iron='#0d1f1d', lamp='#f0cf72',
-        bench='#8a4434', flower='#c9c3a8', pin='#c4543e', pin2='#f0e6d6', shadow='#0f2a24',
-    )),
-    'travel': (travel, dict(
-        sky='#c8e9f1', haze='#f7e6cf', sun='#fff4e2', cloud='#ffffff', trail='#ffffff', plane='#ffffff',
-        sea='#3fb3b0', sea2='#12a594', wave='#c9f0ea', hull='#0b6e63', sail='#ffffff', sail2='#f3e6d6', flag='#ef7c5e',
-        sand='#f5dfb8', sand2='#edcf9e', foam='#ffffff', palm='#a37a52', palm2='#86603c', frond='#0b6e63', frond2='#2f9c7c', coconut='#6b4a2e',
-        umb1='#ffffff', umb2='#ef7c5e', pole='#7a6248', chair='#0b6e63', shadow='#c9a974', shell='#ffffff', star='#ef9a6e',
-    ), dict(
-        sky='#0f3350', haze='#2c3c5c', sun='#e7e0cc', cloud='#2a4a68', trail='#5b7a96', plane='#b8c8d6',
-        sea='#0f4c5c', sea2='#0b3e4c', wave='#2b6f78', hull='#0a2f36', sail='#b9c4c8', sail2='#97a4a8', flag='#b4573f',
-        sand='#3d4458', sand2='#353b4e', foam='#4f7d88', palm='#4a3c34', palm2='#3a2e28', frond='#0d4a48', frond2='#14605a', coconut='#2a201a',
-        umb1='#a8b4ba', umb2='#a8503c', pole='#3a3028', chair='#0f5a52', shadow='#252a3a', shell='#8a96a0', star='#a8644a',
-    )),
-    'video': (video, dict(
-        sky='#f9e6bf', haze='#fbd2b6', ground='#efc99a', ground2='#dcb07c', frame='#0b6e63', frame2='#0e5c53', hub='#f2b04f',
-        cab1='#12a594', cab2='#ef7c5e', roof='#0e5c53', bulb='#fff6d8', bulb2='#ffd46a',
-        tent1='#ffffff', tent2='#ef7c5e', tentroof='#12a594', door='#0e5c53', flag='#f2b04f', booth='#5fc4b4', popcorn='#fff8e8',
-    ), dict(
-        sky='#3b2b3f', haze='#5a3646', ground='#2e2532', ground2='#3c3040', frame='#2c8a7e', frame2='#185e56', hub='#b8842e',
-        cab1='#178a7c', cab2='#a8503c', roof='#0f4a44', bulb='#ffe8a8', bulb2='#ffc85a',
-        tent1='#c8bcb0', tent2='#a8503c', tentroof='#137a6c', door='#122e2c', flag='#b8842e', booth='#2a7a70', popcorn='#e8dcc8',
-    )),
-    'celebration': (celebration, dict(
-        sky='#fbd0c3', haze='#fde8d2', fw1='#ffffff', fw2='#12a594', ground='#f4b9a6',
-        string='#a8746a', flag1='#12a594', flag2='#f2b04f', flag3='#ffffff',
-        box1='#0b6e63', ribbon1='#f2b04f', box2='#ef7c5e', ribbon2='#ffffff', box3='#5fc4b4',
-        b1='#12a594', b2='#ef6f5c', b3='#f6c25a', shine='#ffffff',
-    ), dict(
-        sky='#13353a', haze='#2a3450', fw1='#f2c25a', fw2='#4fd0bc', ground='#0f2b30',
-        string='#56706e', flag1='#18897a', flag2='#b8842e', flag3='#c8c0b4',
-        box1='#0d5850', ribbon1='#c99a3a', box2='#a84a3c', ribbon2='#d8d0c4', box3='#1e7a70',
-        b1='#18897a', b2='#b04a3c', b3='#b8902e', shine='#ffffff',
-    )),
+    'groceries': (groceries, '#eef2e2', '#24332c'),
+    'food': (food, '#fbe3d2', '#382a2b'),
+    'music': (music, '#e3e4f7', '#27284a'),
+    'recipes': (recipes, '#f6ecd6', '#33302a'),
+    'notes': (notes, '#dde8f3', '#1d2e4c'),
+    'places': (places, '#fbe6c8', '#2c2a47'),
+    'travel': (travel, '#cfe8f3', '#0f3350'),
+    'video': (video, '#f7dadf', '#3a2638'),
+    'celebration': (celebration, '#fcebc0', '#2e2a3e'),
 }
 
 HEADER = (
     f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {W}" width="{W}" height="{W}">'
-    '<!-- Notka built-in background. CC0 1.0: no rights reserved. -->'
+    '<!-- Notka built-in background. AGPL-3.0-only, see LICENSE. -->'
 )
+
+
+def tonal(sky, dark):
+    """The lighter step of a tint that the phone editor's buttons stand on."""
+    return mix(sky, '#ffffff', .14 if dark else .5)
+
 
 if __name__ == '__main__':
     out_dir = sys.argv[1]
     os.makedirs(out_dir, exist_ok=True)
     for name, (draw, light, dark) in ART.items():
-        for variant, palette in (('light', light), ('dark', dark)):
+        for variant, sky in (('light', light), ('dark', dark)):
             with open(os.path.join(out_dir, f'{name}-{variant}.svg'), 'w') as f:
-                f.write(HEADER + ''.join(draw(palette)) + '</svg>\n')
+                f.write(HEADER + ''.join(draw(Palette(sky, variant == 'dark'))) + '</svg>\n')
+        print(f'{name}: tint {light} / {dark}, tonal {tonal(light, False)} / {tonal(dark, True)}')

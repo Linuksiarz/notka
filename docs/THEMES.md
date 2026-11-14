@@ -7,7 +7,7 @@ same note, each in their own pictures.
 
 | Theme | Where | Licence |
 | --- | --- | --- |
-| **Notka** (built-in) | `frontend/public/backgrounds/<id>-<light\|dark>.svg`, drawn by `tools/generate-backgrounds.py` ([below](#the-built-in-pictures)) | CC0 1.0 |
+| **Notka** (built-in) | `frontend/public/backgrounds/<id>-<light\|dark>.svg`, drawn by `tools/generate-backgrounds.py` ([below](#the-built-in-pictures)) | AGPL-3.0, as the code |
 | **Google Keep** (external) | `themes/google-keep/` — the original's own nine illustrations | © Google LLC, not openly licensed; not shipped with the app or the container |
 | your own | uploaded by the administrator | yours |
 
@@ -59,7 +59,7 @@ archive or in one folder.
 | `id` | optional; derived from the name when absent. Uploading a theme with the id of one the instance already has replaces it. `notka` is the built-in one's and is refused. |
 | `author`, `license` | optional, shown in the list |
 | `logo` | optional: the app's logo in the header and the browser tab's icon, in place of Notka's own mark — SVG, PNG, JPEG or WebP, drawn square. The installed app's own icon stays Notka's: a web app manifest cannot change per account. |
-| `highlight`, `highlightDark` | optional `#rrggbb`: the sidebar's active entry in the light and the dark colour scheme. The original derives it from its logo (its yellow bulb, a pale yellow `#feefc3` and `#41331c`), so it travels with the logo. The built-in theme's is Notka's sea green (`#c6e9e5`, `#1d3b3a`). The phone's drawer keeps the Android app's own colours. |
+| `highlight`, `highlightDark` | optional `#rrggbb`: the sidebar's active entry in the light and the dark colour scheme. The original derives it from its logo (its yellow bulb, a pale yellow `#feefc3` and `#41331c`), so it travels with the logo. The built-in theme's is Notka's blue (`#cfe3f7`, `#263a50`). The phone's drawer keeps the Android app's own colours. |
 | `backgrounds` | any of the nine ids; a background the theme leaves out keeps the built-in picture. An id Notka does not have refuses the theme. A theme must carry at least one background, a logo or a highlight. |
 | `light` | the picture for the light theme: SVG, PNG, JPEG or WebP |
 | `dark` | the picture for the dark theme; the light one when absent |
@@ -79,25 +79,25 @@ ones dark.
 
 ### The built-in pictures
 
-`tools/generate-backgrounds.py` draws Notka's own nine as flat-colour scenes (1000×1000, about 10–25
-KB each), with the composition the original's have: a flat sky in the upper part, the scene along the
-bottom, its subject in the lower right and something reaching up the right side for the phone. They
-are one family around Notka's sea green (`--keep-brand` `#12a594`, `--keep-brand-fold` `#0b6e63`):
-every scene carries those teals — the crate, the bowl, the record, the book's cover, the hills, the
-park's trees, the sea, the wheel, the presents — set against a sky of its own, with coral, sand and
-butter yellow as the warm accents. The dark variants are the same scenes at dusk.
+`tools/generate-backgrounds.py` draws Notka's own nine as flat-colour scenes (1000×1000, about 5–16
+KB each), with the composition the original's have: a flat sky in the upper part and the subject in
+the lower right, with something reaching up the right side for the phone. They are one family in the
+eDuwe.pl colours: navy and its blues carry every scene, amber is the accent
+and coral the warm second voice, each on a pale sky of its own. The dark variants are the same
+scenes at dusk, computed from the light ones; only what gives light — a lamp, a flame, a lit window
+— keeps its colour.
 
 | Id | Scene | Tint (light / dark) | Tonal (light / dark) |
 | --- | --- | --- | --- |
-| `groceries` | a teal crate of produce, greens and a paper bag | `#f4ecdb` sand / `#2a3a2b` moss | `#fbf6ea` / `#3b5040` |
-| `food` | a teal bowl of noodles, chopsticks, steam | `#fadfd0` peach / `#3a2b29` cocoa | `#fdeee5` / `#523d3a` |
-| `music` | a record setting into the sea, notes flying | `#d3ebe8` aqua mist / `#2a2b48` violet dusk | `#e6f5f3` / `#3e4066` |
-| `recipes` | an open cookbook, ingredients tossed out of it | `#fcdcc0` apricot / `#4a2c25` terracotta | `#feeadb` / `#653e34` |
-| `notes` | misty hills, a pencil drawing the path through them | `#d8e5ea` mist / `#263452` indigo | `#e9f1f4` / `#384a72` |
-| `places` | a city park, a skyline and a map pin | `#dcefe6` mint / `#1c3a36` deep green | `#ebf7f1` / `#2a544e` |
-| `travel` | a beach with a palm, a sailboat, a plane | `#c8e9f1` sky / `#0f3350` ocean | `#e0f4f8` / `#1f4b70` |
-| `video` | a fairground: a ferris wheel and a tent | `#f9e6bf` butter / `#3b2b3f` plum | `#fdf1d9` / `#543e5a` |
-| `celebration` | balloons, presents, bunting and fireworks | `#fbd0c3` coral / `#13353a` teal night | `#fde3da` / `#224d54` |
+| `groceries` | a full shopping cart in a supermarket aisle | `#eef2e2` pale green / `#24332c` pine | `#f6f8f0` / `#43504a` |
+| `food` | a pizza from above on a round table, one slice pulled away | `#fbe3d2` peach / `#382a2b` cocoa | `#fdf1e8` / `#544849` |
+| `music` | a guitar leaning on an amplifier, a record, notes rising | `#e3e4f7` lavender / `#27284a` violet dusk | `#f1f2fb` / `#454663` |
+| `recipes` | a kitchen counter: cookbook, cutting board, a pot, utensils on a rail | `#f6ecd6` cream / `#33302a` umber | `#faf6ea` / `#504d48` |
+| `notes` | a desk: a typewriter with a page in it, a lamp, pinned notes | `#dde8f3` ice blue / `#1d2e4c` indigo | `#eef4f9` / `#3d4b65` |
+| `places` | a row of old-town houses up to a clock tower, a map pin | `#fbe6c8` apricot / `#2c2a47` plum night | `#fdf2e4` / `#4a4861` |
+| `travel` | stacked suitcases, a globe, mountains and a plane | `#cfe8f3` sky / `#0f3350` ocean | `#e7f4f9` / `#315068` |
+| `video` | popcorn, a clapperboard, a reel with its film curling up | `#f7dadf` rose / `#3a2638` aubergine | `#fbecef` / `#564454` |
+| `celebration` | a birthday cake with lit candles, presents, balloons | `#fcebc0` champagne / `#2e2a3e` dusk grey | `#fef5e0` / `#4b4859` |
 
 The tint is the picture's own top colour, and the tonal a lighter step of it. They are the fallbacks
 in `palette.css`, so a theme that replaces a picture without its own `tint` or `tonal` keeps these.

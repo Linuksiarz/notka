@@ -52,8 +52,8 @@
   /* The sidebar's active entry. The original derives it from its logo (its yellow bulb gives the
      pale yellow #feefc3, and #41331c in the dark theme), so it belongs to the reader's theme with the
      logo (`docs/THEMES.md`): `--theme-highlight(-dark)` comes from the active theme, and the built-in
-     one's is Notka's sea green (`--keep-brand` at 24% over the page, as the original's yellow is). */
-  --keep-active: var(--theme-highlight, #c6e9e5);
+     one's is Notka's blue (`--keep-brand-fold` at 24% over the page, as the original's yellow is). */
+  --keep-active: var(--theme-highlight, #cfe3f7);
   --keep-active-fg: #202124;
 
   /* Text */
@@ -115,9 +115,12 @@
   --keep-sidebar-collapsed-width: 72px;
   /* The round hit area Keep gives an icon in the folded rail. */
   --keep-rail-item-size: 48px;
-  /* Notka's own colour, for its mark only (`BrandMark.svelte`); not Keep's yellow. */
-  --keep-brand: #12a594;
-  --keep-brand-fold: #0b6e63;
+  /* Notka's own colours, for its mark only (`BrandMark.svelte`); not Keep's yellow. They are the
+     eDuwe.pl family's: the `light` variant here, the `dark` one below. */
+  --keep-brand: #0c447c;
+  --keep-brand-fold: #378add;
+  --keep-brand-ink: #e6f1fb;
+  --keep-brand-dot: #fac775;
   /* Measured off the original: the bar's bottom edge, where its divider sits. */
   --keep-topbar-height: 64px;
   --keep-topbar-padding: 8px;
@@ -334,7 +337,9 @@
   --keep-edited-ink: rgba(232, 234, 237, 0.9);
   --keep-tooltip-bg: rgba(232, 234, 237, 0.9);
   --keep-tooltip-ink: #202124;
-  --keep-active: var(--theme-highlight-dark, #1d3b3a);
+  --keep-active: var(--theme-highlight-dark, #263a50);
+  --keep-brand: #1f6bb8;
+  --keep-brand-fold: #85b7eb;
   --keep-active-fg: #e8eaed;
 
   --keep-text: #e8eaed;

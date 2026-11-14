@@ -362,7 +362,7 @@ thrown away.
    row's was 32px where its tiles are 40, which the owner read off it at once ("ikona na No Background
    jest wyraźnie mniejsza od pozostałych elementów w tej linii"). **A background is an id; its picture
    is the reader's background theme** (`docs/THEMES.md`): the administrator uploads themes and sets the
-   instance's default, and every account picks one for itself, kept on the server. The built-in theme is Notka's own CC0
+   instance's default, and every account picks one for itself, kept on the server. The built-in theme is Notka's own AGPL-3.0
    artwork in `frontend/public/backgrounds/<name>-<light|dark>.svg`; Google Keep's illustrations are
    an *external* theme in `themes/google-keep/`, never shipped with the app — do not move them back.
    A background covers the surface and crops to the card, so both theme variants come from

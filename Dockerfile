@@ -3,8 +3,12 @@
 # The Node.js the frontend is built with; any current release works (`--build-arg NODE_VERSION=26`).
 ARG NODE_VERSION=24
 
+# Both build stages run on the machine that builds the image, whatever platform it targets: the
+# bundle is static files and the fat jar carries SQLite's native library for every platform, so
+# neither depends on the target, and under emulation Gradle and pnpm take many times longer.
+
 # ---------------------------------------------------------------------------- frontend build
-FROM node:${NODE_VERSION}-alpine AS frontend-build
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine AS frontend-build
 
 # pnpm comes from npm, which every Node.js image has. Corepack is not used: Node.js stopped shipping
 # it with version 25, and an image built on a newer Node would otherwise have no pnpm at all.
@@ -20,7 +24,7 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # ----------------------------------------------------------------------------- backend build
-FROM eclipse-temurin:21-jdk AS backend-build
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS backend-build
 
 WORKDIR /build
 
