@@ -13,6 +13,10 @@
 /** The side of a stored avatar: twice the largest circle it is drawn in, for a sharp picture on a dense screen. */
 export const AVATAR_SIDE = 512;
 
+/** What the server accepts (`AvatarService`). */
+const AVATAR_MAX_SIDE = 1024;
+const AVATAR_MAX_BYTES = 512 * 1024;
+
 /** libjxl's quality scale, where 90 is visually lossless (distance ≈ 1). */
 const AVATAR_QUALITY = 90;
 
@@ -39,6 +43,44 @@ export async function encodeAvatar(image: CanvasImageSource, area: PixelArea): P
   const { default: encode } = await import('@jsquash/jxl/encode');
   const bytes = await encode(pixels, { quality: AVATAR_QUALITY, effort: 7 });
   return new Blob([bytes], { type: 'image/jxl' });
+}
+
+/**
+ * The identity provider's picture as an avatar, without a crop of the reader's. A JPEG that fits the
+ * server's limits keeps every coefficient: libjxl recompresses the bitstream itself, losslessly, and
+ * the original JPEG could be rebuilt from the result. Anything else goes through the pixels, as its
+ * middle square. A crop of the reader's always does, because a crop is new pixels.
+ */
+export async function encodeProviderPicture(picture: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(picture);
+  try {
+    const { width, height } = bitmap;
+    if (picture.type === 'image/jpeg' && Math.max(width, height) <= AVATAR_MAX_SIDE) {
+      const recompressed = await recompressJpeg(picture);
+      if (recompressed && recompressed.size <= AVATAR_MAX_BYTES) return recompressed;
+    }
+    const side = Math.min(width, height);
+    return await encodeAvatar(bitmap, { x: (width - side) / 2, y: (height - side) / 2, width: side, height: side });
+  } finally {
+    bitmap.close();
+  }
+}
+
+/**
+ * `@jsquash/jxl` takes only pixels, so this is the one thing another build of libjxl is here for, and
+ * it is loaded only for a JPEG. `null` for a JPEG libjxl cannot keep exactly, such as a CMYK one.
+ */
+async function recompressJpeg(jpeg: Blob): Promise<Blob | null> {
+  const { default: createEncoder } = await import('@cornerstonejs/codec-libjxl/encodewasmjs');
+  const encoder = new (await createEncoder()).JpegXLEncoder();
+  const bytes = new Uint8Array(await jpeg.arrayBuffer());
+  try {
+    encoder.getJpegBuffer(bytes.length).set(bytes);
+    encoder.encodeJpeg();
+    return new Blob([encoder.getEncodedBuffer().slice()], { type: 'image/jxl' });
+  } catch {
+    return null;
+  }
 }
 
 let support: Promise<boolean> | null = null;

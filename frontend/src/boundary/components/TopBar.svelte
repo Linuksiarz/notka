@@ -7,6 +7,7 @@
   import { ui } from '../../control/state/ui.svelte';
   import { connection } from '../../control/state/connection.svelte';
   import type { NoteView } from '../../entity/api/types';
+  import { openProviderPage } from '../androidApp';
   import { t } from '../i18n';
   import Avatar from './Avatar.svelte';
   import { noteFileName, noteToFile } from '../../entity/noteFile';
@@ -183,12 +184,12 @@
   }
 
   async function signOut(): Promise<void> {
-    await session.logout();
+    await session.logout(openProviderPage);
     onNavigate('/login');
   }
 
   async function signOutEverywhere(): Promise<void> {
-    await session.logoutEverywhere();
+    await session.logoutEverywhere(openProviderPage);
     onNavigate('/login');
   }
 </script>

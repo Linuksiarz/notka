@@ -348,17 +348,27 @@
         <div class="identity">
           <Avatar --avatar-size="var(--keep-avatar-settings)" user={session.user} />
           <span>{accountName(session.user)}</span>
-          <button type="button" class="link" onclick={() => (ui.avatarDialogOpen = true)}>
-            {t('settings.changePicture')}
-          </button>
+          {#if !session.managedBy}
+            <button type="button" class="link" onclick={() => (ui.avatarDialogOpen = true)}>
+              {t('settings.changePicture')}
+            </button>
+          {/if}
         </div>
-        <label>
-          <span>{t('settings.displayName')}</span>
-          <input type="text" bind:value={displayName} />
-        </label>
-        <button type="button" class="primary" disabled={busy} onclick={saveProfile}>
-          {t('settings.saveProfile')}
-        </button>
+        {#if session.managedBy}
+          <label>
+            <span>{t('settings.displayName')}</span>
+            <input type="text" value={session.user.displayName} disabled />
+          </label>
+          <p class="hint" data-testid="profile-managed">{t('settings.profileManaged', { provider: session.managedBy })}</p>
+        {:else}
+          <label>
+            <span>{t('settings.displayName')}</span>
+            <input type="text" bind:value={displayName} />
+          </label>
+          <button type="button" class="primary" disabled={busy} onclick={saveProfile}>
+            {t('settings.saveProfile')}
+          </button>
+        {/if}
       </section>
 
       <section>
@@ -640,6 +650,12 @@
     border-radius: 4px;
     background: transparent;
     color: var(--keep-text);
+  }
+
+  input:disabled {
+    background: var(--keep-hover);
+    color: var(--keep-text-secondary);
+    cursor: not-allowed;
   }
 
   /* A row, not the column `label` gives: box, then its text. */

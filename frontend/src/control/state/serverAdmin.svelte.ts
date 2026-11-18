@@ -24,6 +24,11 @@ class ServerAdminState {
     void instance.load();
   }
 
+  async setRegistrationSsoOnly(ssoOnly: boolean): Promise<void> {
+    this.settings = await adminApi.updateSettings({ registrationSsoOnly: ssoOnly });
+    void instance.load();
+  }
+
   async setDefaultTheme(id: string): Promise<void> {
     this.settings = await adminApi.updateSettings({ defaultThemeId: id });
     await backgroundThemes.load();

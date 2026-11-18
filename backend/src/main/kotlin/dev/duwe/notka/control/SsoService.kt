@@ -3,6 +3,7 @@ package dev.duwe.notka.control
 import dev.duwe.notka.entity.model.DomainException
 import dev.duwe.notka.entity.model.ErrorKeys
 import dev.duwe.notka.entity.model.ErrorKind
+import dev.duwe.notka.entity.model.UserSummary
 import dev.duwe.notka.entity.model.Validation
 import dev.duwe.notka.entity.persistence.SsoIdentityRepository
 import dev.duwe.notka.entity.persistence.UserRepository
@@ -21,8 +22,17 @@ private const val APP_HANDOFF_TTL_MILLIS = 60 * 1000L
 /** One sign-in under way: what the provider's answer has to match. [link] connects a signed-in account instead. */
 data class SsoAttempt(val state: String, val nonce: String, val codeVerifier: String, val link: Boolean)
 
-/** Who the provider says this is, from an ID token it verified. Only [subject] identifies them. */
-data class ProviderIdentity(val subject: String, val email: String?, val name: String?)
+/**
+ * Who the provider says this is, from an ID token it verified. Only [subject] identifies them. [idToken]
+ * is that token, for signing out at the provider later; like a session's token it is never logged.
+ */
+data class ProviderIdentity(
+    val subject: String,
+    val email: String?,
+    val name: String?,
+    val picture: String? = null,
+    val idToken: String? = null,
+)
 
 /** An OpenID Connect provider, as far as this application cares (`boundary/oidc`). */
 interface IdentityProvider {
@@ -39,6 +49,13 @@ interface IdentityProvider {
      * be reached and `auth.sso_failed` when what it answered does not hold.
      */
     suspend fun identify(code: String, attempt: SsoAttempt): ProviderIdentity
+
+    /**
+     * Where to send the browser to end its session at the provider, or `null` when that cannot be done:
+     * the provider has no such endpoint, or cannot be reached. Never fails, because signing out here has
+     * already happened by then.
+     */
+    suspend fun endSessionUrl(idToken: String): String?
 }
 
 data class SsoStart(val attempt: SsoAttempt, val url: String)
@@ -51,6 +68,8 @@ data class SsoHandoff(val attempt: SsoAttempt, val providerCode: String)
  * its address, so whoever controls an address at the provider gets no account here that way. A subject
  * seen for the first time is a sign-up, under the same switch as any other (`docs/API.md`); the provider
  * never makes anybody an administrator. An existing account joins only from inside, signed in ([link]).
+ * While it is connected, its name and picture are the provider's: they follow every sign-in and nothing
+ * else changes them ([requireUnmanaged]). Its address stays its own, because accounts are told apart by it.
  */
 class SsoService(
     private val provider: IdentityProvider?,
@@ -58,6 +77,7 @@ class SsoService(
     private val users: UserRepository,
     private val auth: AuthService,
     private val settings: ServerSettingsService,
+    private val pictures: ProviderPictures,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     companion object {
@@ -77,6 +97,12 @@ class SsoService(
     private val appHandoffs = ConcurrentHashMap<String, AppHandoff>()
 
     val providerName: String? get() = provider?.name
+
+    /**
+     * Whether a password may create an account now. "Only through the provider" counts only while there
+     * is a provider: an instance that lost its configuration would otherwise have no way in at all.
+     */
+    fun passwordSignUpOpen(): Boolean = settings.registrationOpen() && !(provider != null && settings.registrationSsoOnly())
 
     /** With [appChallenge] the attempt is held for Android's app, and that challenge's verifier redeems it. */
     suspend fun begin(link: Boolean, appChallenge: String? = null): SsoStart {
@@ -144,22 +170,53 @@ class SsoService(
         val provider = configured()
         val identity = provider.identify(code, attempt)
         val userId = identities.findUserId(provider.issuer, identity.subject) ?: createAccount(provider.issuer, identity)
-        return auth.startProviderSession(checkNotNull(users.findById(userId)) { "User $userId disappeared" })
+        follow(userId, identity)
+        return auth.startProviderSession(checkNotNull(users.findById(userId)) { "User $userId disappeared" }, identity.idToken)
     }
 
+    /** See [IdentityProvider.endSessionUrl]; `null` too on an instance that no longer has a provider. */
+    suspend fun endSessionUrl(idToken: String): String? = provider?.endSessionUrl(idToken)
+
     /** Connects the signed-in account to the identity that just signed in at the provider. */
-    suspend fun link(userId: Int, code: String, attempt: SsoAttempt) {
+    suspend fun link(userId: Int, code: String, attempt: SsoAttempt): UserSummary {
         val provider = configured()
         val identity = provider.identify(code, attempt)
         val owner = identities.findUserId(provider.issuer, identity.subject)
         if (owner != null && owner != userId) {
             throw DomainException.conflict(ErrorKeys.AUTH_SSO_IDENTITY_TAKEN, "That identity belongs to another account")
         }
-        if (owner == userId) return
-        if (identities.isLinked(userId)) {
-            throw DomainException.conflict(ErrorKeys.AUTH_SSO_ALREADY_LINKED, "The account is already connected")
+        if (owner == null) {
+            if (identities.isLinked(userId)) {
+                throw DomainException.conflict(ErrorKeys.AUTH_SSO_ALREADY_LINKED, "The account is already connected")
+            }
+            identities.link(provider.issuer, identity.subject, userId, clock())
         }
-        identities.link(provider.issuer, identity.subject, userId, clock())
+        follow(userId, identity)
+        return checkNotNull(users.findById(userId)) { "User $userId disappeared" }.toSummary()
+    }
+
+    /** A connected account takes its name and picture from the provider; what the provider leaves out stays. */
+    private fun follow(userId: Int, identity: ProviderIdentity) {
+        nameOf(identity)?.let { users.updateDisplayName(userId, Validation.displayName(it)) }
+        pictures.remember(userId, identity.picture)
+    }
+
+    private fun nameOf(identity: ProviderIdentity): String? =
+        identity.name?.trim()?.take(DISPLAY_NAME_MAX_LENGTH)?.takeIf { it.isNotEmpty() }
+
+    /** Refuses a change to what the provider decides for a connected account. */
+    fun requireUnmanaged(userId: Int) {
+        if (provider != null && identities.isLinked(userId)) {
+            throw DomainException(ErrorKind.FORBIDDEN, ErrorKeys.AUTH_SSO_MANAGED, message = "The identity provider manages this")
+        }
+    }
+
+    /** The provider's picture for the page to encode; `null` when no sign-in left one. */
+    suspend fun takePicture(userId: Int): ProviderPicture? = pictures.take(userId)
+
+    /** An upload is the account's own choice, unless it is the page's answer to [takePicture]. */
+    fun requireMayUploadAvatar(userId: Int) {
+        if (!pictures.answered(userId)) requireUnmanaged(userId)
     }
 
     /** Only an account that can still sign in afterwards may let go of the provider. */
@@ -180,7 +237,7 @@ class SsoService(
         if (users.findByEmail(email) != null) {
             throw DomainException.conflict(ErrorKeys.AUTH_SSO_EMAIL_TAKEN, "Another account has that address")
         }
-        val name = identity.name?.trim()?.take(DISPLAY_NAME_MAX_LENGTH)?.takeIf { it.isNotEmpty() } ?: email.substringBefore('@')
+        val name = nameOf(identity) ?: email.substringBefore('@')
         return identities.createAccount(issuer, identity.subject, email, Validation.displayName(name), clock())
     }
 

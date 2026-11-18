@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { instance } from '../../control/state/instance.svelte';
   import { backgroundThemes } from '../../control/state/backgroundThemes.svelte';
   import { serverAdmin } from '../../control/state/serverAdmin.svelte';
   import { ui } from '../../control/state/ui.svelte';
@@ -128,6 +129,20 @@
           />
           <span>{t('admin.registrationOpen')}</span>
         </label>
+        {#if instance.info.ssoProvider}
+          <label class="toggle">
+            <input
+              type="checkbox"
+              checked={settings.registrationSsoOnly}
+              disabled={busy || !settings.registrationOpen}
+              onchange={(event) => {
+                const next = event.currentTarget.checked;
+                void run(() => serverAdmin.setRegistrationSsoOnly(next));
+              }}
+            />
+            <span>{t('admin.registrationSsoOnly', { provider: instance.info.ssoProvider })}</span>
+          </label>
+        {/if}
         <p class="hint">{t('admin.registrationHint')}</p>
       </section>
 

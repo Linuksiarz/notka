@@ -1,8 +1,9 @@
 import { authApi } from '../api/auth';
 import { ApiError, onUnauthorized } from '../api/client';
 import { localStore } from '../api/localStore';
+import { instance } from './instance.svelte';
 import { PENDING_WRITES_KEY } from './pendingWrites.svelte';
-import type { Account, EnableEncryptionRequest, LoginRequest, PasswordResetRequest, RegisterRequest, UpdateProfileRequest } from '../../entity/api/types';
+import type { Account, EnableEncryptionRequest, LoginRequest, LogoutResponse, PasswordResetRequest, RegisterRequest, UpdateProfileRequest } from '../../entity/api/types';
 
 /** `locked`: signed in through the identity provider, and this device has not opened the notes yet. */
 type SessionStatus = 'loading' | 'anonymous' | 'locked' | 'authenticated';
@@ -26,7 +27,7 @@ class SessionState {
   constructor() {
     // An expired session is not a sign-out: what was typed and not sent yet waits for the same
     // account to sign in again.
-    onUnauthorized(() => this.clear(PENDING_WRITES_KEY));
+    onUnauthorized(() => void this.clear(PENDING_WRITES_KEY));
   }
 
   get isAuthenticated(): boolean {
@@ -55,7 +56,7 @@ class SessionState {
       // Not knowing who is signed in is not being signed out: without a connection the account this
       // device last saw opens with what it last saw.
       if (error.transient && this.user) return;
-      this.clear(PENDING_WRITES_KEY);
+      void this.clear(PENDING_WRITES_KEY);
     }
   }
 
@@ -85,21 +86,25 @@ class SessionState {
     await this.signedIn(user);
   }
 
-  async logout(): Promise<void> {
-    try {
-      await authApi.logout();
-    } finally {
-      this.clear();
-    }
+  /** [open] shows the identity provider's page, when the session has to end there too. */
+  logout(open: (url: string) => Promise<void>): Promise<void> {
+    return this.signedOut(authApi.logout, open);
   }
 
-  /** Ends every session of the account, this one included. */
-  async logoutEverywhere(): Promise<void> {
+  /** Ends every session of the account, this one included; the provider's, only this browser's. */
+  logoutEverywhere(open: (url: string) => Promise<void>): Promise<void> {
+    return this.signedOut(authApi.logoutEverywhere, open);
+  }
+
+  /** The page leaves only once the device holds nothing more of the account: leaving could cut that short. */
+  private async signedOut(request: () => Promise<LogoutResponse | undefined>, open: (url: string) => Promise<void>): Promise<void> {
+    let answer: LogoutResponse | undefined;
     try {
-      await authApi.logoutEverywhere();
+      answer = await request();
     } finally {
-      this.clear();
+      await this.clear();
     }
+    if (answer) await open(answer.endSessionUrl);
   }
 
   async updateProfile(changes: UpdateProfileRequest): Promise<void> {
@@ -113,6 +118,16 @@ class SessionState {
 
   async removeAvatar(): Promise<void> {
     this.updated((await authApi.removeAvatar()).user);
+  }
+
+  /** The picture the last sign-in brought from the identity provider, once; for the page to encode. */
+  takeProviderPicture(): Promise<Blob | null> {
+    return authApi.takeProviderPicture();
+  }
+
+  /** The identity provider that decides this account's name and picture, while it is connected to one. */
+  get managedBy(): string | null {
+    return this.user?.ssoLinked ? instance.info.ssoProvider : null;
   }
 
   /**
@@ -191,10 +206,10 @@ class SessionState {
   }
 
   /** Signed out: this device keeps nothing of the account but what [keep] names. */
-  clear(...keep: string[]): void {
+  clear(...keep: string[]): Promise<void> {
     this.user = null;
     this.status = 'anonymous';
-    void localStore.clear(keep);
+    return localStore.clear(keep);
   }
 }
 

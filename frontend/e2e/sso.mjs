@@ -48,7 +48,7 @@ async function signInThroughProvider(page, who, action) {
   await atProvider(page, who, action);
 }
 
-async function setRegistration(open) {
+async function setRegistration(open, ssoOnly = false) {
   const signIn = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -58,7 +58,7 @@ async function setRegistration(open) {
   await fetch(`${BASE}/api/admin/settings`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
-    body: JSON.stringify({ registrationOpen: open })
+    body: JSON.stringify({ registrationOpen: open, registrationSsoOnly: ssoOnly })
   });
 }
 
@@ -171,6 +171,165 @@ try {
   await bobElsewhere.getByText('Take a note').first().waitFor();
   const bobMe = await bobElsewhere.evaluate(() => fetch('/api/auth/me').then((response) => response.json()));
   check('and comes back to the same account by subject', bobMe.user.email === bob.email, bobMe.user.email);
+  check('and takes the name the provider gives', bobMe.user.displayName === 'Bob at provider', bobMe.user.displayName);
+
+  // The provider's name and picture: a JPEG stays that JPEG, anything else goes through the pixels.
+  const canvasPicture = (page, type) =>
+    page.evaluate(async (mime) => {
+      const canvas = Object.assign(document.createElement('canvas'), { width: 300, height: 200 });
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#c33';
+      context.fillRect(0, 0, 300, 200);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, mime));
+      return [...new Uint8Array(await blob.arrayBuffer())];
+    }, type);
+  const storedAvatar = (page) =>
+    page.evaluate(async () => {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const { user } = await fetch('/api/auth/me').then((response) => response.json());
+        if (user.avatarAt) {
+          const bytes = await fetch(`/api/users/${user.id}/avatar?v=${user.avatarAt}`).then((response) => response.arrayBuffer());
+          return { at: user.avatarAt, text: String.fromCharCode(...new Uint8Array(bytes)) };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return null;
+    });
+
+  const carol = { sub: `carol-${run}`, email: `carol-${run}@example.com`, name: 'Carol Provider' };
+  const carolPage = await device();
+  provider.picture = Buffer.from(await canvasPicture(carolPage, 'image/jpeg'));
+  await signInThroughProvider(carolPage, carol);
+  await carolPage.getByText('Take a note').first().waitFor();
+  const fromJpeg = await storedAvatar(carolPage);
+  check('a JPEG from the provider is stored as JPEG XL that can rebuild it', fromJpeg?.text.includes('jbrd') === true);
+
+  const dana = { sub: `dana-${run}`, email: `dana-${run}@example.com`, name: 'Dana Provider' };
+  const danaPage = await device();
+  provider.picture = Buffer.from(await canvasPicture(danaPage, 'image/png'));
+  await signInThroughProvider(danaPage, dana);
+  await danaPage.getByText('Take a note').first().waitFor();
+  const fromPng = await storedAvatar(danaPage);
+  check('a PNG from the provider is encoded from its pixels', fromPng !== null && !fromPng.text.includes('jbrd'));
+
+  await openSettings(carolPage);
+  check('the name is locked in Settings', await carolPage.getByLabel('Display name').isDisabled());
+  check('Settings says who manages it', (await carolPage.getByTestId('profile-managed').textContent())?.includes('TestID') === true);
+  check('Settings offers no picture to change', !(await carolPage.getByRole('button', { name: 'Change picture' }).isVisible()));
+  await carolPage.goto(`${BASE}/`);
+  await carolPage.getByRole('button', { name: 'Account' }).click();
+  await carolPage.getByRole('menuitem', { name: 'Change profile picture' }).click();
+  const pictureDialog = carolPage.getByTestId('avatar-dialog');
+  check('the picture dialog says who manages it and offers nothing to choose',
+    (await carolPage.getByTestId('avatar-hint').textContent())?.includes('TestID') === true &&
+      (await pictureDialog.getByRole('button', { name: 'Choose a picture' }).count()) === 0 &&
+      (await pictureDialog.getByRole('button', { name: 'Remove picture' }).count()) === 0);
+  const refusedRename = await carolPage.evaluate(() =>
+    fetch('/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: 'Mine' }) }).then((response) => response.status)
+  );
+  check('the server refuses a new name too', refusedRename === 403, String(refusedRename));
+
+  const carolAgain = await device({ width: 412, height: 893 });
+  await signInThroughProvider(carolAgain, { ...carol, name: 'Carol Renamed' });
+  await carolAgain.waitForURL(`${BASE}/`);
+  const newest = await carolAgain.evaluate(async (before) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const { user } = await fetch('/api/auth/me').then((response) => response.json());
+      if (user.avatarAt !== before) return user;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return null;
+  }, fromJpeg?.at);
+  check('the next sign-in brings the name and the picture again', newest?.displayName === 'Carol Renamed', newest?.displayName);
+  await openSettings(carolAgain);
+  check('the locked profile fits a phone', await carolAgain.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+
+  // Signing out ends at the provider, with the device already cleared.
+  const accountMenu = async (page, item) => {
+    await page.getByRole('button', { name: 'Account' }).click();
+    await page.getByRole('menuitem', { name: item, exact: true }).click();
+  };
+  // What is left of the account here. `themes` is the instance's own: the sign-in screen stores it again.
+  const accountCopies = (page) =>
+    page.goto(`${BASE}/login`).then(() =>
+      page.evaluate(async () => {
+        const database = await new Promise((resolve, reject) => {
+          const open = indexedDB.open('notka');
+          open.onsuccess = () => resolve(open.result);
+          open.onerror = () => reject(open.error);
+        });
+        const keys = await new Promise((resolve) => {
+          const all = database.transaction('local').objectStore('local').getAllKeys();
+          all.onsuccess = () => resolve(all.result);
+        });
+        database.close();
+        return keys.filter((key) => key !== 'themes');
+      }));
+  const providerCookie = async (page) => (await page.context().cookies(`${BASE}/api/auth/logout`)).find((cookie) => cookie.name === 'notka_id_token');
+
+  const frank = { sub: `frank-${run}`, email: `frank-${run}@example.com`, name: 'Frank Provider' };
+  const frankPage = await device();
+  await signInThroughProvider(frankPage, frank);
+  await frankPage.getByText('Take a note').first().waitFor();
+  const frankCookie = await providerCookie(frankPage);
+  check('the ID token is kept out of the page and off the other routes', frankCookie?.httpOnly === true && frankCookie?.path === '/api/auth', JSON.stringify(frankCookie?.path));
+  const before = provider.endedSessions ?? 0;
+  await accountMenu(frankPage, 'Sign out');
+  await frankPage.getByRole('heading', { name: 'Sign in to the provider' }).waitFor();
+  check('signing out ends on the provider\'s sign-in screen', frankPage.url() === `http://localhost:${providerPort}/login`, frankPage.url());
+  check('the provider got a valid hint and chose the address itself', provider.endedSessions === before + 1);
+  const left = await accountCopies(frankPage);
+  check('the device keeps nothing of the account', left.length === 0, JSON.stringify(left));
+  await frankPage.getByRole('button', { name: 'Sign in with TestID' }).waitFor();
+  check('Notka is signed out when the reader comes back', (await frankPage.evaluate(() => fetch('/api/auth/me').then((response) => response.status))) === 401);
+  check('nor is the ID token left behind', (await providerCookie(frankPage)) === undefined);
+
+  await signInThroughProvider(frankPage, frank);
+  await frankPage.getByText('Take a note').first().waitFor();
+  const frankPhone = await device({ width: 412, height: 893 });
+  await signInThroughProvider(frankPhone, frank);
+  await frankPhone.waitForURL(`${BASE}/`);
+  await accountMenu(frankPage, 'Sign out of all devices');
+  await frankPage.getByRole('heading', { name: 'Sign in to the provider' }).waitFor();
+  check('signing out of all devices ends here at the provider too', provider.endedSessions === before + 2);
+  check('and ends the other device\'s session', (await frankPhone.evaluate(() => fetch('/api/auth/me').then((response) => response.status))) === 401);
+
+  const lockedPage = await device();
+  await signInThroughProvider(lockedPage, alice);
+  await lockedPage.getByRole('heading', { name: 'Open your notes' }).waitFor();
+  await lockedPage.getByRole('button', { name: 'Sign out' }).click();
+  await lockedPage.getByRole('heading', { name: 'Sign in to the provider' }).waitFor();
+  check('a locked device signs out at the provider too', true);
+
+  const gina = { email: `gina-${run}@example.com`, password: 'gina password here' };
+  const ginaPage = await device();
+  await ginaPage.evaluate((details) =>
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: details.email, displayName: 'Gina Password', password: details.password })
+    }), gina);
+  await ginaPage.goto(`${BASE}/`);
+  const ended = provider.endedSessions;
+  await accountMenu(ginaPage, 'Sign out');
+  await ginaPage.waitForURL('**/login');
+  check('a password session stays on Notka\'s own sign-in screen', provider.endedSessions === ended && ginaPage.url().startsWith(BASE), ginaPage.url());
+
+  // Sign-up only through the provider.
+  await setRegistration(true, true);
+  const erinPage = await device();
+  await erinPage.getByRole('button', { name: 'Sign in with TestID' }).waitFor();
+  check('the sign-in screen offers no password sign-up', (await erinPage.getByRole('button', { name: 'Create an account' }).count()) === 0);
+  const refusedSignUp = await erinPage.evaluate((run) =>
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: `erin-${run}@example.com`, displayName: 'Erin', password: 'erin password here' })
+    }).then((response) => response.status), run);
+  check('the server refuses a password sign-up', refusedSignUp === 403, String(refusedSignUp));
+  await signInThroughProvider(erinPage, { sub: `erin-${run}`, email: `erin-${run}@example.com`, name: 'Erin Provider' });
+  await erinPage.getByText('Take a note').first().waitFor();
+  check('the provider still creates an account', true);
 } finally {
   await browser.close();
   provider.close();

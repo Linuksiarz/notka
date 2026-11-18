@@ -165,7 +165,9 @@ The app ships in **three locales**: `en-US` (American English), `en-GB` (British
   `@jsquash/jxl`) and drawn by the browser itself — **no fallback decoder**: a browser without JPEG XL
   is told at start which browsers Notka supports (`BrowserNotice.svelte`, `docs/PLATFORMS.md`) and
   shows initials. The server only recognises the picture by its bytes and converts nothing, so the
-  container stays one JVM process with nothing native beside it.
+  container stays one JVM process with nothing native beside it. A **JPEG from the identity provider** is
+  recompressed losslessly in the browser (`@cornerstonejs/codec-libjxl`, because `@jsquash/jxl` takes only
+  pixels); a crop of the reader's is new pixels, so it cannot be.
 
 ## Before Implementing
 
@@ -282,12 +284,14 @@ thrown away.
   of an instance that has none, and never from the environment again. Every `/api/admin` route checks
   `AdminService.requireAdmin` itself — the hidden menu entry is a convenience, not the guard. The
   administrator's own account cannot be deleted or reset from the server settings.
-- Sign-up starts **closed** (`server_settings`), and only the administrator opens it.
+- Sign-up starts **closed** (`server_settings`), and only the administrator opens it, optionally only
+  through the identity provider (`SsoService.passwordSignUpOpen`).
 - **Single sign-on** (`docs/API.md`) links an account on the provider's `iss` and `sub`, **never on an
   e-mail address**: an address that is taken is refused, and an existing account connects itself from
   inside, signed in. A new subject is a sign-up, under the same switch. The provider grants nothing: the
   administrator stays the account from the environment, and its password always works. The protocol and
-  every check of the ID token are Nimbus's SDK (`boundary/oidc`), not ours.
+  every check of the ID token are Nimbus's SDK (`boundary/oidc`), not ours. Signing out of a session the
+  provider started ends it there too; its ID token stays in an `HttpOnly` cookie, never on the server or in a log.
 - A password reset stores only the hash of its token, puts the token in the link's **fragment**
   (never sent to a server, so never logged), is built from `NOTKA_PUBLIC_URL` (never from `Host`),
   and voids the old password only after the mail server accepted the message.
@@ -978,7 +982,10 @@ thrown away.
    (`boundary/textScale.ts`: Dynamic Type on iOS, `TextScalePlugin` in the APK, whose WebView keeps
    `textZoom` at 100) — never the text alone, which left a list's text off its checkboxes. Branch on `ui.phone` in markup, and keep a
    phone number that the script also needs (the checklist's `PHONE_LIST_EM`) in one place.
-27. **Avatars, friends and groups are the account's own.** An account may upload a picture
+27. **Avatars, friends and groups are the account's own.** While an account is connected to the identity
+   provider its name and picture are the provider's: every sign-in brings them again (`ProviderPictures`,
+   the page encoding the picture), and Settings, the picture dialog and the server all refuse to change
+   them (`auth.sso_managed`), until it disconnects. Otherwise an account may upload a picture
    (`PUT /api/auth/me/avatar`): chosen from the account menu or Settings, cropped to a circle with
    `svelte-easy-crop`, encoded as JPEG XL in the page and shown by `Avatar.svelte` wherever an account
    appears, the initials standing in while it loads and whenever it cannot be had. `User.avatarAt` is

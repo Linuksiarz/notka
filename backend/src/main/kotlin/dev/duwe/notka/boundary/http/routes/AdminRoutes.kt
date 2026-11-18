@@ -39,6 +39,7 @@ fun Route.adminRoutes(
 
     fun currentSettings() = ServerSettingsDto(
         registrationOpen = settings.registrationOpen(),
+        registrationSsoOnly = settings.registrationSsoOnly(),
         defaultThemeId = settings.defaultTheme(),
         mailConfigured = admin.mailConfigured,
     )
@@ -53,6 +54,7 @@ fun Route.adminRoutes(
             call.requireAdmin()
             val request = call.receive<PatchServerSettingsRequest>()
             request.registrationOpen?.let(settings::setRegistrationOpen)
+            request.registrationSsoOnly?.let(settings::setRegistrationSsoOnly)
             request.defaultThemeId?.let(settings::setDefaultTheme)
             call.respond(currentSettings())
         }

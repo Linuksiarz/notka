@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ServerSettingsDto(
     val registrationOpen: Boolean,
+    val registrationSsoOnly: Boolean,
     val defaultThemeId: String,
     /** Whether password resets can be e-mailed: an SMTP server and `NOTKA_PUBLIC_URL` are both set. */
     val mailConfigured: Boolean,
@@ -17,6 +18,7 @@ data class ServerSettingsDto(
 @Serializable
 data class PatchServerSettingsRequest(
     val registrationOpen: Boolean? = null,
+    val registrationSsoOnly: Boolean? = null,
     val defaultThemeId: String? = null,
 )
 

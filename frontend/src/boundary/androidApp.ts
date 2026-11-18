@@ -26,6 +26,13 @@ export function openInCustomTab(url: string): Promise<void> {
   return Browser.open({ url });
 }
 
+/** Leaves for a page of the identity provider: this tab in a browser, a Custom Tab over Android's app. */
+export function openProviderPage(url: string): Promise<void> {
+  if (inAndroidApp) return openInCustomTab(url);
+  window.location.assign(url);
+  return Promise.resolve();
+}
+
 /** Forgets this server; the app restarts on its own page, which asks for another one. */
 export function changeServer(): Promise<void> {
   return instance.forget();

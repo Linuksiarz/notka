@@ -17,6 +17,7 @@ import dev.duwe.notka.control.AdminService
 import dev.duwe.notka.control.AvatarService
 import dev.duwe.notka.control.FriendService
 import dev.duwe.notka.control.IdentityProvider
+import dev.duwe.notka.control.ProviderPictures
 import dev.duwe.notka.control.SsoService
 import dev.duwe.notka.entity.persistence.SsoIdentityRepository
 import dev.duwe.notka.entity.persistence.AvatarRepository
@@ -163,7 +164,7 @@ class AppServices(
                 database = database,
                 auth = auth,
                 encryption = EncryptionService(users, identities, sessions, accountKeys, sealing, noteService),
-                sso = SsoService(identityProvider, identities, users, auth, settings, clock),
+                sso = SsoService(identityProvider, identities, users, auth, settings, ProviderPictures(httpClient, identityProvider?.issuer), clock),
                 keyRing = keyRing,
                 settings = settings,
                 admin = AdminService(users, auth, mail, config.publicUrl),
@@ -228,13 +229,13 @@ fun Application.notkaModule(services: AppServices) {
     environment.log.info("Notka $NOTKA_VERSION starting with database ${services.config.dbPath}")
     configureHttpPlugins(services.config)
     routing {
-        healthRoutes(services.config, services.settings, services.sso)
+        healthRoutes(services.config, services.sso)
         authRoutes(services.auth, services.encryption, services.sso, services.settings, services.config)
         adminRoutes(services.auth, services.admin, services.settings, services.themes, services.config)
         themeRoutes(services.auth, services.themes)
         noteRoutes(services.notes, services.sharing, services.auth)
         labelRoutes(services.labels, services.auth)
-        avatarRoutes(services.avatars, services.auth, services.encryption)
+        avatarRoutes(services.avatars, services.auth, services.encryption, services.sso)
         friendRoutes(services.friends, services.auth)
         eventRoutes(services.events, services.auth)
     }

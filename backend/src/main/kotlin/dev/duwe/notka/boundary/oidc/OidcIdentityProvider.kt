@@ -7,6 +7,7 @@ import com.nimbusds.jose.proc.BadJOSEException
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
 import com.nimbusds.jose.util.DefaultResourceRetriever
+import com.nimbusds.jwt.JWTParser
 import com.nimbusds.oauth2.sdk.AuthorizationCode
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant
 import com.nimbusds.oauth2.sdk.GeneralException
@@ -24,6 +25,7 @@ import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod
 import com.nimbusds.oauth2.sdk.pkce.CodeVerifier
 import com.nimbusds.oauth2.sdk.token.AccessToken
 import com.nimbusds.openid.connect.sdk.AuthenticationRequest
+import com.nimbusds.openid.connect.sdk.LogoutRequest
 import com.nimbusds.openid.connect.sdk.Nonce
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser
@@ -87,14 +89,16 @@ class OidcIdentityProvider(private val config: OidcConfig, publicUrl: String) : 
             val subject = claims.subject.value
             var email = claims.getStringClaim("email")
             var name = claims.getStringClaim("name") ?: claims.getStringClaim("preferred_username")
+            var picture = claims.getStringClaim("picture")
             // An ID token may leave the profile to the userinfo endpoint, whenever an access token came with it.
-            if (email == null) {
+            if (email == null || picture == null) {
                 userInfo(provider.metadata, tokens.oidcTokens.accessToken, subject)?.let { info ->
-                    email = info.emailAddress
+                    email = email ?: info.emailAddress
                     name = name ?: info.name ?: info.preferredUsername
+                    picture = picture ?: info.picture?.toString()
                 }
             }
-            ProviderIdentity(subject, email, name)
+            ProviderIdentity(subject, email, name, picture, tokens.oidcTokens.idToken.serialize())
         } catch (failure: IOException) {
             throw unavailable(failure)
         } catch (failure: BadJOSEException) {
@@ -103,6 +107,20 @@ class OidcIdentityProvider(private val config: OidcConfig, publicUrl: String) : 
             throw failed(failure)
         } catch (failure: ParseException) {
             throw failed(failure)
+        }
+    }
+
+    override suspend fun endSessionUrl(idToken: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = discover().metadata.endSessionEndpointURI ?: return@withContext null
+            // No address to come back to: where a sign-out ends is the provider's to say, from what is registered there.
+            LogoutRequest(endpoint, JWTParser.parse(idToken), null, null).toURI().toString()
+        } catch (failure: java.text.ParseException) {
+            logger.warn { "The ID token kept for signing out at ${config.issuer} is not a JWT" }
+            null
+        } catch (failure: DomainException) {
+            logger.warn { "Signing out at ${config.issuer} is skipped: ${failure.key}" }
+            null
         }
     }
 

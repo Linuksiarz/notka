@@ -1,5 +1,6 @@
 <script lang="ts">
   import { session } from '../../control/state/session.svelte';
+  import { openProviderPage } from '../androidApp';
   import { t, tError } from '../i18n';
   import { submitInPage } from '../submitInPage';
   import AuthLayout from '../components/AuthLayout.svelte';
@@ -106,7 +107,7 @@
       {t('auth.unlockDiscard')}
     </button>
   {/if}
-  <button type="button" class="link" disabled={busy} onclick={() => void session.logout()}>
+  <button type="button" class="link" disabled={busy} onclick={() => void session.logout(openProviderPage)}>
     {t('auth.unlockSignOut')}
   </button>
 </AuthLayout>

@@ -54,6 +54,7 @@ object ErrorKeys {
     const val AUTH_SSO_IDENTITY_TAKEN = "auth.sso_identity_taken"
     const val AUTH_SSO_ALREADY_LINKED = "auth.sso_already_linked"
     const val AUTH_SSO_PASSWORD_REQUIRED = "auth.sso_password_required"
+    const val AUTH_SSO_MANAGED = "auth.sso_managed"
 
     const val ADMIN_USER_NOT_FOUND = "admin.user_not_found"
     const val ADMIN_CANNOT_CHANGE_ADMIN = "admin.cannot_change_admin"

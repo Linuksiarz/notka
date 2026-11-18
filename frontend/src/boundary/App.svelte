@@ -11,6 +11,7 @@
   import { session } from '../control/state/session.svelte';
   import { ui } from '../control/state/ui.svelte';
   import { t, tError } from './i18n';
+  import { encodeProviderPicture } from './jpegXl';
   import ComposeFab from './components/ComposeFab.svelte';
   import LabelsDialog from './components/LabelsDialog.svelte';
   import NoteComposer from './components/NoteComposer.svelte';
@@ -169,6 +170,23 @@
     if (!labels.loaded) void labels.load().catch(() => undefined);
     // Themes live on the server now, and which one is shown is the account's own choice.
     void backgroundThemes.load();
+  }
+
+  // A sign-in through the provider left its picture on the server for this page to encode: the server
+  // converts nothing. Whichever device of the account opens first takes it; a locked one waits to unlock.
+  const ssoProvider = $derived(instance.info.ssoProvider);
+  $effect(() => {
+    if (!accountId || !ssoProvider) return;
+    untrack(() => void adoptProviderPicture());
+  });
+
+  async function adoptProviderPicture(): Promise<void> {
+    try {
+      const picture = await session.takeProviderPicture();
+      if (picture) await session.setAvatar(await encodeProviderPicture(picture));
+    } catch {
+      // The account keeps the picture it has, and the next sign-in brings the provider's again.
+    }
   }
 
   /**

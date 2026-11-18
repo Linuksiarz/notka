@@ -13,6 +13,9 @@ const val SESSION_COOKIE: String = "notka_session"
 private const val SSO_ATTEMPT_SECONDS: Int = 10 * 60
 private const val SSO_ATTEMPT_PARTS: Int = 4
 
+/** Only signing out reads it, and every `/api/auth/logout*` is under here: no other request carries it. */
+private const val PROVIDER_ID_TOKEN_PATH: String = "/api/auth"
+
 fun ApplicationCall.sessionToken(): String? = request.cookies[SESSION_COOKIE]
 
 /** Resolves the session cookie or fails with `UNAUTHORIZED`; the session expiry slides on every call. */
@@ -39,13 +42,46 @@ fun ApplicationCall.requireIntParameter(name: String): Int = parameters[name]?.t
         "Invalid $name in the request path",
     )
 
-fun ApplicationCall.setSessionCookie(token: String, maxAgeSeconds: Long, secure: Boolean) {
+/**
+ * A session is signed out at the identity provider only when [providerIdToken] says the provider started
+ * it, so a sign-in with a password takes away what an earlier session of this browser left behind.
+ */
+fun ApplicationCall.setSessionCookie(token: String, maxAgeSeconds: Long, secure: Boolean, providerIdToken: String? = null) {
     response.cookies.append(sessionCookie(token, maxAgeSeconds, secure))
+    if (providerIdToken != null) {
+        response.cookies.append(providerIdTokenCookie(providerIdToken, maxAgeSeconds, secure))
+    } else {
+        clearProviderIdToken(secure)
+    }
 }
 
 fun ApplicationCall.clearSessionCookie(secure: Boolean) {
     response.cookies.append(sessionCookie("", 0, secure))
+    clearProviderIdToken(secure)
 }
+
+/**
+ * The ID token of the sign-in that started this browser's session, which the provider wants back when the
+ * session ends there. It stays in this cookie rather than on the server, so a copy of the database holds
+ * none and nothing has to be sealed for it; only `HttpOnly` keeps it from the page.
+ */
+private fun providerIdTokenCookieName(secure: Boolean) = if (secure) "__Secure-notka_id_token" else "notka_id_token"
+
+fun ApplicationCall.providerIdToken(secure: Boolean): String? = request.cookies[providerIdTokenCookieName(secure)]
+
+private fun ApplicationCall.clearProviderIdToken(secure: Boolean) {
+    if (providerIdToken(secure) != null) response.cookies.append(providerIdTokenCookie("", 0, secure))
+}
+
+private fun providerIdTokenCookie(value: String, maxAgeSeconds: Long, secure: Boolean) = Cookie(
+    name = providerIdTokenCookieName(secure),
+    value = value,
+    maxAge = maxAgeSeconds.toInt(),
+    path = PROVIDER_ID_TOKEN_PATH,
+    secure = secure,
+    httpOnly = true,
+    extensions = mapOf("SameSite" to "Lax"),
+)
 
 /**
  * The sign-in under way, in the browser that started it: that is what makes the provider's answer this

@@ -1,13 +1,17 @@
-import { createHash, createSign, generateKeyPairSync, randomUUID } from 'node:crypto';
+import { createHash, createSign, createVerify, generateKeyPairSync, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 
 /**
  * A small OpenID Connect provider for `sso.mjs`: discovery, a page to sign in on, a token endpoint that
  * enforces PKCE, an RS256 ID token and a JWK set. Whoever signs in is whatever the page's form says,
- * so a suite can be two people, or the same person on two devices.
+ * so a suite can be two people, or the same person on two devices. A suite sets `picture` on the server
+ * it gets back to give whoever signs in next that picture.
  */
 export function startProvider(port, clientId = 'notka') {
   const issuer = `http://localhost:${port}`;
+  // As Pocket ID does: a sign-out with a valid hint ends at the address registered for it, also when the
+  // client names none; anything else ends on the provider's page for confirming by hand.
+  const registeredLogoutUrl = `${issuer}/login`;
   const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   // A key id of its own per start: a server that outlives this provider caches keys by their id.
   const kid = randomUUID();
@@ -18,6 +22,11 @@ export function startProvider(port, clientId = 'notka') {
   const idToken = (claims) => {
     const body = `${base64url(JSON.stringify({ alg: 'RS256', kid, typ: 'JWT' }))}.${base64url(JSON.stringify(claims))}`;
     return `${body}.${createSign('RSA-SHA256').update(body).sign(privateKey).toString('base64url')}`;
+  };
+  const validHint = (token) => {
+    const [header, claims, signature] = (token ?? '').split('.');
+    if (!signature) return false;
+    return createVerify('RSA-SHA256').update(`${header}.${claims}`).verify(publicKey, signature, 'base64url');
   };
   const json = (response, status, body) => {
     response.writeHead(status, { 'Content-Type': 'application/json' });
@@ -37,10 +46,26 @@ export function startProvider(port, clientId = 'notka') {
         authorization_endpoint: `${issuer}/authorize`,
         token_endpoint: `${issuer}/token`,
         jwks_uri: `${issuer}/jwks`,
+        end_session_endpoint: `${issuer}/end-session`,
         response_types_supported: ['code'],
         subject_types_supported: ['public'],
         id_token_signing_alg_values_supported: ['RS256']
       });
+    }
+    if (url.pathname === '/picture' && server.picture) {
+      response.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+      return response.end(server.picture);
+    }
+    if (url.pathname === '/end-session') {
+      const back = url.searchParams.get('post_logout_redirect_uri') ?? registeredLogoutUrl;
+      const confirmed = validHint(url.searchParams.get('id_token_hint')) && back === registeredLogoutUrl;
+      server.endedSessions = (server.endedSessions ?? 0) + (confirmed ? 1 : 0);
+      response.writeHead(302, { Location: confirmed ? back : `${issuer}/logout` });
+      return response.end();
+    }
+    if (url.pathname === '/login' || url.pathname === '/logout') {
+      response.writeHead(200, { 'Content-Type': 'text/html' });
+      return response.end(`<!doctype html><title>Provider</title><h1>${url.pathname === '/login' ? 'Sign in to the provider' : 'Confirm signing out'}</h1>`);
     }
     if (url.pathname === '/jwks') return json(response, 200, { keys: [jwk] });
     if (url.pathname === '/authorize' && request.method === 'GET') {
@@ -84,6 +109,7 @@ export function startProvider(port, clientId = 'notka') {
           sub: grant.sub,
           email: grant.email,
           name: grant.name,
+          ...(server.picture ? { picture: `${issuer}/picture` } : {}),
           nonce: grant.query.get('nonce'),
           iat: now,
           exp: now + 60

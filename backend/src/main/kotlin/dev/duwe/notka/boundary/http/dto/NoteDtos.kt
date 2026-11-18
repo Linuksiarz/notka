@@ -86,6 +86,10 @@ data class SsoExchangeRequest(val code: String, val verifier: String)
 @Serializable
 data class SsoExchangeResponse(val user: AccountDto, val linked: Boolean)
 
+/** The session is over here; [endSessionUrl] is where the browser goes to end it at the identity provider. */
+@Serializable
+data class LogoutResponse(val endSessionUrl: String)
+
 /** The only answer that ever carries the recovery key. */
 @Serializable
 data class EncryptionEnabledResponse(val user: AccountDto, val recoveryKey: String)

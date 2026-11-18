@@ -6,6 +6,7 @@ import dev.duwe.notka.boundary.http.dto.ChangePassphraseRequest
 import dev.duwe.notka.boundary.http.dto.EnableEncryptionRequest
 import dev.duwe.notka.boundary.http.dto.EncryptionEnabledResponse
 import dev.duwe.notka.boundary.http.dto.LoginRequest
+import dev.duwe.notka.boundary.http.dto.LogoutResponse
 import dev.duwe.notka.boundary.http.dto.PasswordResetRequest
 import dev.duwe.notka.boundary.http.dto.PatchMeRequest
 import dev.duwe.notka.boundary.http.dto.RecoverEncryptionRequest
@@ -19,6 +20,7 @@ import dev.duwe.notka.boundary.http.dto.toAccountDto
 import dev.duwe.notka.boundary.http.plugins.AUTH_RATE_LIMIT
 import dev.duwe.notka.boundary.http.plugins.clearSessionCookie
 import dev.duwe.notka.boundary.http.plugins.clearSsoAttemptCookie
+import dev.duwe.notka.boundary.http.plugins.providerIdToken
 import dev.duwe.notka.boundary.http.plugins.requireSession
 import dev.duwe.notka.boundary.http.plugins.requireUser
 import dev.duwe.notka.boundary.http.plugins.sessionToken
@@ -72,11 +74,19 @@ fun Route.authRoutes(
 ) {
     fun ApplicationCall.account(user: UserSummary) = user.toAccountDto(encryption.settings(user.id, sessionToken()))
 
+    /** The cookies go first: a provider that cannot be reached must not keep anybody signed in here. */
+    suspend fun ApplicationCall.respondSignedOut() {
+        val idToken = providerIdToken(config.cookieSecure)
+        clearSessionCookie(config.cookieSecure)
+        val endSessionUrl = idToken?.let { sso.endSessionUrl(it) }
+        if (endSessionUrl == null) respond(HttpStatusCode.NoContent) else respond(LogoutResponse(endSessionUrl))
+    }
+
     route("/api/auth") {
         // Guessing a password costs one attempt per request, so the requests are what is limited.
         rateLimit(AUTH_RATE_LIMIT) {
             post("/register") {
-                if (!settings.registrationOpen()) {
+                if (!sso.passwordSignUpOpen()) {
                     throw DomainException(
                         ErrorKind.FORBIDDEN,
                         ErrorKeys.AUTH_REGISTRATION_DISABLED,
@@ -112,15 +122,13 @@ fun Route.authRoutes(
 
         post("/logout") {
             auth.logout(call.sessionToken())
-            call.clearSessionCookie(config.cookieSecure)
-            call.respond(HttpStatusCode.NoContent)
+            call.respondSignedOut()
         }
 
         post("/logout-all") {
             val user = call.requireSession(auth)
             auth.logoutEverywhere(user.id)
-            call.clearSessionCookie(config.cookieSecure)
-            call.respond(HttpStatusCode.NoContent)
+            call.respondSignedOut()
         }
 
         get("/me") {
@@ -131,6 +139,7 @@ fun Route.authRoutes(
         patch("/me") {
             val user = call.requireUser(auth)
             val request = call.receive<PatchMeRequest>()
+            if (request.displayName != null) sso.requireUnmanaged(user.id)
             request.linkPreviews?.let { encryption.setLinkPreviews(user.id, it) }
             val updated = if (request.displayName != null || request.newPassword != null || request.linkPreviews == null) {
                 auth.updateProfile(
@@ -227,7 +236,7 @@ fun Route.authRoutes(
                         "/?sso=linked"
                     } else {
                         val result = sso.signIn(code, attempt)
-                        call.setSessionCookie(result.token, config.sessionTtlSeconds, config.cookieSecure)
+                        call.setSessionCookie(result.token, config.sessionTtlSeconds, config.cookieSecure, result.providerIdToken)
                         "/"
                     }
                 } catch (failure: DomainException) {
@@ -242,12 +251,11 @@ fun Route.authRoutes(
                 val request = call.receive<SsoExchangeRequest>()
                 val handoff = sso.redeem(request.code, request.verifier)
                 if (handoff.attempt.link) {
-                    val user = call.requireUser(auth)
-                    sso.link(user.id, handoff.providerCode, handoff.attempt)
+                    val user = sso.link(call.requireUser(auth).id, handoff.providerCode, handoff.attempt)
                     call.respond(SsoExchangeResponse(call.account(user), linked = true))
                 } else {
                     val result = sso.signIn(handoff.providerCode, handoff.attempt)
-                    call.setSessionCookie(result.token, config.sessionTtlSeconds, config.cookieSecure)
+                    call.setSessionCookie(result.token, config.sessionTtlSeconds, config.cookieSecure, result.providerIdToken)
                     val account = result.user.toAccountDto(encryption.settings(result.user.id, result.token))
                     call.respond(SsoExchangeResponse(account, linked = false))
                 }

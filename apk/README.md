@@ -52,6 +52,9 @@ It is a scheme and not an app link because an app link needs the host named in t
 the reader's own. Any app can claim a scheme, so the code is worthless without the secret kept in the
 WebView that started the sign-in. The trip survives the system ending the app while the tab is open.
 
+Signing out of such a session opens the provider's end-session address in a Custom Tab too, because that
+is where the provider's session lives; the app is on its own sign-in screen under it by then.
+
 To try it on an emulator, run the server with `frontend/e2e/oidc-provider.mjs` as its provider
 (`frontend/e2e/README.md`, `sso.mjs`) and forward both ports: `adb reverse tcp:8091 tcp:8091`, and the same
 for `8092`. Connect the app to `http://localhost:8091`.

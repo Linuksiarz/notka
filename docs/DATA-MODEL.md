@@ -111,7 +111,7 @@ friend; a deleted account leaves every list through the cascades.
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `key` | TEXT PK | `registration_open` (`true`/`false`), `default_theme` (a theme id) |
+| `key` | TEXT PK | `registration_open`, `registration_sso_only` (`true`/`false`), `default_theme` (a theme id) |
 | `value` | TEXT NOT NULL | |
 
 A key that was never written has its default: sign-up **closed**, the built-in theme.

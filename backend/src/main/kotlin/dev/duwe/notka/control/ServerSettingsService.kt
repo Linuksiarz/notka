@@ -17,6 +17,7 @@ class ServerSettingsService(
 ) {
     companion object {
         private const val REGISTRATION_OPEN = "registration_open"
+        private const val REGISTRATION_SSO_ONLY = "registration_sso_only"
         private const val DEFAULT_THEME = "default_theme"
     }
 
@@ -24,6 +25,13 @@ class ServerSettingsService(
 
     fun setRegistrationOpen(open: Boolean) {
         settings.set(REGISTRATION_OPEN, open.toString())
+    }
+
+    /** Whether an open sign-up is open only through the identity provider. Says nothing while sign-up is closed. */
+    fun registrationSsoOnly(): Boolean = settings.get(REGISTRATION_SSO_ONLY) == "true"
+
+    fun setRegistrationSsoOnly(ssoOnly: Boolean) {
+        settings.set(REGISTRATION_SSO_ONLY, ssoOnly.toString())
     }
 
     /** The theme an account sees until it picks one of its own; built-in until the administrator says otherwise. */

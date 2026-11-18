@@ -32,6 +32,7 @@
     "@capacitor/browser": "8.0.5",
     "@capacitor/core": "8.6.2",
     "@capacitor/status-bar": "8.0.4",
+    "@cornerstonejs/codec-libjxl": "1.2.0",
     "@fontsource/google-sans": "^5.3.2",
     "@fontsource/roboto": "^5.3.0",
     "@iconify-icons/ic": "^2.0.0",

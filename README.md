@@ -158,10 +158,17 @@ NOTKA_OIDC_NAME=Pocket ID
 ```
 
 - **Accounts follow the provider's subject, never the e-mail address.** Somebody new gets an account
-  only while sign-up is open, so open it in *Server settings* when they first sign in. To limit who may
-  sign in at all, use the provider's own groups.
+  only while sign-up is open, so open it in *Server settings* when they first sign in. To stop new
+  password accounts, also choose *New accounts only through the provider* there. To limit who may sign in
+  at all, use the provider's own groups.
 - **An existing account connects itself** in *Settings → Single sign-on*, while signed in. An account
   whose address is already taken is never joined automatically.
+- **A connected account's name and profile picture come from the provider.** Every sign-in brings them
+  again, and they are locked in Notka until the account disconnects. The e-mail address stays as it is.
+- **Signing out ends the session at the provider too**, when the provider started it and supports that.
+  Where people land afterwards is set at the provider (Pocket ID's *Logout Callback URLs*).
+  A session started with a password ends in Notka alone, and *Sign out of all devices* ends the provider's
+  session only in the browser it is pressed in.
 - **The administrator stays the account from `NOTKA_ADMIN_USERNAME`**, and its password keeps working if
   the provider is down. The provider never makes anybody an administrator.
 - **Encrypted notes stay closed to the provider.** An account from the provider chooses an encryption
@@ -172,7 +179,8 @@ NOTKA_OIDC_NAME=Pocket ID
 
 The administrator's *gear → Server settings* has three parts:
 
-- **Sign-up**: open or close registration for the instance.
+- **Sign-up**: open or close registration for the instance, or, with a provider configured, allow new
+  accounts only through it.
 - **Background themes**: upload themes (`.zip`, see [`docs/THEMES.md`](docs/THEMES.md)), remove
   them, and choose the default. Every account can pick its own in Settings.
 - **Accounts**: every account with the room its notes take. An account can be deleted, or sent a

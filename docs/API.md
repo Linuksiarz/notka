@@ -186,7 +186,7 @@ Response `201`:
 Also sets the session cookie. `409 CONFLICT` when the email is taken.
 
 `403 auth.registration_disabled` while the administrator keeps sign-up closed — which is how every
-instance starts.
+instance starts — and while they limit it to the identity provider.
 
 ### `POST /api/auth/login`
 
@@ -212,12 +212,15 @@ spaces do not matter): the forgotten password was what opened the notes. Without
 
 ### `POST /api/auth/logout`
 
-Response `204`. Deletes the session row and clears the cookie. Idempotent.
+Deletes the session row and clears the cookie. Idempotent. Response `204`, or for a session the identity
+provider started (see below) `200`: `{ "endSessionUrl": "https://id.example.com/end-session?…" }`, where
+the page sends the browser once it has cleared the device.
 
 ### `POST /api/auth/logout-all`
 
-Response `204`. Ends **every** session of the account, the calling one included, and clears the
-cookie. `401` without a session.
+Ends **every** session of the account, the calling one included, and clears the cookie. `401` without a
+session. It answers as `/logout` does. Only this browser's session at the provider ends: the other devices
+are signed out here, on Notka's own sign-in screen, and stay signed in at the provider.
 
 ### `GET /api/auth/me`
 
@@ -285,15 +288,29 @@ address to register at the provider is `<NOTKA_PUBLIC_URL>/api/auth/sso/callback
 
 - **An account is the provider's `iss` and `sub`**, never its e-mail address.
 - **A subject seen for the first time is a sign-up**, under the administrator's switch: while sign-up is
-  closed it ends in `auth.registration_disabled`, and a known subject still signs in. The new account
-  takes its address and name from the provider once (both are its own to change afterwards) and has no
-  password. No address ends in `auth.sso_email_required`. `email_verified` is not required: the address is
+  closed it ends in `auth.registration_disabled`, and a known subject still signs in. The administrator
+  may limit an open sign-up to the provider (`registrationSsoOnly`), which refuses only a new password
+  account; existing accounts keep their passwords, and without a provider the limit means nothing. The new account
+  takes its address from the provider once and has no password. No address ends in `auth.sso_email_required`. `email_verified` is not required: the address is
   never what links an account, and a password sign-up does not verify its address either.
 - **An address another account already has is refused** (`auth.sso_email_taken`), and is never linked. An
   existing account joins from inside, signed in, with `"link": true`.
+- **A connected account's name and picture are the provider's.** Every sign-in, and connecting, takes
+  `name` (or `preferred_username`) and `picture`, from the ID token or the userinfo endpoint; what the
+  provider leaves out stays as it is. Changing either any other way is `403 auth.sso_managed`, until the
+  account disconnects. The address stays the account's own, and so does a username.
 - **The provider never grants anything.** The administrator stays the account from
   `NOTKA_ADMIN_USERNAME`, whose password sign-in always works, so a provider that is down cannot lock the
   instance out. The administrator may connect that account like any other and stays the administrator.
+- **Signing out of a session the provider started ends it at the provider too** (RP-initiated logout), as
+  `endSessionUrl` above: the discovery document's `end_session_endpoint` with `id_token_hint` and no
+  `post_logout_redirect_uri`, so where it ends is what is registered at the provider. The ID token
+  stays in a cookie of the browser: `HttpOnly`, `SameSite=Lax`, `Path=/api/auth`, for as long as the session,
+  `Secure` and named `__Secure-notka_id_token` when `NOTKA_COOKIE_SECURE=true`. It travels in the address,
+  so it reaches the provider and the browser's history, and it opens nothing here. A session started with a
+  password ends here alone, also on a connected account, and so does any session when the provider has no such
+  endpoint or cannot be reached: signing out never fails on the provider's account. In Android's app the address opens in a Custom
+  Tab, where the provider's session lives, over the app's own sign-in screen.
 - **Changing `NOTKA_OIDC_ISSUER` makes every identity a new one**: an account with a password disconnects
   and connects again; one without has no way back in.
 
@@ -358,10 +375,23 @@ Response `200`: `{ "user": { ... } }` with the new `avatarAt`.
 | not JPEG XL (PNG, JPEG, SVG …), or wider or taller than 1024 | `400 avatar.unsupported` |
 | over 512 KB | `413 avatar.too_large` (`limit` in KB) |
 
+A connected account gets `403 auth.sso_managed`, except for the page's answer to the hand-over below.
+
+### `POST /api/auth/me/avatar/provider`
+
+Hands over the picture the last sign-in brought from the identity provider, once, as the provider serves
+it: `200` with its bytes and type, or `204` when there is none. A sign-in only remembers the address, in
+memory, so it never waits for a picture. The server fetches it here, and only the issuer's own host may be
+a private one; any other host gets the rules of a link preview, on every redirect hop. It must be a PNG,
+JPEG, GIF or WebP, at most 5 MB. The page encodes it and answers with `PUT /api/auth/me/avatar`: a JPEG is
+recompressed losslessly when the result fits that route's limits, and anything else is the middle square
+at 512 × 512. The answer cannot be told from any other JPEG XL, so the lock on a connected account's
+picture is a rule of the app and not a defense against its own reader.
+
 ### `DELETE /api/auth/me/avatar`
 
 Takes the picture away; the initials come back. Response `200`: `{ "user": { ... } }` with
-`avatarAt: null`. Harmless when there is none.
+`avatarAt: null`. Harmless when there is none. `403 auth.sso_managed` for a connected account.
 
 ### `GET /api/users/{id}/avatar`
 
@@ -710,7 +740,8 @@ Response `200`:
 ```
 
 `registrationOpen` says whether `POST /api/auth/register` would accept a sign-up right now — the
-administrator's switch in the server settings, `false` until they open it; the sign-in screen hides
+administrator's switches in the server settings, `false` until they open it and while they limit it to
+the identity provider; the sign-in screen hides
 its "Create an account" link otherwise. `trashRetentionDays` is
 `NOTKA_TRASH_RETENTION_DAYS`, which the trash states. `ssoProvider` is `NOTKA_OIDC_NAME` while an identity
 provider is configured and `null` otherwise; the sign-in screen offers it only then.
@@ -775,12 +806,12 @@ Every route here answers `403 auth.admin_required` to anybody but the administra
 
 ### `GET /api/admin/settings`
 
-Response `200`: `{ "registrationOpen": false, "defaultThemeId": "notka", "mailConfigured": true }`.
+Response `200`: `{ "registrationOpen": false, "registrationSsoOnly": false, "defaultThemeId": "notka", "mailConfigured": true }`.
 `mailConfigured` is whether a reset can be e-mailed: `NOTKA_SMTP_HOST` and `NOTKA_PUBLIC_URL` are set.
 
 ### `PATCH /api/admin/settings`
 
-Request (fields optional): `{ "registrationOpen": true, "defaultThemeId": "watercolour" }`.
+Request (fields optional): `{ "registrationOpen": true, "registrationSsoOnly": true, "defaultThemeId": "watercolour" }`.
 Response `200`: the settings as above.
 
 ### `GET /api/admin/users`

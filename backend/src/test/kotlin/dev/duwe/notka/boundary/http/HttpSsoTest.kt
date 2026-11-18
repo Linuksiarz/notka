@@ -1,5 +1,6 @@
 package dev.duwe.notka.boundary.http
 
+import com.nimbusds.jwt.SignedJWT
 import dev.duwe.notka.FakeOidcProvider
 import dev.duwe.notka.FakeSignIn
 import dev.duwe.notka.REGISTER_ADA
@@ -8,6 +9,8 @@ import dev.duwe.notka.asJson
 import dev.duwe.notka.boundary.config.AppConfig
 import dev.duwe.notka.boundary.config.OidcConfig
 import dev.duwe.notka.boundary.oidc.OidcIdentityProvider
+import dev.duwe.notka.entity.model.jxlFixture
+import dev.duwe.notka.entity.model.picture
 import dev.duwe.notka.errorField
 import dev.duwe.notka.notkaModule
 import dev.duwe.notka.postJson
@@ -16,13 +19,22 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.patch
+import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.readRawBytes
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.http.decodeURLQueryComponent
 import io.ktor.http.encodeURLParameter
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
@@ -34,6 +46,7 @@ import java.util.Base64
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -90,6 +103,13 @@ class HttpSsoTest {
         .first { it.startsWith("state=") }.substringAfter('=')
 
     private fun HttpResponse.location(): String = headers[HttpHeaders.Location] ?: ""
+
+    private suspend fun HttpClient.uploadAvatar(): HttpResponse = put("/api/auth/me/avatar") { setBody(jxlFixture("square-512.jxl")) }
+
+    private suspend fun HttpClient.rename(name: String): HttpResponse = patch("/api/auth/me") {
+        contentType(ContentType.Application.Json)
+        setBody("""{"displayName":"$name"}""")
+    }
 
     private suspend fun HttpClient.me(): JsonObject = get("/api/auth/me").asJson().getValue("user").jsonObject
 
@@ -166,6 +186,140 @@ class HttpSsoTest {
         assertFalse(account.flag("admin"))
         assertEquals("/", again.location())
         assertEquals(1, fixture.services.admin.usage().size)
+    }
+
+    @Test
+    fun aConnectedAccountFollowsTheProvidersNameAndPictureAtEverySignIn() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val png = picture("png", 64, 64)
+        val address = provider.serve("/picture.png", png)
+        val browser = browser()
+        browser.signInAt(FakeSignIn("alice", name = "Alice A", picture = address))
+
+        // when
+        val handedOver = browser.post("/api/auth/me/avatar/provider")
+        val handedOverBytes = handedOver.readRawBytes()
+        val onlyOnce = browser.post("/api/auth/me/avatar/provider")
+        val answer = browser.uploadAvatar()
+        val secondUpload = browser.uploadAvatar()
+        val again = browser()
+        again.signInAt(FakeSignIn("alice", email = "somebody.else@example.com", name = "Alice B", picture = address))
+        val nextSignIn = again.post("/api/auth/me/avatar/provider")
+
+        // then
+        assertEquals("image/png", handedOver.headers[HttpHeaders.ContentType])
+        assertContentEquals(png, handedOverBytes)
+        assertEquals(HttpStatusCode.NoContent, onlyOnce.status)
+        assertEquals(HttpStatusCode.OK, answer.status)
+        assertEquals(HttpStatusCode.Forbidden, secondUpload.status)
+        assertEquals(HttpStatusCode.OK, nextSignIn.status)
+        assertEquals("Alice B", again.me().stringField("displayName"))
+        assertEquals("alice@example.com", again.me().stringField("email"))
+    }
+
+    @Test
+    fun whatTheProviderLeavesOutStaysAsItIs() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        browser().signInAt(FakeSignIn("alice", name = "Alice A"))
+
+        // when
+        val browser = browser()
+        browser.signInAt(FakeSignIn("alice", name = null))
+        val picture = browser.post("/api/auth/me/avatar/provider")
+
+        // then
+        assertEquals("Alice A", browser.me().stringField("displayName"))
+        assertEquals(HttpStatusCode.NoContent, picture.status)
+    }
+
+    @Test
+    fun theProviderManagesTheNameAndPictureOnlyWhileTheAccountIsConnected() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val browser = browser()
+        browser.postJson("/api/auth/register", REGISTER_ADA)
+        browser.uploadAvatar()
+        val own = browser.rename("Ada's own")
+        browser.signInAt(FakeSignIn("ada"), link = true)
+
+        // when
+        val renamed = browser.rename("Not allowed")
+        val uploaded = browser.uploadAvatar()
+        val removed = browser.delete("/api/auth/me/avatar")
+        val named = browser.me().stringField("displayName")
+        browser.delete("/api/auth/me/sso")
+        val renamedAfterwards = browser.rename("Ada again")
+        val uploadedAfterwards = browser.uploadAvatar()
+
+        // then
+        assertEquals(HttpStatusCode.OK, own.status)
+        assertEquals(HttpStatusCode.Forbidden, renamed.status)
+        assertEquals("auth.sso_managed", renamed.errorField("key"))
+        assertEquals(HttpStatusCode.Forbidden, uploaded.status)
+        assertEquals(HttpStatusCode.Forbidden, removed.status)
+        assertEquals("User ada", named)
+        assertEquals(HttpStatusCode.OK, renamedAfterwards.status)
+        assertEquals(HttpStatusCode.OK, uploadedAfterwards.status)
+    }
+
+    @Test
+    fun aPictureFromAnotherPrivateHostOrNotAPictureIsNeverHandedOver() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val elsewhere = FakeOidcProvider()
+        val privateHost = elsewhere.serve("/picture.png", picture("png", 64, 64))
+        val document = provider.serve("/picture.svg", "<svg xmlns='http://www.w3.org/2000/svg'/>".toByteArray())
+        val browser = browser()
+
+        // when
+        browser.signInAt(FakeSignIn("alice", picture = privateHost))
+        val fromPrivateHost = browser.post("/api/auth/me/avatar/provider")
+        browser.signInAt(FakeSignIn("alice", picture = document))
+        val notAPicture = browser.post("/api/auth/me/avatar/provider")
+        elsewhere.close()
+
+        // then
+        assertEquals(HttpStatusCode.NoContent, fromPrivateHost.status)
+        assertEquals(HttpStatusCode.NoContent, notAPicture.status)
+    }
+
+    @Test
+    fun signUpLimitedToTheProviderRefusesOnlyANewPasswordAccount() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val existing = browser()
+        existing.postJson("/api/auth/register", REGISTER_ADA)
+        fixture.services.settings.setRegistrationSsoOnly(true)
+
+        // when
+        val password = browser().postJson("/api/auth/register", """{"email":"new@example.com","displayName":"New","password":"correct horse battery"}""")
+        val health = browser().get("/api/health").asJson()
+        val provider = browser().signInAt(FakeSignIn("alice"))
+        val signedInAgain = browser().postJson("/api/auth/login", """{"login":"ada@example.com","password":"correct horse battery"}""")
+
+        // then
+        assertEquals(HttpStatusCode.Forbidden, password.status)
+        assertEquals("auth.registration_disabled", password.errorField("key"))
+        assertEquals("false", health.getValue("registrationOpen").jsonPrimitive.content)
+        assertEquals("/", provider.location())
+        assertEquals(HttpStatusCode.OK, signedInAgain.status)
+    }
+
+    @Test
+    fun theLimitMeansNothingWithoutAProviderSoAnInstanceKeepsAWayIn() = testApplication {
+        // given
+        val noProvider = TestFixture()
+        noProvider.services.settings.setRegistrationSsoOnly(true)
+        application { notkaModule(noProvider.services) }
+
+        // when
+        val response = browser().postJson("/api/auth/register", REGISTER_ADA)
+        noProvider.close()
+
+        // then
+        assertEquals(HttpStatusCode.Created, response.status)
     }
 
     @Test
@@ -474,7 +628,7 @@ class HttpSsoTest {
         assertEquals("auth.encryption_locked", labels.errorField("key"))
         assertEquals("auth.encryption_locked", turnedOff.errorField("key"))
         assertEquals(HttpStatusCode.OK, themes.status)
-        assertEquals(HttpStatusCode.NoContent, signedOut.status)
+        assertEquals(HttpStatusCode.OK, signedOut.status)
         assertEquals(HttpStatusCode.Unauthorized, second.get("/api/auth/me").status)
     }
 
@@ -824,5 +978,192 @@ class HttpSsoTest {
         assertTrue("NOTKA_PUBLIC_URL" in missingAddress.message.orEmpty())
         assertEquals("SSO", configured.oidc?.name)
         assertNotEquals(true, configured.oidc.toString().contains("s3cret"))
+    }
+
+    private fun HttpResponse.setCookies(): List<String> = headers.getAll(HttpHeaders.SetCookie).orEmpty()
+
+    private fun queryOf(url: String): Map<String, String> = URI(url).rawQuery.split('&').associate { pair ->
+        val (name, value) = pair.split('=', limit = 2)
+        name to value.decodeURLQueryComponent(plusIsSpace = true)
+    }
+
+    @Test
+    fun signingOutOfAProviderSessionSendsTheBrowserToTheProviderWithItsIdToken() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val client = browser()
+        client.signInAt(FakeSignIn("alice"))
+
+        // when
+        val response = client.post("/api/auth/logout")
+
+        // then
+        assertEquals(HttpStatusCode.OK, response.status)
+        val url = response.asJson().stringField("endSessionUrl")
+        assertTrue(url.startsWith("${provider.endSessionEndpoint}?"), url)
+        val query = queryOf(url)
+        assertEquals("alice", SignedJWT.parse(query["id_token_hint"]).jwtClaimsSet.subject)
+        assertFalse("post_logout_redirect_uri" in query)
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/api/auth/me").status)
+    }
+
+    @Test
+    fun theIdTokenIsAnHttpOnlyCookieThatOnlyTheAuthRoutesReceive() = testApplication {
+        // given
+        val secure = fixtureFor(provider, cookieSecure = true)
+        application { notkaModule(secure.services) }
+        val client = browser()
+        val start = client.postJson("/api/auth/sso/start", """{"link":false}""")
+        val attempt = start.setCookies().first().substringBefore(';')
+        val url = start.asJson().stringField("url")
+        val code = provider.authorize(url, FakeSignIn("alice"))
+
+        // when
+        val callback = client.get("/api/auth/sso/callback?state=${state(url).encodeURLParameter()}&code=${code.encodeURLParameter()}") {
+            header(HttpHeaders.Cookie, attempt)
+        }
+
+        // then
+        val cookie = callback.setCookies().single { it.startsWith("__Secure-notka_id_token=") }
+        assertTrue("HttpOnly" in cookie, cookie)
+        assertTrue("Secure" in cookie, cookie)
+        assertTrue("SameSite=Lax" in cookie, cookie)
+        assertTrue("Path=/api/auth" in cookie, cookie)
+        secure.close()
+    }
+
+    @Test
+    fun aPasswordSessionEndsHereAlone() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val client = browser()
+        client.postJson("/api/auth/register", REGISTER_ADA)
+
+        // when
+        val response = client.post("/api/auth/logout")
+
+        // then
+        assertEquals(HttpStatusCode.NoContent, response.status)
+    }
+
+    @Test
+    fun aConnectedAccountSignedInWithItsPasswordEndsHereAlone() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val client = browser()
+        client.postJson("/api/auth/register", REGISTER_ADA)
+        client.signInAt(FakeSignIn("ada"), link = true)
+
+        // when
+        val response = client.post("/api/auth/logout")
+
+        // then
+        assertEquals(HttpStatusCode.NoContent, response.status)
+    }
+
+    @Test
+    fun aPasswordSignInTakesAwayTheIdTokenAnEarlierSessionLeftBehind() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        browser().postJson("/api/auth/register", REGISTER_ADA)
+        val client = browser()
+        client.signInAt(FakeSignIn("alice"))
+
+        // when
+        val login = client.postJson("/api/auth/login", """{"login":"ada@example.com","password":"correct horse battery"}""")
+        val response = client.post("/api/auth/logout")
+
+        // then
+        assertEquals(HttpStatusCode.OK, login.status)
+        assertEquals(HttpStatusCode.NoContent, response.status)
+    }
+
+    @Test
+    fun aSecondSignOutHasNothingLeftToEndAtTheProvider() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val client = browser()
+        client.signInAt(FakeSignIn("alice"))
+        client.post("/api/auth/logout")
+
+        // when
+        val second = client.post("/api/auth/logout")
+
+        // then
+        assertEquals(HttpStatusCode.NoContent, second.status)
+    }
+
+    @Test
+    fun signingOutEverywhereEndsEverySessionAndThisBrowsersAtTheProvider() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val laptop = browser()
+        laptop.signInAt(FakeSignIn("alice"))
+        val phone = browser()
+        phone.signInAt(FakeSignIn("alice"))
+
+        // when
+        val response = laptop.post("/api/auth/logout-all")
+
+        // then
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.asJson().stringField("endSessionUrl").startsWith(provider.endSessionEndpoint))
+        assertEquals(HttpStatusCode.Unauthorized, laptop.get("/api/auth/me").status)
+        assertEquals(HttpStatusCode.Unauthorized, phone.get("/api/auth/me").status)
+    }
+
+    @Test
+    fun aLockedSessionSignsOutAtTheProviderToo() = testApplication {
+        // given
+        application { notkaModule(fixture.services) }
+        val first = browser()
+        first.signInAt(FakeSignIn("alice"))
+        first.postJson("/api/auth/me/encryption", """{"passphrase":"my long passphrase"}""")
+        val locked = browser()
+        locked.signInAt(FakeSignIn("alice"))
+
+        // when
+        val response = locked.post("/api/auth/logout")
+
+        // then
+        assertTrue(response.asJson().stringField("endSessionUrl").startsWith(provider.endSessionEndpoint))
+    }
+
+    @Test
+    fun aProviderWithoutAnEndSessionEndpointLeavesTheSignOutHere() = testApplication {
+        // given
+        val plain = FakeOidcProvider(advertisesEndSession = false)
+        val configured = fixtureFor(plain)
+        application { notkaModule(configured.services) }
+        val client = browser()
+        val url = client.startSso()
+        client.callback(state(url), plain.authorize(url, FakeSignIn("alice")))
+
+        // when
+        val response = client.post("/api/auth/logout")
+
+        // then
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/api/auth/me").status)
+        configured.close()
+        plain.close()
+    }
+
+    @Test
+    fun aProviderThatCannotBeReachedOrAnUnreadableTokenGivesNoAddress() {
+        // given
+        val down = FakeOidcProvider()
+        val config = OidcConfig(down.issuer, down.clientId, clientSecret = null, name = "Pocket ID")
+        val forDown = OidcIdentityProvider(config, "https://notes.example.com")
+        val forUp = OidcIdentityProvider(OidcConfig(provider.issuer, provider.clientId, null, "Pocket ID"), "https://notes.example.com")
+        down.close()
+
+        // when
+        val unreachable = runBlocking { forDown.endSessionUrl("a.b.c") }
+        val unreadable = runBlocking { forUp.endSessionUrl("not a token") }
+
+        // then
+        assertEquals(null, unreachable)
+        assertEquals(null, unreadable)
     }
 }

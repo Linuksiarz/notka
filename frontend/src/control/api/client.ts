@@ -95,17 +95,27 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const text = await response.text();
   const payload: unknown = text ? safeParse(text) : undefined;
 
-  if (!response.ok) {
-    const errorBody = payload as ApiErrorBody | undefined;
-    const code = errorBody?.error?.code ?? 'INTERNAL_ERROR';
-    const message = errorBody?.error?.message ?? `Request failed with status ${response.status}`;
-    const key = errorBody?.error?.key ?? null;
-    const params = errorBody?.error?.params ?? {};
-    if (response.status === 401) unauthorizedHandler?.();
-    throw new ApiError(response.status, code, key, message, params);
-  }
+  if (!response.ok) throw failure(response.status, payload);
 
   return payload as T;
+}
+
+/** A `POST` answered with a picture rather than JSON; `null` for `204 No Content`. */
+export async function takePicture(path: string): Promise<Blob | null> {
+  const response = await send(`/api${path}`, { method: 'POST', credentials: 'same-origin' });
+  if (response.status === 204) return null;
+  if (!response.ok) throw failure(response.status, safeParse(await response.text()));
+  return response.blob();
+}
+
+function failure(status: number, payload: unknown): ApiError {
+  const errorBody = payload as ApiErrorBody | undefined;
+  const code = errorBody?.error?.code ?? 'INTERNAL_ERROR';
+  const message = errorBody?.error?.message ?? `Request failed with status ${status}`;
+  const key = errorBody?.error?.key ?? null;
+  const params = errorBody?.error?.params ?? {};
+  if (status === 401) unauthorizedHandler?.();
+  return new ApiError(status, code, key, message, params);
 }
 
 /**

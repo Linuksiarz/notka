@@ -43,6 +43,7 @@ dev/duwe/notka/
 ├── entity/persistence/         Database, Migrations, Exposed tables, *Repository
 ├── control/                    AuthService, NoteService, SharingService, LabelService,
 │                               AccountKeys, NoteSealing, EncryptionService, SsoService,
+│                               ProviderPictures, PublicAddresses,
 │                               PasswordHasher, TrashCleanupJob
 └── boundary/config/            AppConfig (environment)
     boundary/oidc/              OidcIdentityProvider (OpenID Connect, on Nimbus's SDK)

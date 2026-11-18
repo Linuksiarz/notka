@@ -132,7 +132,9 @@
       <div class="current">
         <Avatar --avatar-size="128px" user={session.user} />
       </div>
-      <p class="hint">{t('avatar.hint')}</p>
+      <p class="hint" data-testid="avatar-hint">
+        {session.managedBy ? t('avatar.managed', { provider: session.managedBy }) : t('avatar.hint')}
+      </p>
     {/if}
 
     {#if error}
@@ -149,7 +151,7 @@
         <button type="button" class="text strong" disabled={busy || !area} onclick={() => void save()}>
           {busy ? t('avatar.saving') : t('avatar.save')}
         </button>
-      {:else}
+      {:else if !session.managedBy}
         {#if session.user?.avatarAt != null}
           <button type="button" class="text" disabled={busy} onclick={() => void remove()}>{t('avatar.remove')}</button>
         {/if}

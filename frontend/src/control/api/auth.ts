@@ -1,9 +1,10 @@
-import { api } from './client';
+import { api, takePicture } from './client';
 import type {
   ChangePassphraseRequest,
   EnableEncryptionRequest,
   EncryptionEnabledResponse,
   LoginRequest,
+  LogoutResponse,
   PasswordResetRequest,
   RecoverEncryptionRequest,
   RegisterRequest,
@@ -16,8 +17,9 @@ import type {
 export const authApi = {
   register: (body: RegisterRequest) => api.post<UserResponse>('/auth/register', body),
   login: (body: LoginRequest) => api.post<UserResponse>('/auth/login', body),
-  logout: () => api.post<void>('/auth/logout'),
-  logoutEverywhere: () => api.post<void>('/auth/logout-all'),
+  /** Nothing when the session ends here alone. */
+  logout: () => api.post<LogoutResponse | undefined>('/auth/logout'),
+  logoutEverywhere: () => api.post<LogoutResponse | undefined>('/auth/logout-all'),
   /** Answers like a sign-in: the reset link's owner is signed in with the new password. */
   completePasswordReset: (body: PasswordResetRequest) => api.post<UserResponse>('/auth/password-reset', body),
   me: () => api.get<UserResponse>('/auth/me'),
@@ -25,6 +27,8 @@ export const authApi = {
   /** [picture] is already JPEG XL: the server stores it as it is and converts nothing. */
   setAvatar: (picture: Blob) => api.replace<UserResponse>('/auth/me/avatar', picture),
   removeAvatar: () => api.delete<UserResponse>('/auth/me/avatar'),
+  /** The identity provider's picture, once per sign-in, as the provider serves it; `null` when there is none. */
+  takeProviderPicture: () => takePicture('/auth/me/avatar/provider'),
   /** Answers with the recovery key, the one time it is ever sent. */
   enableEncryption: (body: EnableEncryptionRequest) =>
     api.post<EncryptionEnabledResponse>('/auth/me/encryption', body),

@@ -15,7 +15,8 @@ import java.util.Base64
 /** How long the link in a password-reset e-mail works. */
 const val PASSWORD_RESET_TTL_MILLIS: Long = 24L * 60L * 60L * 1000L
 
-data class AuthResult(val user: UserSummary, val token: String)
+/** [providerIdToken]: the session was started by the identity provider, and this ends it there too. */
+data class AuthResult(val user: UserSummary, val token: String, val providerIdToken: String? = null)
 
 /** Register, login, logout, session lookup, profile updates and password resets. */
 class AuthService(
@@ -105,7 +106,7 @@ class AuthService(
      * A session for an account the identity provider vouched for ([SsoService]). It holds no copy of
      * the account's key: an account that encrypts its notes is locked here until its secret is entered.
      */
-    fun startProviderSession(user: User): AuthResult = AuthResult(user.toSummary(), startSession(user.id))
+    fun startProviderSession(user: User, idToken: String?): AuthResult = AuthResult(user.toSummary(), startSession(user.id), idToken)
 
     /** Idempotent. */
     fun logout(token: String?) {

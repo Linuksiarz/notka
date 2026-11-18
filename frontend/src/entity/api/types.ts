@@ -330,6 +330,11 @@ export interface SsoStartResponse {
   url: string;
 }
 
+/** Where the browser goes to end the session at the identity provider too. */
+export interface LogoutResponse {
+  endSessionUrl: string;
+}
+
 /** `linked`: the account was connected rather than signed in. */
 export interface SsoExchangeResponse {
   user: Account;
@@ -481,6 +486,8 @@ export interface ThemesResponse {
 
 export interface ServerSettings {
   registrationOpen: boolean;
+  /** An open sign-up is open only through the identity provider, while there is one. */
+  registrationSsoOnly: boolean;
   defaultThemeId: string;
   /** Whether a password reset can be e-mailed: a mail server and a public address are configured. */
   mailConfigured: boolean;
@@ -488,6 +495,7 @@ export interface ServerSettings {
 
 export interface UpdateServerSettingsRequest {
   registrationOpen?: boolean;
+  registrationSsoOnly?: boolean;
   defaultThemeId?: string;
 }
 

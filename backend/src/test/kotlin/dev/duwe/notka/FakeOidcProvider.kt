@@ -31,6 +31,7 @@ data class FakeSignIn(
     /** Keeps the address out of the ID token, where a provider may leave it to the userinfo endpoint. */
     val emailOnlyInUserInfo: Boolean = false,
     val userInfoSubject: String? = null,
+    val picture: String? = null,
 )
 
 /**
@@ -38,7 +39,11 @@ data class FakeSignIn(
  * a JWK set, PKCE enforced at the token endpoint, a userinfo endpoint. The browser's part is
  * [authorize], which takes the address the application sent the browser to.
  */
-class FakeOidcProvider(val clientId: String = "notka", private val clientSecret: String? = null) : AutoCloseable {
+class FakeOidcProvider(
+    val clientId: String = "notka",
+    private val clientSecret: String? = null,
+    private val advertisesEndSession: Boolean = true,
+) : AutoCloseable {
     private val key: RSAKey = RSAKeyGenerator(2048).keyID("test-key").generate()
     val strangerKey: RSAKey = RSAKeyGenerator(2048).keyID("test-key").generate()
 
@@ -49,12 +54,14 @@ class FakeOidcProvider(val clientId: String = "notka", private val clientSecret:
     private val server: HttpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
 
     val issuer: String get() = "http://127.0.0.1:${server.address.port}"
+    val endSessionEndpoint: String get() = "$issuer/end-session"
 
     init {
         server.createContext("/.well-known/openid-configuration") { exchange ->
+            val endSession = if (advertisesEndSession) """"end_session_endpoint":"$endSessionEndpoint",""" else ""
             exchange.respond(
                 200,
-                """{"issuer":"$issuer","authorization_endpoint":"$issuer/authorize","token_endpoint":"$issuer/token",
+                """{"issuer":"$issuer","authorization_endpoint":"$issuer/authorize","token_endpoint":"$issuer/token",$endSession
                 "userinfo_endpoint":"$issuer/userinfo","jwks_uri":"$issuer/jwks","response_types_supported":["code"],
                 "subject_types_supported":["public"],"id_token_signing_alg_values_supported":["RS256"]}""",
             )
@@ -63,6 +70,15 @@ class FakeOidcProvider(val clientId: String = "notka", private val clientSecret:
         server.createContext("/token", ::token)
         server.createContext("/userinfo", ::userInfo)
         server.start()
+    }
+
+    /** Serves [bytes] at [path] on the provider's own host, and answers with the address. */
+    fun serve(path: String, bytes: ByteArray): String {
+        server.createContext(path) { exchange ->
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+        return "$issuer$path"
     }
 
     /** The reader signs in at the provider: returns the code the provider redirects back with. */
@@ -98,6 +114,7 @@ class FakeOidcProvider(val clientId: String = "notka", private val clientSecret:
         if (!signIn.emailOnlyInUserInfo) {
             signIn.email?.let { claims.claim("email", it) }
             signIn.name?.let { claims.claim("name", it) }
+            signIn.picture?.let { claims.claim("picture", it) }
         }
         val idToken = SignedJWT(JWSHeader.Builder(JWSAlgorithm.RS256).keyID(key.keyID).build(), claims.build())
             .apply { sign(RSASSASigner(signIn.signingKey ?: key)) }
@@ -113,7 +130,12 @@ class FakeOidcProvider(val clientId: String = "notka", private val clientSecret:
             exchange.respond(401, """{"error":"invalid_token"}""")
             return
         }
-        exchange.respond(200, """{"sub":"${signIn.userInfoSubject ?: signIn.subject}","email":"${signIn.email}","name":"${signIn.name}"}""")
+        val claims = listOfNotNull(
+            "sub" to (signIn.userInfoSubject ?: signIn.subject),
+            signIn.email?.let { "email" to it },
+            signIn.name?.let { "name" to it },
+        )
+        exchange.respond(200, claims.joinToString(",", "{", "}") { (name, value) -> """"$name":"$value"""" })
     }
 
     private fun parameters(encoded: String): Map<String, String> = encoded.split('&').associate { pair ->
